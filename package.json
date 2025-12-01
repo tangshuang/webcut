@@ -9,7 +9,16 @@
     "esm",
     "src"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tangshuang/webcut.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tangshuang/webcut/issues"
+  },
+  "homepage": "https://webcut.top",
   "scripts": {
+    "docs": "docsify serve docs",
     "dev": "vite",
     "build": "vite build",
     "test": "vitest",

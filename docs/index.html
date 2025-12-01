@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WebCut Documentation</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="Description">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <link rel="canonical" href="https://docs.webcut.top/">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+  <style>
+    .cover-main img {
+      width: 200px;
+      height: 200px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    window.$docsify = {
+      name: 'WebCut',
+      repo: 'https://github.com/tangshuang/webcut',
+      loadSidebar: true,
+      loadNavbar: false,
+      routerMode: 'hash',
+      coverpage: true,
+      plugins: [
+        function (hook, vm) {
+          hook.afterEach(function (html, next) {
+            var langSwitch = '<div class="lang-switch" style="position:fixed;right:80px;top:20px;font-size:14px;z-index:9999;">' +
+              '<a href="#/" style="margin-right:8px;">EN</a>' +
+              '<a href="#/zh-cn/">中文</a>' +
+            '</div>';
+            next(html + langSwitch);
+          });
+        }
+      ]
+    }
+  </script>
+  <!-- Docsify v4 -->
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+</body>
+</html>

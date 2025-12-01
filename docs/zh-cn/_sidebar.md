@@ -1,0 +1,7 @@
+- [首页](/zh-cn/README)
+- [快速开始](/zh-cn/getting-started)
+- [组件](/zh-cn/components)
+- [钩子](/zh-cn/hooks)
+- [工具函数](/zh-cn/libs)
+- [FAQ](/zh-cn/faq)
+- [API参考](/zh-cn/api)
