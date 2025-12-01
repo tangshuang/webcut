@@ -1,0 +1,59 @@
+import { computed, watch } from 'vue';
+import { getProject, addFile, addFileToProject, removeFileFromProject, getAllFiles } from '../db';
+import { useWebCutContext } from './index';
+import { source } from 'fods';
+import { useSource } from 'fods-vue';
+import { getFileMd5 } from '../libs/file';
+
+const getProjectData = source((projectId: string) => getProject(projectId));
+const getFiles = source<{ id: string; type: string; name: string; size: number }[], []>(async () => {
+    const allFiles = await getAllFiles();
+    return allFiles;
+});
+
+export function useWebCutLibrary() {
+    const { id: projectId } = useWebCutContext();
+    const { data: projectData, init: initProjectData, refresh: refreshProjectData } = useSource(getProjectData, {});
+    const { data: files, init: initFiles, refresh: refreshFiles } = useSource(getFiles, []);
+
+    const projectFiles = computed(() => {
+        const fileIds: string[] = projectData.value?.fileIds || [];
+        return files.value.filter((item: any) => fileIds.includes(item.id));
+    });
+
+    watch(projectId, () => {
+        if (!projectId.value) {
+            return;
+        }
+        initProjectData(projectId.value);
+        initFiles();
+    }, { immediate: true });
+
+    async function addNewFile(file: File) {
+        let fileId = await getFileMd5(file);
+        if (projectFiles.value.some((item: any) => item.id === fileId)) {
+            return;
+        }
+        if (!files.value.some((item: any) => item.id === fileId)) {
+            await addFile(file);
+        }
+        await addFileToProject(projectId.value, fileId);
+        await refreshProjectData();
+        await refreshFiles();
+    }
+
+    async function removeFile(fileId: string) {
+        await removeFileFromProject(projectId.value, fileId);
+        await refreshProjectData();
+        await refreshFiles();
+    }
+
+    return {
+        projectId,
+        projectData,
+        projectFiles,
+        files,
+        addNewFile,
+        removeFile,
+    };
+}

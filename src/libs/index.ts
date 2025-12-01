@@ -1,0 +1,525 @@
+import { each, isNone, padLeft } from "ts-fns";
+import {
+  AudioClip,
+  ImgClip,
+  MP4Clip,
+  OffscreenSprite,
+  Combinator,
+} from '@webav/av-cliper';
+import { base64ToFile, blobToBase64DataURL, fileToBase64DataURL } from './file';
+import { WebCutTextHighlight } from "../types";
+// @ts-ignore
+import toWav from 'audiobuffer-to-wav';
+
+/**
+ * 将文本渲染为 {@link ImageBitmap}，用来创建 {@link ImgClip}
+ * @param txt - 要渲染的文本
+ * @param css - 应用于文本的 CSS 样式
+ *
+ * @example
+ * new ImgClip(
+ *   await renderTxt2ImgBitmap(
+ *     '水印',
+ *    `font-size:40px; color: white; text-shadow: 2px 2px 6px red;`,
+ *   )
+ * )
+ */
+export async function renderTxt2ImgBitmap(txt: string, css?: Record<string, any>, highlights?: WebCutTextHighlight[]): Promise<ImageBitmap> {
+    const imgEl = await createTxt2Img(txt, css, highlights);
+    const cvs = new OffscreenCanvas(imgEl.width, imgEl.height);
+    const ctx = cvs.getContext('2d');
+    ctx?.drawImage(imgEl, 0, 0, imgEl.width, imgEl.height);
+    return await createImageBitmap(cvs);
+}
+
+/**
+ * 将文本渲染为图片
+ * @param txt - 要渲染的文本
+ * @param css - 应用于文本的 CSS 样式
+ * @returns 渲染后的图片元素
+ */
+async function createTxt2Img(text: string, css?: Record<string, any>, highlights?: WebCutTextHighlight[]): Promise<HTMLImageElement> {
+    const container = buildTextAsDOM({ text, css, highlights });
+
+    document.body.appendChild(container);
+    const { width, top, bottom } = container.getBoundingClientRect();
+    const children = container.querySelectorAll('*');
+    let minTop = top, maxBottom = bottom;
+    children.forEach((child) => {
+        // 忽略背景色块，不计入高度，但是需要注意，假如文字只有一行，用户应该设置padding来让背景块展示完整
+        if (child.classList.contains('background-block')) {
+            return;
+        }
+        const { top, bottom } = child.getBoundingClientRect();
+        minTop = Math.min(top, minTop);
+        maxBottom = Math.max(bottom, maxBottom);
+    });
+    const height = maxBottom - minTop;
+    // 计算出 rect，立即从dom移除
+    container.remove();
+
+    container.style.visibility = 'visible';
+
+    const img = new Image();
+    img.width = width;
+    img.height = height;
+
+    const outerHTML = container.outerHTML;
+
+    const svgStr = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+            <foreignObject width="100%" height="100%">
+                <div xmlns="http://www.w3.org/1999/xhtml">
+                    ${outerHTML}
+                </div>
+            </foreignObject>
+        </svg>
+    `.replace(/\t/g, '').replace(/#/g, '%23');
+    img.src = `data:image/svg+xml;charset=utf-8,${svgStr}`;
+    await new Promise((resolve) => {
+        img.onload = resolve;
+    });
+    return img;
+}
+
+
+export function buildTextAsDOM({
+    text,
+    css = {},
+    highlights = [],
+}: {
+    text: string,
+    css?: Record<string, any>,
+    highlights?: WebCutTextHighlight[];
+}) {
+    const build = ({
+        text,
+        css,
+        highlights,
+        inline
+    }: {
+        text: string,
+        css: Record<string, any>,
+        highlights?: WebCutTextHighlight[];
+        /** 是否当前正在渲染高亮内容 */
+        inline?: boolean;
+    }) => {
+        const cssObj = { ...css };
+        //  justify 时需要设置 text-align-last 为 justify，从而强制尾行对齐
+        if (cssObj['text-align'] === 'justify') {
+            cssObj['text-align-last'] = 'justify';
+        }
+
+        const bgColor = cssObj['background-color'];
+        const padding = cssObj['padding'];
+        const radius = cssObj['border-radius'];
+        if (inline) {
+            delete cssObj['background-color'];
+            delete cssObj['padding'];
+            delete cssObj['border-radius'];
+        }
+
+        const coverCssObj = { ...cssObj };
+
+        let strokeWidth;
+        each(css, (value, key) => {
+            if (key === '-webkit-text-stroke-width' || key === '--text-stroke-width') {
+                strokeWidth = parseFloat(value);
+            }
+            else if (key === '-webkit-text-stroke') {
+                const words = value.split(' ');
+                for (let word of words) {
+                    const v = parseFloat(word);
+                    if (v && !isNaN(v)) {
+                        strokeWidth = v;
+                    }
+                }
+            }
+            if (key.startsWith('-webkit-text-stroke')) {
+                delete coverCssObj[key];
+            }
+            if (key.startsWith('--text-stroke')) {
+                delete coverCssObj[key];
+            }
+        });
+
+        // ---------------------------------
+
+        const container = document.createElement(inline ? 'span' : 'div');
+        if (inline) {
+            container.style.cssText = `margin: 0; position: relative; display: inline-block;`;
+        }
+        else {
+            container.style.cssText = `margin: 0; position: fixed;`;
+        }
+
+        let html = text;
+        if (highlights?.length) {
+            // 对高亮进行反转排序，确保先渲染后面的，避免前面的变化后位置改变发生错误
+            const items = [...highlights].sort((a, b) => a.start - b.start);
+            items.forEach((item) => {
+                const { start, end, content, css } = item;
+                // 确保高亮范围有效
+                if (start < 0 || end > text.length || start >= end) {
+                    return;
+                }
+                const span = build({ text: content, css, inline: true });
+                html = html.slice(0, start) + span.outerHTML + html.slice(end);
+            });
+        }
+
+        const defaultCssObj = {
+            ...cssObj,
+        };
+        if (strokeWidth) {
+            // 将描边宽度扩大2倍，让其超出原始文字的范围
+            defaultCssObj['-webkit-text-stroke-width'] = strokeWidth * 2;
+        }
+        if (css['--text-stroke-color']) {
+            defaultCssObj['-webkit-text-stroke-color'] = css['--text-stroke-color'];
+        }
+        if (inline) {
+            Object.assign(defaultCssObj, {
+                ['z-index']: '1',
+                position: 'relative',
+            });
+        }
+        const defaultCssText = cssToText(defaultCssObj);
+        const txt = document.createElement(inline ? 'span' : 'pre');
+        txt.innerHTML = html;
+        txt.style.cssText = defaultCssText;
+        container.appendChild(txt);
+
+        // 当存在描边时，复制一份未描边的字，将其覆盖在有描边的字上面，以得到真正的描边效果
+        if (strokeWidth) {
+            const coverCssText = cssToText({
+                ...coverCssObj,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                ['z-index']: '2',
+                // 强制背景透明，否则看不到真正的描边了
+                background: 'transparent',
+                // 由于cover是asbolute绝对定位，如果再加上padding，就会导致其内部的文字下移，造成偏位错误，因此，这里要强制调整其padding-top
+                // ['padding-top']: 0,
+            });
+
+            const cover = document.createElement(inline ? 'span' : 'pre');
+            cover.innerHTML = html;
+            cover.style.cssText = coverCssText;
+            container.appendChild(cover);
+        }
+
+        // 高亮的背景独立生成，以避免文字跳动问题
+        if (inline && bgColor) {
+            const bgCssText = cssToText({
+                ...coverCssObj,
+                position: 'absolute',
+                // 和cover一样的问题，不过这里通过位移来解决
+                top: -(padding || 0),
+                left: -(padding || 0),
+                ['z-index']: '0',
+                // 强制字体颜色和背景颜色一致
+                color: bgColor,
+                background: bgColor,
+                padding,
+                ['border-radius']: radius,
+            });
+
+            const bg = document.createElement('span');
+            bg.innerHTML = html;
+            bg.style.cssText = bgCssText;
+            bg.classList.add('background-block');
+            container.appendChild(bg);
+        }
+
+        return container;
+    };
+    return build({ text, css, highlights });
+}
+
+/**
+ * 将css对象转换为css文本，
+ * 注意，这里不会主动去对stroke/rotate相关属性进行转换，
+ * 如需转换，请在传入前，将css进行变形
+ * @param css
+ * @returns
+ */
+export function cssToText(css: Record<string, any>) {
+    const styles = { ...css };
+    let cssText = '';
+    each(styles, (value, key) => {
+        if (isNone(value)) {
+            return;
+        }
+
+        let realValue = value;
+        if (typeof value === 'number') {
+            if (key.startsWith('--transform-rotate')) {
+                realValue = value + 'rad';
+            }
+            else {
+                realValue = value + 'px';
+            }
+        }
+        cssText += ` ${key}: ${realValue};`;
+    });
+    cssText = cssText.trim().replace(/"/g, "'");
+    return cssText;
+}
+
+/**
+ * 将DOM对象style.cssText转换为内部可用的css对象
+ * @param text
+ * @returns
+ */
+export function textToCss(text: string) {
+    const css: Record<string, any> = {};
+    each(text.split(';'), (item) => {
+        const words = item.trim().split(':');
+        if (words.length !== 2) {
+            return;
+        }
+        const [key, value] = words;
+        let v = value.trim();
+        if (v.endsWith('px') && !v.includes(' ')) {
+            v = +v.slice(0, -2);
+        }
+        const k = key.trim();
+
+        if (k === '-webkit-text-stroke') {
+            const values = v.split(' ');
+            const width = values.find((item: string) => !isNaN(parseFloat(item)));
+            const color = v.replace(width, '').trim();
+            if (width && color) {
+                css['--text-stroke-width'] = width;
+                css['--text-stroke-color'] = color;
+            }
+            return;
+        }
+
+        if (k === 'transform' && v.includes('rotate')) {
+            const rotate = v.replace('rotate(', '').replace(')', '');
+            css[`--transform-rotate`] = rotate;
+            return;
+        }
+
+        css[k] = v;
+    });
+    return css;
+}
+
+/**
+ * 测量视频尺寸
+ * @param source
+ * @returns
+ */
+export async function measureVideoSize(source: File | string) {
+    let clip: MP4Clip;
+    if (source instanceof File) {
+        clip = new MP4Clip(source.stream());
+    }
+    else if (source.startsWith('data:')) {
+        const file = base64ToFile(source, 'video.mp4', 'video/mp4');
+        clip = new MP4Clip(file.stream());
+    }
+    else {
+        const res = await fetch(source);
+        clip = new MP4Clip(res.body!);
+    }
+    await clip.ready;
+    const { width, height } = clip.meta;
+    clip.destroy();
+    return { width, height };
+}
+
+export async function measureImageSize(source: File | string) {
+    const img = new Image();
+    if (source instanceof File) {
+        img.src = await fileToBase64DataURL(source);
+    }
+    else if (source.startsWith('data:')) {
+        img.src = source;
+    }
+    else {
+        const res = await fetch(source);
+        img.src = await blobToBase64DataURL(await res.blob());
+    }
+    await new Promise((resolve) => {
+        img.onload = resolve;
+    });
+    const { width, height } = img;
+    return { width, height };
+}
+
+/**
+ * 测量视频时长，返回为纳秒
+ * @param source
+ * @returns
+ */
+export async function measureVideoDuration(source: File | string) {
+    let clip: MP4Clip;
+    if (source instanceof File) {
+        clip = new MP4Clip(source.stream());
+    }
+    else if (source.startsWith('data:')) {
+        const file = base64ToFile(source, 'video.mp4', 'video/mp4');
+        clip = new MP4Clip(file.stream());
+    }
+    else {
+        const res = await fetch(source);
+        clip = new MP4Clip(res.body!);
+    }
+    await clip.ready;
+    const { duration } = clip.meta;
+    clip.destroy();
+    return duration;
+}
+
+/**
+ * 测量视频时长，返回为纳秒
+ * @param source
+ * @returns
+ */
+export async function measureAudioDuration(source: File | string) {
+    let clip: AudioClip;
+    if (source instanceof File) {
+        clip = new AudioClip(source.stream());
+    }
+    else if (source.startsWith('data:')) {
+        const file = base64ToFile(source, 'audio.mp3', 'audio/mpeg');
+        clip = new AudioClip(file.stream());
+    }
+    else {
+        const res = await fetch(source);
+        clip = new AudioClip(res.body!);
+    }
+    await clip.ready;
+    const { duration } = clip.meta;
+    clip.destroy();
+    return duration;
+}
+
+/**
+ * 测量文本尺寸
+ * @param text
+ * @param css
+ * @returns
+ */
+export async function measureTextSize(text: string, css: Record<string, any>, highlights?: WebCutTextHighlight[]): Promise<{ height: number; width: number }> {
+    const bitmap = await renderTxt2ImgBitmap(text, css, highlights);
+    const { height, width } = bitmap;
+    return { height, width };
+}
+
+/**
+ * 以离屏渲染的方式导出clips为blob
+ * @param clips
+ * @returns
+ */
+export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>) {
+    let offsetTime = 0;
+    const com = new Combinator();
+    for (const clip of clips) {
+        await clip.ready;
+        const spr = new OffscreenSprite(clip);
+        spr.time.offset = offsetTime;
+        offsetTime += clip.meta.duration;
+        if (clip instanceof AudioClip) {
+            spr.rect.x = -1000;
+        }
+        await com.addSprite(spr);
+    }
+    const readable = com.output();
+    const reader = readable.getReader();
+    const chunks: any[] = [];
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+            break;
+        }
+        chunks.push(value);
+    }
+    const blob = new Blob(chunks, { type: 'video/mp4' });
+    com.destroy();
+    return blob;
+}
+
+/**
+ * 导出为wav音频
+ * @param clips
+ * @returns
+ */
+export async function exportAsWavBlobOffscreen(clips: Array<AudioClip>) {
+    const mp4Blob = await exportBlobOffscreen(clips);
+    return await mp4BlobToWavBlob(mp4Blob);
+}
+
+export async function mp4BlobToWavBlob(mp4Blob: Blob): Promise<Blob> {
+    const arrbuff = await mp4Blob.arrayBuffer();
+    return new Promise((resolve, reject) => {
+        const audioCtx = new AudioContext();
+        audioCtx.decodeAudioData(arrbuff, function(audioBuffer) {
+            const arrbuff = toWav(audioBuffer);
+            const wavBlob = new Blob([arrbuff], { type: 'audio/wav' });
+            resolve(wavBlob);
+        }, reject);
+    });
+}
+
+/**
+ * 自动调整矩形尺寸，以适应画布
+ * @param canvasSize 画布尺寸
+ * @param elementSize 元素尺寸
+ * @param type 适应类型，contain: 包含元素，cover: 覆盖元素，contain_scale: 包含元素，且缩放至最大，cover_scale: 覆盖元素，且缩放至最大
+ * @returns 调整后的矩形尺寸及位置
+ */
+export function autoFitRect(canvasSize: { width: number; height: number }, elementSize: { width: number; height: number }, type?: 'contain' | 'cover' | 'contain_scale' | 'cover_scale') {
+    const { width: canvasWidth, height: canvasHeight } = canvasSize;
+    const { width: elementWidth, height: elementHeight } = elementSize;
+    let w = elementWidth;
+    let h = elementHeight;
+    let x = (canvasWidth - w) / 2;
+    let y = (canvasHeight - h) / 2;
+    if (type?.startsWith('contain')) {
+        let scale = Math.min(canvasWidth / elementWidth, canvasHeight / elementHeight);
+        if (type !== 'contain_scale') {
+            scale = Math.min(scale, 1);
+        }
+        w = elementWidth * scale;
+        h = elementHeight * scale;
+        x = (canvasWidth - w) / 2;
+        y = (canvasHeight - h) / 2;
+    }
+    else if (type?.startsWith('cover')) {
+        let scale = Math.max(canvasWidth / elementWidth, canvasHeight / elementHeight);
+        if (type !== 'cover_scale') {
+            scale = Math.max(scale, 1);
+        }
+        w = elementWidth * scale;
+        h = elementHeight * scale;
+        x = (canvasWidth - w) / 2;
+        y = (canvasHeight - h) / 2;
+    }
+    return { w, h, x, y };
+}
+
+/**
+ * 格式化时间为 HH:MM:SS.mmm 格式
+ * @param time 时间（纳秒）
+ * @returns 格式化后的时间字符串
+ */
+export function formatTime(time: number): string {
+    const total = Math.round(time / 1e6);
+    const hour = Math.floor(total / 3600);
+    const min = Math.floor(total % 3600 / 60);
+    const sec = total % 60;
+    const ms = Math.round(time % 1e6 / 1e3);
+
+    const hourText = padLeft(hour + '', 2, '0');
+    const minText = padLeft(min + '', 2, '0');
+    const secText = padLeft(sec + '', 2, '0');
+    const msText = padLeft(ms + '', 3, '0');
+
+    return `${hourText}:${minText}:${secText}.${msText}`;
+}
