@@ -27,6 +27,9 @@
       homepage: 'zh-cn/README.md',
       coverpage: 'zh-cn/_coverpage.md',
       loadSidebar: true,
+      alias: {
+        '/_sidebar.md': '/zh-cn/_sidebar.md'
+      },
       plugins: [
         function (hook, vm) {
           hook.afterEach(function (html, next) {
