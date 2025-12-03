@@ -4,8 +4,9 @@ import { useWebCutDarkMode } from './hooks';
 import { WeatherMoon16Regular, WeatherSunny16Regular } from '@vicons/fluent';
 import { watch } from 'vue';
 
+const darkMode = defineModel<boolean>('isDarkMode', { default: false });
+
 const isDarkMode = useWebCutDarkMode();
-const darkMode = defineModel<boolean>('isDarkMode', { default: isDarkMode.value });
 
 watch(darkMode, (newValue) => {
     if (typeof newValue === 'boolean' && newValue !== isDarkMode.value) {
