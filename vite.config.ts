@@ -16,13 +16,15 @@ const allDependencies = [
 ];
 
 // 根据环境变量选择构建配置
-const buildType = process.env.BUILD_TYPE;
+// webcomponents | esm | webcomponents_bundle
+// 默认为esm
+const buildType = process.env.BUILD_TYPE || 'esm';
 
 // 导出配置
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     vue(),
-    buildType !== 'webcomponents' ? dts({
+    buildType === 'esm' ? dts({
       insertTypesEntry: true,
       cleanVueFileName: true,
       copyDtsFiles: false,
@@ -33,22 +35,29 @@ export default defineConfig({
       ],
     }) : undefined,
   ].filter(Boolean),
+  define: buildType.endsWith('_bundle') ? {
+    'process.env.NODE_ENV': JSON.stringify(mode),
+  } : undefined,
   build: {
     lib: {
-      entry: buildType === 'webcomponents' ? resolve(__dirname, 'src/webcomponents.ts') : resolve(__dirname, 'src/index.ts'),
+      entry: buildType.startsWith('webcomponents') ? resolve(__dirname, 'src/webcomponents.ts') : resolve(__dirname, 'src/index.ts'),
       name: 'WebCut',
       fileName: () => 'index.js',
-      formats: [buildType === 'webcomponents' ? 'iife' : 'es'],
+      formats: [buildType.endsWith('_bundle') ? 'iife' : 'es'],
     },
     sourcemap: true,
-    minify: false,
-    outDir: buildType === 'webcomponents' ? 'webcomponents' : 'esm',
+    minify: buildType.endsWith('_bundle'),
+    outDir: {
+      webcomponents: 'webcomponents',
+      webcomponents_bundle: 'webcomponents/bundle',
+      esm: 'esm',
+    }[buildType],
     commonjsOptions: {
       transformMixedEsModules: true,
     },
     rollupOptions: {
-      external: buildType === 'webcomponents' ? [] : allDependencies,
+      external: buildType.endsWith('_bundle') ? [] : allDependencies,
     },
   },
-});
+}));
 

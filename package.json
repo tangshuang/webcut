@@ -22,9 +22,10 @@
   "scripts": {
     "docs": "docsify serve docs",
     "dev": "vite",
-    "build": "npm run build:esm && npm run build:webcomponents",
+    "build": "npm run build:esm && npm run build:webcomponents && npm run build:webcomponents_bundle",
     "build:esm": "vite build",
-    "build:webcomponents": "BUILD_TYPE=webcomponents BUILD_ENTRY_DIR=src/webcomponents/editor vite build",
+    "build:webcomponents": "BUILD_TYPE=webcomponents vite build",
+    "build:webcomponents_bundle": "BUILD_TYPE=webcomponents_bundle vite build",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . --ext .vue,.js,.ts,.jsx,.tsx --fix",
