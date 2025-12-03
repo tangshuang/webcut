@@ -2,9 +2,6 @@ import { computed, watchEffect, watch } from 'vue';
 import { useWebCutContext, useWebCutPlayer } from './index';
 import { getGridFrame, getGridPixel } from '../libs/timeline';
 import { WebCutSegment, WebCutRail } from '../types';
-import { audioClipToFile, mp4ClipToFile } from '../libs/media';
-import { addFile } from '../db';
-import { AudioClip, MP4Clip } from '@webav/av-cliper';
 
 export function useWebCutManager() {
     const { cursorTime, fps, scale, canvas, duration, scroll1, scroll2, status, ruler, manager, sources, updateDuration, rails, unselectSegment } = useWebCutContext();
@@ -219,15 +216,17 @@ export function useWebCutManager() {
             if (keep !== 'right') {
                 splitToKeepLeft();
             }
-            const [newClip1, newClip2] = await (clip as MP4Clip).split(splitTime);
-            newClip1.destroy();
-            const file2 = await mp4ClipToFile(newClip2);
-            const fileId2 = await addFile(file2);
-            const key = await push('video', `file:${fileId2}`, {
+            const material = source.fileId ? `file:${source.fileId}` : source.url as string;
+            const prevVideoMeta = source.meta.video || {};
+            const key = await push('video', material, {
                 autoFitRect: 'contain',
                 time: {
                     start: cursorTime.value,
                     duration: end - cursorTime.value,
+                },
+                video: {
+                    ...prevVideoMeta,
+                    offset: splitTime + (prevVideoMeta.offset || 0),
                 },
                 withRailId: rail.id,
             });
@@ -240,14 +239,16 @@ export function useWebCutManager() {
             if (keep !== 'right') {
                 splitToKeepLeft();
             }
-            const [newClip1, newClip2] = await (clip as AudioClip).split(splitTime);
-            newClip1.destroy();
-            const file2 = await audioClipToFile(newClip2);
-            const fileId2 = await addFile(file2);
-            const key = await push('audio', `file:${fileId2}`, {
+            const material = source.fileId ? `file:${source.fileId}` : source.url as string;
+            const prevAudioMeta = source.meta.audio || {};
+            const key = await push('audio', material, {
                 time: {
                     start: cursorTime.value,
                     duration: end - cursorTime.value,
+                },
+                audio: {
+                    ...prevAudioMeta,
+                    offset: splitTime + (prevAudioMeta.offset || 0),
                 },
                 withRailId: rail.id,
             });

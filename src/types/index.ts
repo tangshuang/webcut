@@ -131,15 +131,22 @@ export type WebCutPushMeta = {
         angle: number;
     }>,
     time?: {
+        /** 在时间轴中的开始时间 */
         start?: number;
+        /** 在时间轴中的持续时间 */
         duration?: number;
+        /** 播放速率，1为正常速率，0.5为半速，2为双倍速 */
         playbackRate?: number;
     },
     audio?: {
+        /** 偏移时间，即音频将从该位置进行播放，单位：纳秒 */
+        offset?: number;
         volume?: number;
         loop?: boolean;
     },
     video?: {
+        /** 偏移时间，即视频将从该位置进行播放，单位：纳秒 */
+        offset?: number;
         volume?: number;
     },
     text?: {

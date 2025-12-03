@@ -364,6 +364,7 @@ export function useWebCutPlayer() {
         let segMeta = clone(meta);
         if (type === 'video') {
             const volume = meta.video?.volume;
+            const offset = meta.video?.offset;
             const options = typeof volume === 'undefined' ? {} : typeof volume === 'number' && volume > 0 ? { audio: { volume }} : { audio: false };
             if (source instanceof File) {
                 file = source;
@@ -388,9 +389,15 @@ export function useWebCutPlayer() {
                 url = source;
                 clip = new MP4Clip(res.body!, options);
             }
+            if (offset) {
+                const [clip1, clip2] = await clip.split(offset);
+                clip1.destroy();
+                clip = clip2;
+            }
         }
         else if (type === 'audio') {
             const options = meta.audio || {};
+            const offset = meta.audio?.offset;
             if (source instanceof File) {
                 file = source;
                 fileId = await writeFile(source);
@@ -413,6 +420,11 @@ export function useWebCutPlayer() {
                 const res = await fetch(source);
                 url = source;
                 clip = new AudioClip(res.body!, options);
+            }
+            if (offset) {
+                const [clip1, clip2] = await clip.split(offset);
+                clip1.destroy();
+                clip = clip2;
             }
         }
         else if (type === 'image') {
