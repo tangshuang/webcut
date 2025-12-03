@@ -1,5 +1,31 @@
 import { useWebCutContext } from '../../hooks';
-import { onMounted, computed, watch } from 'vue';
+import { onMounted, computed, watch, type Ref, nextTick } from 'vue';
+
+/**
+ * 与外部的darkMode进行绑定，当外部的darkMode改变时，更新内部的darkMode，内部的darkMode改变时，更新外部的darkMode
+ * 在第一次加载时，会使用外部的darkMode作为初始值
+ * @param darkMode
+ */
+export function useWebCutBindOutsideDarkMode(darkMode: Ref<boolean>) {
+  const isDarkMode = useWebCutDarkMode();
+  let isInitial = false;
+  watch(darkMode, (newValue) => {
+    if (typeof newValue === 'boolean' && newValue !== isDarkMode.value) {
+      isDarkMode.value = newValue;
+    }
+    if (!isInitial) {
+      nextTick(() => {
+        isInitial = true;
+      });
+    }
+  }, { immediate: true });
+  watch(isDarkMode, (newValue) => {
+    if (!isInitial) {
+      return;
+    }
+    darkMode.value = newValue;
+  });
+}
 
 export function useWebCutPerfersColorScheme() {
   const { id, perfersColorScheme } = useWebCutContext();

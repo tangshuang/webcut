@@ -15,7 +15,7 @@ import VideoSegment from '../manager/segments/video.vue';
 import AudioSegment from '../manager/segments/audio.vue';
 import ImageSegment from '../manager/segments/image.vue';
 import TextSegment from '../manager/segments/text.vue';
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useWebCutManager } from '../../hooks/manager';
 import ClearSelected from '../tools/clear-selected/index.vue';
 import DeleteCurrent from '../tools/delete-current/index.vue';
@@ -27,7 +27,7 @@ import SplitKeepRight from '../tools/split-keep-right/index.vue';
 import Panel from '../panel/index.vue';
 import ExportButton from '../export-button/index.vue';
 import { WebCutColors } from '../../types';
-import { useWebCutDarkMode } from '../dark-mode/hooks';
+import { useWebCutBindOutsideDarkMode } from '../dark-mode/hooks';
 
 /** 是否为暗黑模式 */
 const darkMode = defineModel<boolean>('isDarkMode', { default: false });
@@ -41,9 +41,9 @@ const props = defineProps<{
 useWebCutContext(() => props.projectId ? { id: props.projectId } : undefined);
 useWebCutThemeColors(() => props.colors);
 
-const isDarkMode = useWebCutDarkMode();
 const { resize } = useWebCutPlayer();
 const { resizeManagerMaxHeight, toggleRailHidden, toggleRailMute } = useWebCutManager();
+useWebCutBindOutsideDarkMode(darkMode);
 
 const bottomSide = ref();
 
@@ -54,15 +54,6 @@ function handleResized() {
 }
 
 onMounted(handleResized);
-
-watch(darkMode, (newValue) => {
-    if (typeof newValue === 'boolean' && newValue !== isDarkMode.value) {
-        isDarkMode.value = newValue;
-    }
-}, { immediate: true });
-watch(isDarkMode, (newValue) => {
-    darkMode.value = newValue;
-});
 
 function handleToggleLocked(rail: any) {
     rail.locked = !rail.locked;
