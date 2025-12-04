@@ -14,7 +14,7 @@ Provides the reactive project context and selection state.
 Core media operations (see `src/hooks/index.ts:788`).
 
 - `init`, `play`, `pause`, `reset`, `moveTo` — player control
-- `push(type, source, meta)` — add media/text with `WebCutPushMeta` (see `src/types/index.ts:119`)
+- `push(type, source, meta)` — add media/text with `WebCutMaterialMeta` (see `src/types/index.ts:119`)
 - `remove(key)`, `clear()`, `destroy()` — teardown
 - `exportBlob()`, `exportAsWavBlob()` — export MP4/WAV
 - `updateText(key, data)` — re-render text as bitmap (see `src/hooks/index.ts:699`)
@@ -55,5 +55,5 @@ Key types in `src/types/index.ts`:
 
 - `WebCutContext` — editor state
 - `WebCutRail`, `WebCutSegment` — timeline data
-- `WebCutPushMeta` — push options
+- `WebCutMaterialMeta` — push options
 - `WebCutSource`, `WebCutSourceMeta` — source mapping and persistence

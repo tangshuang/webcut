@@ -6,7 +6,7 @@ import { useSource } from 'fods-vue';
 import { getFileMd5 } from '../libs/file';
 
 const getProjectData = source((projectId: string) => getProject(projectId));
-const getFiles = source<{ id: string; type: string; name: string; size: number }[], []>(async () => {
+const getFiles = source<{ id: string; type: string; name: string; size: number, time: number }[], []>(async () => {
     const allFiles = await getAllFiles();
     return allFiles;
 });
@@ -17,8 +17,8 @@ export function useWebCutLibrary() {
     const { data: files, init: initFiles, refresh: refreshFiles } = useSource(getFiles, []);
 
     const projectFiles = computed(() => {
-        const fileIds: string[] = projectData.value?.fileIds || [];
-        return files.value.filter((item: any) => fileIds.includes(item.id));
+        const fileMetas: { id: string; time: number }[] = projectData.value?.files || [];
+        return files.value.filter((item: any) => fileMetas.some((meta: any) => meta.id === item.id));
     });
 
     watch(projectId, () => {

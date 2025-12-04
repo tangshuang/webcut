@@ -106,7 +106,7 @@ This is a detailed reference for all exports from `src/index.ts`. It explains re
   - `readSources()` returns `Map<string, WebCutSource>` (`src/hooks/index.ts:774–776`).
   - `download(filename?)` exports MP4 and triggers browser download (`src/hooks/index.ts:778–781`).
 
-Parameters: `WebCutPushMeta` (`src/types/index.ts:119–151`)
+Parameters: `WebCutMaterialMeta` (`src/types/index.ts:119–151`)
 - `id?`: custom source key
 - `rect?`: `{ x,y,w,h,angle }`
 - `time?`: `{ start?, duration?, playbackRate? }`
@@ -171,7 +171,7 @@ Key utilities from `src/libs/index.ts`:
 ## File Helpers (`src/libs/file.ts`)
 - `base64ToFile`, `blobToBase64DataURL`, `fileToBase64DataURL`, `downloadBlob`, `getFileMd5`, `blobToFile`.
 
-## Media Helpers (`src/libs/media.ts`)
+## Media Helpers (`src/libs/index.ts`)
 - `mp4ClipToFile(clip)`, `audioClipToFile(clip)`, `pcmToWav(pcmData, sampleRate?)`.
 
 ## Timeline Math (`src/libs/timeline.ts`)
@@ -181,4 +181,4 @@ Key utilities from `src/libs/index.ts`:
 - Project CRUD, file CRUD, history list, project state read/write.
 
 ## Types (`src/types/index.ts`)
-- `WebCutContext`, `WebCutRail`, `WebCutSegment`, text types, material types, `WebCutPushMeta`, `WebCutSource`, `WebCutSourceMeta`, `HistoryState`.
+- `WebCutContext`, `WebCutRail`, `WebCutSegment`, text types, material types, `WebCutMaterialMeta`, `WebCutSource`, `WebCutSourceMeta`, `WebCutHistoryState`.

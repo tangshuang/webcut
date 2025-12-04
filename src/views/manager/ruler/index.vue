@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { getStep, getGridSize, getLongText, getShortText } from '../../../libs/timeline';
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, reactive } from 'vue';
-import { useWebCutDarkMode } from '../../../hooks/theme';
+import { useWebCutDarkMode } from '../../../hooks';
 import { useWebCutManager } from '../../../hooks/manager';
 
 const emit = defineEmits(['click']);
@@ -10,7 +10,7 @@ const props = defineProps<{
   focus?: [start: number, end: number];
 }>();
 
-const isDark = useWebCutDarkMode();
+const { isDarkMode } = useWebCutDarkMode();
 const { cursorPx, fps, scale, moveCursorToPx, scroll2, ruler } = useWebCutManager();
 
 onMounted(() => {
@@ -32,11 +32,11 @@ const canvasConfigs = computed(() => ({
   // eslint-disable-next-line
   textBaseline: 'middle', // 文字对齐基线 (ts 中定义的textBaseLine是一个联合类型)
   // eslint-disable-next-line
-  longColor: isDark.value ? '#E5E7EB' : '#000', // 长线段颜色
-  shortColor: isDark.value ? '#9CA3AF' : '#6B7280', // 短线段颜色
-  textColor: isDark.value ? '#E5E7EB' : '#000', // 文字颜色
-  subTextColor: isDark.value ? '#9CA3AF' : '#6B7280', // 小文字颜色
-  focusColor: isDark.value ? '#6D28D9' : '#C4B5FD', // 选中元素区间
+  longColor: isDarkMode.value ? '#E5E7EB' : '#000', // 长线段颜色
+  shortColor: isDarkMode.value ? '#9CA3AF' : '#6B7280', // 短线段颜色
+  textColor: isDarkMode.value ? '#E5E7EB' : '#000', // 文字颜色
+  subTextColor: isDarkMode.value ? '#9CA3AF' : '#6B7280', // 小文字颜色
+  focusColor: isDarkMode.value ? '#6D28D9' : '#C4B5FD', // 选中元素区间
 }));
 const canvasSize = reactive({
   width: 0,

@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, computed } from 'vue';
 import {
   NButton,
   NIcon,
   NUpload,
   NUploadDragger,
   NDropdown,
-  useMessage,
   useLoadingBar,
 } from 'naive-ui';
 import { Add, Upload } from '@vicons/carbon';
@@ -17,9 +16,17 @@ import { useWebCutLocalFile } from '../../hooks/local-file';
 
 const { push } = useWebCutPlayer();
 const { projectFiles, files, addNewFile, removeFile } = useWebCutLibrary();
-const message = useMessage();
 const loadingBar = useLoadingBar();
 const { fileUrl } = useWebCutLocalFile();
+
+const allAudioList = computed(() => {
+  const items = files.value.filter((file) => file.type.startsWith('audio/')).sort((a, b) => (b.time || 0) - (a.time || 0));
+  return items;
+});
+const projectAudioList = computed(() => {
+  const items = projectFiles.value.filter((file) => file.type.startsWith('audio/')).sort((a, b) => (b.time || 0) - (a.time || 0));
+  return items;
+});
 
 const actionType = ref<'import' | 'this' | 'all'>('this');
 
@@ -74,17 +81,12 @@ function handleSelect(key: string | number) {
   showDropdown.value = false;
   if (key === 'delete' && currentFile.value) {
     removeFile(currentFile.value.id);
-    message.success('文件已删除');
   }
 }
 
 // 点击外部关闭菜单
 function onClickoutside() {
   showDropdown.value = false;
-}
-
-function filterAudioFiles<T extends { type: string }>(files: T[]): T[] {
-  return files.filter((file) => file.type.startsWith('audio/'));
 }
 
 async function handleAdd(material: any) {
@@ -125,7 +127,7 @@ async function handleAdd(material: any) {
 
       <scroll-box class="webcut-material-container" v-if="actionType === 'this'">
         <div class="webcut-material-list">
-          <div v-for="file in filterAudioFiles(projectFiles)" :key="file.id" class="webcut-material-item" @contextmenu.stop="handleContextMenu($event, file)">
+          <div v-for="file in projectAudioList" :key="file.id" class="webcut-material-item" @contextmenu.stop="handleContextMenu($event, file)">
             <div class="webcut-material-preview" @mouseleave="onLeaveAudio(file.id)">
               <div class="webcut-audio-placeholder" @click="handleClickAudio(file.id)">
                 <span class="webcut-audio-icon">🎵</span>
@@ -143,7 +145,7 @@ async function handleAdd(material: any) {
               {{ file.name }}
             </div>
           </div>
-          <div v-if="projectFiles.length === 0" class="webcut-empty-materials">
+          <div v-if="projectAudioList.length === 0" class="webcut-empty-materials">
             暂无素材，请先导入素材
           </div>
         </div>
@@ -151,7 +153,7 @@ async function handleAdd(material: any) {
 
       <scroll-box class="webcut-material-container" v-if="actionType === 'all'">
         <div class="webcut-material-list">
-          <div v-for="file in filterAudioFiles(files)" :key="file.id" class="webcut-material-item">
+          <div v-for="file in allAudioList" :key="file.id" class="webcut-material-item">
             <div class="webcut-material-preview" @mouseleave="onLeaveAudio(file.id)">
               <div class="webcut-audio-placeholder" @click="handleClickAudio(file.id)">
                 <span class="webcut-audio-icon">🎵</span>
@@ -169,7 +171,7 @@ async function handleAdd(material: any) {
               {{ file.name }}
             </div>
           </div>
-          <div v-if="files.length === 0" class="webcut-empty-materials">
+          <div v-if="allAudioList.length === 0" class="webcut-empty-materials">
             暂无素材，请先导入素材
           </div>
         </div>

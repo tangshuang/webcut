@@ -63,12 +63,9 @@ export type WebCutContext = {
 
     canUndo: boolean;
     canRedo: boolean;
-
-    /** 颜色方案 */
-    perfersColorScheme: 'light' | 'dark';
 };
 
-export type WebCutTextHighlight = {
+export type WebCutHighlightOfText = {
     id: string;
     content: string;
     start: number;
@@ -76,14 +73,14 @@ export type WebCutTextHighlight = {
     css: any;
 }
 
-export type WebCutTextSegment = WebCutSegment & {
+export type WebCutSegmentOfText = WebCutSegment & {
     text: string;
     css?: any;
-    highlights?: WebCutTextHighlight[];
+    highlights?: WebCutHighlightOfText[];
 }
 
-export type WebCutTextRail = WebCutRail & {
-    segments: WebCutTextSegment[];
+export type WebCutRailOfText = WebCutRail & {
+    segments: WebCutSegmentOfText[];
     css?: any;
     print_mode?: string;
     print_css?: any;
@@ -102,6 +99,9 @@ export type WebCutRail = {
     id: string;
     type?: string;
     segments: WebCutSegment[];
+    mute?: boolean;
+    hidden?: boolean;
+    locked?: boolean;
     [key: string]: any;
 };
 
@@ -121,7 +121,7 @@ export interface WebCutMaterial {
   updatedAt: number;
 };
 
-export type WebCutPushMeta = {
+export type WebCutMaterialMeta = {
     id?: string;
     rect?: Partial<{
         x: number;
@@ -151,7 +151,7 @@ export type WebCutPushMeta = {
     },
     text?: {
         css?: object;
-        highlights?: WebCutTextHighlight[];
+        highlights?: WebCutHighlightOfText[];
     },
     zIndex?: number;
     /** 自动调整视频尺寸到容器内，仅对视频和图片有效，带_scale后缀表示当图片小于视频视口时，会把图片放大以撑满整个视口 */
@@ -171,7 +171,7 @@ export type WebCutSource = {
     url?: string;
     segmentId: string;
     railId: string;
-    meta: WebCutPushMeta;
+    meta: WebCutMaterialMeta;
 };
 
 // 将source数据化，用于存储到db
@@ -196,7 +196,7 @@ export type WebCutSourceMeta = Omit<WebCutSource, 'clip' | 'sprite'> & {
     },
 };
 
-export type HistoryState =
+export type WebCutHistoryState =
     | {
         // 添加素材
         action: 'materialAdded';

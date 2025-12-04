@@ -1,4 +1,4 @@
-import { inject, toRefs, markRaw, reactive, provide, watch, ref, watchEffect, computed, type ComputedRef } from 'vue';
+import { inject, toRefs, markRaw, reactive, provide, watch, ref, watchEffect, computed, type ComputedRef, ModelRef, WritableComputedRef } from 'vue';
 import { WebCutColors, WebCutContext } from '../types';
 import { AVCanvas } from '@webav/av-canvas';
 import {
@@ -11,7 +11,7 @@ import { base64ToFile, downloadBlob } from '../libs/file';
 import { assignNotEmpty } from '../libs/object';
 import { isEmpty, createRandomString, clone, assign } from 'ts-fns';
 import { mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
-import { WebCutTextHighlight, WebCutPushMeta } from '../types';
+import { WebCutHighlightOfText, WebCutMaterialMeta } from '../types';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { readFile, writeFile } from '../db';
 
@@ -43,7 +43,6 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         canUndo: false,
         canRedo: false,
         language: navigator.language,
-        perfersColorScheme: window.matchMedia(' (prefers-color-scheme: dark)').matches ? 'dark' : 'light',
     };
 
     const providedContextValue = providedContext?.();
@@ -358,7 +357,7 @@ export function useWebCutPlayer() {
         return wavBlob;
     }
 
-    async function push(type: 'video' | 'audio' | 'image' | 'text', source: string | File, meta: WebCutPushMeta = {}): Promise<string> {
+    async function push(type: 'video' | 'audio' | 'image' | 'text', source: string | File, meta: WebCutMaterialMeta = {}): Promise<string> {
         let clip: MP4Clip | ImgClip | AudioClip;
         let text, fileId, url, file;
         let segMeta = clone(meta);
@@ -651,7 +650,7 @@ export function useWebCutPlayer() {
         canvas.value = null;
     }
 
-    async function initTextMaterial(text: string, css: Record<string, any> = {}, highlights: WebCutTextHighlight[] = []) {
+    async function initTextMaterial(text: string, css: Record<string, any> = {}, highlights: WebCutHighlightOfText[] = []) {
         const margin = parseFloat(css['margin'] || 0);
         const padding = parseFloat(css['padding'] || 0);
         // 下面是特殊处理
@@ -719,7 +718,7 @@ export function useWebCutPlayer() {
     async function updateText(key: string, data: {
         text?: string;
         css?: Record<string, any>;
-        highlights?: WebCutTextHighlight[];
+        highlights?: WebCutHighlightOfText[];
     }) {
         const source = sources.value.get(key);
         if (!source) {
@@ -871,7 +870,7 @@ export function useWebCutThemeColors(provideColors?: () => Partial<WebCutColors>
         textColorDark: '#ffffff',
         textColorDarkHover: '#eeeeee',
 
-        backgroundColor: 'transparent',
+        backgroundColor: '#ffffff',
         backgroundColorDark: '#222222',
         greyColor: '#ccc',
         greyColorDark: '#444',
@@ -902,5 +901,60 @@ export function useWebCutThemeColors(provideColors?: () => Partial<WebCutColors>
         themeColors,
         // 导出该函数，在使用pinia进行全局共享时，需要在顶层组件内调用该方法，否则页面切换就无法提供colors
         provide: () => provide('WEBCUT_THEME_COLORS', themeColors),
+    };
+}
+
+const defaultDarkMode = window.matchMedia(' (prefers-color-scheme: dark)').matches;
+export function useWebCutDarkMode(darkMode?: ModelRef<boolean | null | undefined>) {
+    const { id } = useWebCutContext();
+    const parentDarkMode = inject<ModelRef<boolean | null | undefined> | WritableComputedRef<boolean | null | undefined> | null>('WEBCUT_DARK_MODE', null);
+    const cachedDarkMode = computed(() => localStorage.getItem('WEBCUT_DARK_MODE:' + id.value));
+    const darkModeState = ref();
+    const isDarkMode = computed({
+        get: () => {
+            // 受控模式
+            if (typeof darkMode?.value === 'boolean') {
+                return darkMode.value;
+            }
+
+            // 覆盖模式
+            if (typeof parentDarkMode?.value === 'boolean') {
+                return parentDarkMode.value;
+            }
+
+            // 非受控模式
+            if (typeof darkModeState.value === 'boolean') {
+                return darkModeState.value;
+            }
+            if (cachedDarkMode.value) {
+                return cachedDarkMode.value === 'true';
+            }
+            return defaultDarkMode;
+        },
+        set: (v) => {
+
+            // 受控模式
+            if (typeof darkMode?.value === 'boolean') {
+                darkMode.value = v;
+                return;
+            }
+
+            // 覆盖模式
+            if (typeof parentDarkMode?.value === 'boolean') {
+                parentDarkMode.value = v;
+                return;
+            }
+
+            // 非受控模式
+            localStorage.setItem('WEBCUT_DARK_MODE:' + id.value, v.toString());
+            darkModeState.value = v;
+        },
+    });
+
+    provide('WEBCUT_DARK_MODE', isDarkMode);
+
+    return {
+        isDarkMode,
+        provide: () => provide('WEBCUT_DARK_MODE', isDarkMode),
     };
 }

@@ -103,7 +103,7 @@
   - `readSources()` 返回 `Map<string, WebCutSource>`（`src/hooks/index.ts:774–776`）。
   - `download(filename?)` 导出 MP4 并触发下载（`src/hooks/index.ts:778–781`）。
 
-参数：`WebCutPushMeta`（`src/types/index.ts:119–151`）
+参数：`WebCutMaterialMeta`（`src/types/index.ts:119–151`）
 - `id?`：自定义素材 key
 - `rect?`：`{ x,y,w,h,angle }`
 - `time?`：`{ start?, duration?, playbackRate? }`
@@ -168,7 +168,7 @@
 ## 文件工具（`src/libs/file.ts`）
 - `base64ToFile`、`blobToBase64DataURL`、`fileToBase64DataURL`、`downloadBlob`、`getFileMd5`、`blobToFile`。
 
-## 媒体工具（`src/libs/media.ts`）
+## 媒体工具（`src/libs/index.ts`）
 - `mp4ClipToFile(clip)`、`audioClipToFile(clip)`、`pcmToWav(pcmData, sampleRate?)`。
 
 ## 时间线计算（`src/libs/timeline.ts`）
@@ -178,4 +178,4 @@
 - 项目 CRUD、文件 CRUD、历史列表、项目状态读写。
 
 ## 类型（`src/types/index.ts`）
-- `WebCutContext`、`WebCutRail`、`WebCutSegment`、文本类型、素材类型、`WebCutPushMeta`、`WebCutSource`、`WebCutSourceMeta`、`HistoryState`。
+- `WebCutContext`、`WebCutRail`、`WebCutSegment`、文本类型、素材类型、`WebCutMaterialMeta`、`WebCutSource`、`WebCutSourceMeta`、`WebCutHistoryState`。

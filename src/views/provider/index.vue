@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { WebCutContext, WebCutColors } from '../../types';
-import { useWebCutContext, useWebCutThemeColors } from '../../hooks';
-import { useWebCutDarkMode } from '../../hooks/theme';
+import { useWebCutContext, useWebCutThemeColors, useWebCutDarkMode } from '../../hooks';
 import {
     NConfigProvider,
     darkTheme,
@@ -24,11 +23,12 @@ export interface WebCutProviderProps {
     colors?: Partial<WebCutColors>;
 }
 
+const darkMode = defineModel<boolean | null>('isDarkMode', { default: null });
 const props = defineProps<WebCutProviderProps>();
 
 const { themeColors, provide: provideThemeColors } = useWebCutThemeColors(() => props.colors);
 const { provide: provideContext } = useWebCutContext(() => props.data);
-const isDarkMode = useWebCutDarkMode();
+const { isDarkMode, provide: provideDarkMode } = useWebCutDarkMode(darkMode);
 
 const darkOverrides = computed<GlobalThemeOverrides>  (() => ({
     common: {
@@ -106,6 +106,7 @@ const isInProvider = inject('WEBCUT_IN_PROVIDER', false);
 provide('WEBCUT_IN_PROVIDER', true);
 provideContext();
 provideThemeColors();
+provideDarkMode();
 </script>
 
 <template>

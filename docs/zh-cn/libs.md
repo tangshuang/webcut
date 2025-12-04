@@ -36,7 +36,7 @@
 
 ## 媒体工具
 
-- `mp4ClipToFile(clip)`、`audioClipToFile(clip)`、`pcmToWav(pcm, sampleRate)`（见 `src/libs/media.ts:4`）
+- `mp4ClipToFile(clip)`、`audioClipToFile(clip)`、`pcmToWav(pcm, sampleRate)`（见 `src/libs/index.ts:4`）
 
 ## 时间线计算
 

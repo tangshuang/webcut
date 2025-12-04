@@ -4,57 +4,57 @@ import { write, file } from 'opfs-tools'; // https://github.com/hughfenghen/opfs
 import { createRandomString } from 'ts-fns';
 import { getFileMd5 } from '../libs/file';
 import { AsyncQueue } from '../libs/async-queue';
-import { HistoryState, WebCutRail, WebCutSourceMeta } from '../types';
+import { WebCutHistoryState, WebCutRail, WebCutSourceMeta } from '../types';
 
 const queue = new AsyncQueue();
 
 // 初始化 InDB 实例
 const idb = new InDB({
-  name: 'webcut',
-  version: 6,
-  stores: [
-    {
-      name: 'file',
-      primaryKeyPath: 'id',
-      indexes: [
+    name: 'webcut',
+    version: 6,
+    stores: [
         {
-            name: 'id',
-            keyPath: 'id',
-            unique: true,
-        }
-      ]
-    },
-    {
-        name: 'project',
-        primaryKeyPath: 'id',
-        indexes: [
-            {
-                name: 'id',
-                keyPath: 'id',
-                unique: true,
-            }
-        ]
-    },
-    {
-        name: 'history',
-        primaryKeyPath: 'id',
-        indexes: [
-            {
-                name: 'id',
-                keyPath: 'id',
-                unique: true,
-            },
-            {
-                name: 'projectId',
-                keyPath: 'projectId',
-            }
-        ]
-    },
-    {
-        name: 'project_state',
-        isKv: true,
-    },
-  ],
+            name: 'file',
+            primaryKeyPath: 'id',
+            indexes: [
+                {
+                    name: 'id',
+                    keyPath: 'id',
+                    unique: true,
+                }
+            ]
+        },
+        {
+            name: 'project',
+            primaryKeyPath: 'id',
+            indexes: [
+                {
+                    name: 'id',
+                    keyPath: 'id',
+                    unique: true,
+                }
+            ]
+        },
+        {
+            name: 'history',
+            primaryKeyPath: 'id',
+            indexes: [
+                {
+                    name: 'id',
+                    keyPath: 'id',
+                    unique: true,
+                },
+                {
+                    name: 'projectId',
+                    keyPath: 'projectId',
+                }
+            ]
+        },
+        {
+            name: 'project_state',
+            isKv: true,
+        },
+    ],
 });
 
 // 获取 files 存储实例
@@ -69,21 +69,35 @@ const historyStorage = idb.use('history');
 const projectStateStorage = idb.use('project_state');
 
 export async function getProject(projectId: string) {
-  if (!projectId) {
-    return null;
-  }
+    if (!projectId) {
+        return null;
+    }
 
-  const projectData = await projectsStorage.get(projectId);
-  if (!projectData) {
-    return null;
-  }
+    const projectData = await projectsStorage.get(projectId);
+    if (!projectData) {
+        return null;
+    }
 
-  const projectFileIds = projectData.fileIds || [];
-  const projectFiles = await filesStorage.query('id', projectFileIds, 'in');
+    // 兼容旧版本
+    if (!projectData.files && projectData.fileIds) {
+        projectData.files = projectData.fileIds.map((id: string) => ({ id, time: Date.now() }));
+        delete projectData.fileIds;
+    }
 
-  projectData.files = projectFiles;
+    const projectFileMetas = projectData.files || [];
+    const projectFileIds = projectFileMetas.map((item: any) => item.id);
+    const projectFiles = await filesStorage.query('id', projectFileIds, 'in');
+    const projectFileMap = projectFiles.reduce((acc: any, item: any) => {
+        acc[item.id] = item;
+        return acc;
+    }, {});
 
-  return projectData;
+    projectData.files = projectFileMetas.map((item: any) => ({
+        ...projectFileMap[item.id],
+        time: item.time,
+    })).reverse();
+
+    return projectData;
 }
 
 export async function createNewProject(id?: string) {
@@ -91,7 +105,7 @@ export async function createNewProject(id?: string) {
     const projectData = {
         id: projectId,
         name: `新项目 ${projectId}`,
-        fileIds: [],
+        files: [],
     };
     await projectsStorage.put(projectData);
     return projectId;
@@ -103,7 +117,18 @@ export async function addFileToProject(projectId: string, fileId: string) {
         await createNewProject(projectId);
         projectData = await getProject(projectId);
     }
-    projectData.fileIds.push(fileId);
+
+    // 兼容旧版本
+    if (!projectData.files && projectData.fileIds) {
+        projectData.files = projectData.fileIds.map((id: string) => ({ id, time: Date.now() }));
+        delete projectData.fileIds;
+    }
+
+    projectData.files.push({
+        id: fileId,
+        time: Date.now(),
+    });
+
     await projectsStorage.put(projectData);
     return projectData;
 }
@@ -113,10 +138,10 @@ export async function removeFileFromProject(projectId: string, fileId: string) {
     if (!projectData) {
         return null;
     }
-    if (!projectData.fileIds.includes(fileId)) {
+    if (!projectData.files.some((item: any) => item.id === fileId)) {
         return null;
     }
-    projectData.fileIds = projectData.fileIds.filter((id: string) => id !== fileId);
+    projectData.files = projectData.files.filter((item: any) => item.id !== fileId);
     await projectsStorage.put(projectData);
     return projectData;
 }
@@ -145,6 +170,7 @@ export async function addFile(file: File) {
         name: file.name,
         type: file.type,
         size: file.size,
+        time: Date.now(),
     };
     await filesStorage.put(fileData);
     return fileId;
@@ -169,7 +195,7 @@ export async function getAllFiles() {
  * @param to 移动方向，-1 表示上一个历史记录，即Undo，1 表示下一个历史记录，即Redo
  * @returns 移动后的历史记录数据
  */
-export async function moveProjectHistoryTo(projectId: string, to: -1|1) {
+export async function moveProjectHistoryTo(projectId: string, to: -1 | 1) {
     const projectState = await getProjectState(projectId);
     const projectHistory = await getProjectHistory(projectId);
     const historyAt = projectState.historyAt || '';
@@ -193,7 +219,7 @@ export async function moveProjectHistoryTo(projectId: string, to: -1|1) {
 }
 
 // 保存历史记录
-export async function pushProjectHistory(projectId: string, state: HistoryState) {
+export async function pushProjectHistory(projectId: string, state: WebCutHistoryState) {
     if (!projectId || !state) {
         return null;
     }

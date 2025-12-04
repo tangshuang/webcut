@@ -14,7 +14,7 @@
 核心媒体操作（见 `src/hooks/index.ts:788`）。
 
 - 播放控制：`init`、`play`、`pause`、`reset`、`moveTo`
-- 推入素材：`push(type, source, meta)`，`WebCutPushMeta` 定义见 `src/types/index.ts:119`
+- 推入素材：`push(type, source, meta)`，`WebCutMaterialMeta` 定义见 `src/types/index.ts:119`
 - 清理与销毁：`remove(key)`、`clear()`、`destroy()`
 - 导出：`exportBlob()`、`exportAsWavBlob()`、`download(filename)`
 - 文本更新：`updateText(key, data)` 重新渲染文本为位图（见 `src/hooks/index.ts:699`）
@@ -55,5 +55,5 @@
 
 - `WebCutContext` — 编辑器状态
 - `WebCutRail`、`WebCutSegment` — 时间线数据
-- `WebCutPushMeta` — 推入素材选项
+- `WebCutMaterialMeta` — 推入素材选项
 - `WebCutSource`、`WebCutSourceMeta` — 素材映射与持久化

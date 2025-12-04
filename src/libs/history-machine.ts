@@ -1,4 +1,4 @@
-import { HistoryState } from '../types';
+import { WebCutHistoryState } from '../types';
 import { pushProjectHistory, getProjectHistory, clearProjectHistory, moveProjectHistoryTo, getProjectState } from '../db';
 
 // 历史记录管理器类
@@ -7,7 +7,7 @@ export class HistoryMachine {
     id: string;
     projectId: string;
     timestamp: number;
-    state: HistoryState
+    state: WebCutHistoryState
   }[] = [];
   private currentIndex: number = -1;
   private projectId: string;
@@ -46,7 +46,7 @@ export class HistoryMachine {
   }
 
   // 保存当前状态到历史记录
-  async push(state: HistoryState): Promise<string | null> {
+  async push(state: WebCutHistoryState): Promise<string | null> {
     if (!this.isInitialized) {
       await this.init();
     }
@@ -83,7 +83,7 @@ export class HistoryMachine {
   }
 
   // 撤销操作
-  async undo(): Promise<HistoryState | null> {
+  async undo(): Promise<WebCutHistoryState | null> {
     if (!this.isInitialized) {
       await this.init();
     }
@@ -100,7 +100,7 @@ export class HistoryMachine {
   }
 
   // 重做操作
-  async redo(): Promise<HistoryState | null> {
+  async redo(): Promise<WebCutHistoryState | null> {
     if (!this.isInitialized) {
       await this.init();
     }
@@ -129,7 +129,7 @@ export class HistoryMachine {
   }
 
   // 获取当前历史记录状态
-  getCurrentState(): HistoryState | null {
+  getCurrentState(): WebCutHistoryState | null {
     return this.history[this.currentIndex]?.state;
   }
 

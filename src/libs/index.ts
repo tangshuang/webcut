@@ -1,13 +1,8 @@
 import { each, isNone, padLeft } from "ts-fns";
-import {
-  AudioClip,
-  ImgClip,
-  MP4Clip,
-  OffscreenSprite,
-  Combinator,
-} from '@webav/av-cliper';
+import { MP4Clip, AudioClip, OffscreenSprite, Combinator, ImgClip } from "@webav/av-cliper";
 import { base64ToFile, blobToBase64DataURL, fileToBase64DataURL } from './file';
-import { WebCutTextHighlight } from "../types";
+import { WebCutHighlightOfText } from "../types";
+import { blobToFile } from "./file";
 // @ts-ignore
 import toWav from 'audiobuffer-to-wav';
 
@@ -24,7 +19,7 @@ import toWav from 'audiobuffer-to-wav';
  *   )
  * )
  */
-export async function renderTxt2ImgBitmap(txt: string, css?: Record<string, any>, highlights?: WebCutTextHighlight[]): Promise<ImageBitmap> {
+export async function renderTxt2ImgBitmap(txt: string, css?: Record<string, any>, highlights?: WebCutHighlightOfText[]): Promise<ImageBitmap> {
     const imgEl = await createTxt2Img(txt, css, highlights);
     const cvs = new OffscreenCanvas(imgEl.width, imgEl.height);
     const ctx = cvs.getContext('2d');
@@ -38,7 +33,7 @@ export async function renderTxt2ImgBitmap(txt: string, css?: Record<string, any>
  * @param css - 应用于文本的 CSS 样式
  * @returns 渲染后的图片元素
  */
-async function createTxt2Img(text: string, css?: Record<string, any>, highlights?: WebCutTextHighlight[]): Promise<HTMLImageElement> {
+export async function createTxt2Img(text: string, css?: Record<string, any>, highlights?: WebCutHighlightOfText[]): Promise<HTMLImageElement> {
     const container = buildTextAsDOM({ text, css, highlights });
 
     document.body.appendChild(container);
@@ -90,7 +85,7 @@ export function buildTextAsDOM({
 }: {
     text: string,
     css?: Record<string, any>,
-    highlights?: WebCutTextHighlight[];
+    highlights?: WebCutHighlightOfText[];
 }) {
     const build = ({
         text,
@@ -100,7 +95,7 @@ export function buildTextAsDOM({
     }: {
         text: string,
         css: Record<string, any>,
-        highlights?: WebCutTextHighlight[];
+        highlights?: WebCutHighlightOfText[];
         /** 是否当前正在渲染高亮内容 */
         inline?: boolean;
     }) => {
@@ -406,66 +401,12 @@ export async function measureAudioDuration(source: File | string) {
  * @param css
  * @returns
  */
-export async function measureTextSize(text: string, css: Record<string, any>, highlights?: WebCutTextHighlight[]): Promise<{ height: number; width: number }> {
+export async function measureTextSize(text: string, css: Record<string, any>, highlights?: WebCutHighlightOfText[]): Promise<{ height: number; width: number }> {
     const bitmap = await renderTxt2ImgBitmap(text, css, highlights);
     const { height, width } = bitmap;
     return { height, width };
 }
 
-/**
- * 以离屏渲染的方式导出clips为blob
- * @param clips
- * @returns
- */
-export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>) {
-    let offsetTime = 0;
-    const com = new Combinator();
-    for (const clip of clips) {
-        await clip.ready;
-        const spr = new OffscreenSprite(clip);
-        spr.time.offset = offsetTime;
-        offsetTime += clip.meta.duration;
-        if (clip instanceof AudioClip) {
-            spr.rect.x = -1000;
-        }
-        await com.addSprite(spr);
-    }
-    const readable = com.output();
-    const reader = readable.getReader();
-    const chunks: any[] = [];
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            break;
-        }
-        chunks.push(value);
-    }
-    const blob = new Blob(chunks, { type: 'video/mp4' });
-    com.destroy();
-    return blob;
-}
-
-/**
- * 导出为wav音频
- * @param clips
- * @returns
- */
-export async function exportAsWavBlobOffscreen(clips: Array<AudioClip>) {
-    const mp4Blob = await exportBlobOffscreen(clips);
-    return await mp4BlobToWavBlob(mp4Blob);
-}
-
-export async function mp4BlobToWavBlob(mp4Blob: Blob): Promise<Blob> {
-    const arrbuff = await mp4Blob.arrayBuffer();
-    return new Promise((resolve, reject) => {
-        const audioCtx = new AudioContext();
-        audioCtx.decodeAudioData(arrbuff, function(audioBuffer) {
-            const arrbuff = toWav(audioBuffer);
-            const wavBlob = new Blob([arrbuff], { type: 'audio/wav' });
-            resolve(wavBlob);
-        }, reject);
-    });
-}
 
 /**
  * 自动调整矩形尺寸，以适应画布
@@ -522,4 +463,192 @@ export function formatTime(time: number): string {
     const msText = padLeft(ms + '', 3, '0');
 
     return `${hourText}:${minText}:${secText}.${msText}`;
+}
+
+
+export async function mp4ClipToBlob(clip: MP4Clip) {
+    await clip.ready;
+    const sprite = new OffscreenSprite(clip);
+
+    const { width, height, duration } = clip.meta;
+    Object.assign(sprite.rect, { w: width, h: height });
+    sprite.time.duration = duration;
+
+    const combiner = new Combinator({ width, height });
+    await combiner.addSprite(sprite, { main: true });
+
+    const headers = new Headers();
+    headers.set('Content-Type', 'video/mp4');
+    const readableStream = combiner.output();
+    const response = new Response(readableStream, { headers });
+
+    const blob = await response.clone().blob();
+
+    combiner.destroy();
+    sprite.destroy();
+    clip.destroy();
+
+    return blob;
+}
+
+export async function mp4ClipToFile(clip: MP4Clip) {
+    const blob = await mp4ClipToBlob(clip);
+    const file = blobToFile(blob, 'video.mp4');
+    return file;
+}
+
+export async function audioClipToFile(clip: AudioClip) {
+    await clip.ready;
+    const pcm = clip.getPCMData();
+    const sampleRate = clip.meta.sampleRate;
+    const wavBlob = pcmToWav(pcm, sampleRate);
+    const file = blobToFile(wavBlob, 'audio-clip-to-file.wav');
+    return file;
+}
+
+export function pcmToWav(pcmData: Float32Array[], sampleRate = 44100) {
+  // pcmData 预期格式为：[channel1Data, channel2Data, ...]
+  // 其中 channel1Data, channel2Data 是 Float32Array 或普通数字数组，包含该声道的样本数据
+
+  if (!pcmData || pcmData.length === 0 || !pcmData[0] || pcmData[0].length === 0) {
+    throw new Error("PCM 数据必须是一个包含声道数据的数组，且至少包含一个声道和一个样本。");
+  }
+
+  const numChannels = pcmData.length;
+  const numSamplesPerChannel = pcmData[0].length; // 假设所有声道长度相同
+
+  // （可选）验证所有声道是否具有相同数量的样本
+  for (let i = 1; i < numChannels; i++) {
+    if (!pcmData[i] || pcmData[i].length !== numSamplesPerChannel) {
+      throw new Error("所有声道必须包含相同数量的样本，并且是有效的数组。");
+    }
+  }
+
+  const bitsPerSample = 16;
+  const bytesPerSample = bitsPerSample / 8; // 对于16位PCM，每个样本2字节
+  const headerSize = 44; // WAV文件头的大小
+
+  // 音频数据的总字节数
+  const audioDataSize = numSamplesPerChannel * numChannels * bytesPerSample;
+  // 文件总大小 = 文件头大小 + 音频数据大小
+  const fileSize = headerSize + audioDataSize;
+
+  const buffer = new ArrayBuffer(fileSize);
+  const view = new DataView(buffer);
+
+  // --- WAV 文件头 ---
+  // 块ID "RIFF" (偏移量 0, 4字节)
+  view.setUint32(0, 0x52494646, false); // "RIFF" (大端序)
+  // 块大小 (偏移量 4, 4字节) = 文件总大小 - 8 (RIFF标识符和此字段本身的大小)
+  view.setUint32(4, fileSize - 8, true); // 小端序
+  // 格式 "WAVE" (偏移量 8, 4字节)
+  view.setUint32(8, 0x57415645, false); // "WAVE" (大端序)
+
+  // 子块1 ID "fmt " (偏移量 12, 4字节)
+  view.setUint32(12, 0x666d7420, false); // "fmt " (大端序)
+  // 子块1 大小 (偏移量 16, 4字节) - 对于PCM，通常为16
+  view.setUint32(16, 16, true); // 小端序
+  // 音频格式 (偏移量 20, 2字节) - 1 表示 PCM
+  view.setUint16(20, 1, true); // 小端序
+  // 声道数 (偏移量 22, 2字节)
+  view.setUint16(22, numChannels, true); // 小端序
+  // 采样率 (偏移量 24, 4字节)
+  view.setUint32(24, sampleRate, true); // 小端序
+  // 字节率 (偏移量 28, 4字节) = SampleRate * NumChannels * BitsPerSample/8
+  view.setUint32(28, sampleRate * numChannels * bytesPerSample, true); // 小端序
+  // 块对齐 (偏移量 32, 2字节) = NumChannels * BitsPerSample/8
+  view.setUint16(32, numChannels * bytesPerSample, true); // 小端序
+  // 每个样本的位数 (偏移量 34, 2字节)
+  view.setUint16(34, bitsPerSample, true); // 小端序
+
+  // 子块2 ID "data" (偏移量 36, 4字节)
+  view.setUint32(36, 0x64617461, false); // "data" (大端序)
+  // 子块2 大小 (偏移量 40, 4字节) = 音频数据的总字节数
+  view.setUint32(40, audioDataSize, true); // 小端序
+
+  // --- PCM 数据 ---
+  // 从文件头的末尾 (44字节处) 开始写入数据
+  let dataIndex = headerSize;
+  for (let i = 0; i < numSamplesPerChannel; i++) { // 遍历每个采样帧
+    for (let ch = 0; ch < numChannels; ch++) {    // 遍历当前采样帧的每个声道
+      // 获取浮点数样本值，并将其限制在 [-1.0, 1.0] 范围内
+      const sampleFloat = Math.max(-1, Math.min(1, pcmData[ch][i]));
+
+      // 将浮点数样本转换为16位有符号整数PCM值
+      let sampleInt;
+      if (sampleFloat < 0) {
+        sampleInt = sampleFloat * 0x8000; // 对于负数，乘以32768
+      } else {
+        sampleInt = sampleFloat * 0x7FFF; // 对于正数，乘以32767
+      }
+      // 确保转换后的值在16位有符号整数范围内 (尽管setInt16会自动处理溢出，但显式处理更佳)
+      // sampleInt = Math.max(-32768, Math.min(32767, Math.round(sampleInt))); // 可选：四舍五入
+
+      view.setInt16(dataIndex, sampleInt, true); // 以小端序写入16位有符号整数
+      dataIndex += bytesPerSample;
+    }
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+
+/**
+ * 以离屏渲染的方式导出clips为blob
+ * @param clips
+ * @returns
+ */
+export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>) {
+    let offsetTime = 0;
+    const com = new Combinator();
+    for (const clip of clips) {
+        await clip.ready;
+        const spr = new OffscreenSprite(clip);
+        spr.time.offset = offsetTime;
+        offsetTime += clip.meta.duration;
+        if (clip instanceof AudioClip) {
+            spr.rect.x = -1000;
+        }
+        await com.addSprite(spr);
+    }
+    const readable = com.output();
+    const reader = readable.getReader();
+    const chunks: any[] = [];
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+            break;
+        }
+        chunks.push(value);
+    }
+    const blob = new Blob(chunks, { type: 'video/mp4' });
+    com.destroy();
+    return blob;
+}
+
+/**
+ * 导出为wav音频
+ * @param clips
+ * @returns
+ */
+export async function exportAsWavBlobOffscreen(clips: Array<AudioClip>) {
+    const mp4Blob = await exportBlobOffscreen(clips);
+    return await mp4BlobToWavBlob(mp4Blob);
+}
+
+export async function mp4BlobToWavArrayBuffer(mp4Blob: Blob): Promise<ArrayBuffer> {
+    const arrbuff = await mp4Blob.arrayBuffer();
+    return new Promise((resolve, reject) => {
+        const audioCtx = new AudioContext();
+        audioCtx.decodeAudioData(arrbuff, function(audioBuffer) {
+            const arrbuff = toWav(audioBuffer);
+            resolve(arrbuff);
+        }, reject);
+    });
+}
+
+export async function mp4BlobToWavBlob(mp4Blob: Blob): Promise<Blob> {
+    const arrbuff = await mp4BlobToWavArrayBuffer(mp4Blob);
+    const wavBlob = new Blob([arrbuff], { type: 'audio/wav' });
+    return wavBlob;
 }

@@ -36,7 +36,7 @@ Utilities for text rendering, measurement, auto-fit, exporting, and timeline mat
 
 ## Media Helpers
 
-- `mp4ClipToFile(clip)`, `audioClipToFile(clip)`, `pcmToWav(pcm, sampleRate)` (see `src/libs/media.ts:4`)
+- `mp4ClipToFile(clip)`, `audioClipToFile(clip)`, `pcmToWav(pcm, sampleRate)` (see `src/libs/index.ts:4`)
 
 ## Timeline Math
 

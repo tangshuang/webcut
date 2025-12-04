@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, computed } from 'vue';
 import {
   NButton,
   NIcon,
   NUpload,
   NUploadDragger,
   NDropdown,
-  useMessage,
   useLoadingBar
 } from 'naive-ui';
 import { Add, Upload } from '@vicons/carbon';
@@ -17,9 +16,19 @@ import { useWebCutLocalFile } from '../../hooks/local-file';
 
 const { push } = useWebCutPlayer();
 const { projectFiles, files, addNewFile, removeFile } = useWebCutLibrary();
-const message = useMessage();
 const loadingBar = useLoadingBar();
 const { fileUrl } = useWebCutLocalFile();
+
+const allImageList = computed(() => {
+  const items = files.value.filter((file) => file.type.startsWith('image/')).sort((a, b) => (b.time || 0) - (a.time || 0));
+  return items;
+});
+const projectImageList = computed(() => {
+  const items = projectFiles.value.filter((file) => file.type.startsWith('image/')).sort((a, b) => (b.time || 0) - (a.time || 0));
+  return items;
+});
+
+
 
 const actionType = ref<'import' | 'this' | 'all'>('this');
 
@@ -60,17 +69,12 @@ function handleSelect(key: string | number) {
   showDropdown.value = false;
   if (key === 'delete' && currentFile.value) {
     removeFile(currentFile.value.id);
-    message.success('文件已删除');
   }
 }
 
 // 点击外部关闭菜单
 function onClickoutside() {
   showDropdown.value = false;
-}
-
-function filterImageFiles<T extends { type: string }>(files: T[]): T[] {
-  return files.filter((file) => file.type.startsWith('image/'));
 }
 
 async function handleAdd(material: any) {
@@ -111,7 +115,7 @@ async function handleAdd(material: any) {
 
       <scroll-box class="webcut-material-container" v-if="actionType === 'this'">
         <div class="webcut-material-list">
-          <div v-for="file in filterImageFiles(projectFiles)" :key="file.id" class="webcut-material-item"
+          <div v-for="file in projectImageList" :key="file.id" class="webcut-material-item"
             @contextmenu.stop="handleContextMenu($event, file)">
             <div class="webcut-material-preview">
               <img :src="fileUrl(file.id)" class="webcut-material-image" />
@@ -127,7 +131,7 @@ async function handleAdd(material: any) {
               {{ file.name }}
             </div>
           </div>
-          <div v-if="projectFiles.length === 0" class="webcut-empty-materials">
+          <div v-if="projectImageList.length === 0" class="webcut-empty-materials">
             暂无素材，请先导入素材
           </div>
         </div>
@@ -135,7 +139,7 @@ async function handleAdd(material: any) {
 
       <scroll-box class="webcut-material-container" v-if="actionType === 'all'">
         <div class="webcut-material-list">
-          <div v-for="file in filterImageFiles(files)" :key="file.id" class="webcut-material-item">
+          <div v-for="file in allImageList" :key="file.id" class="webcut-material-item">
             <div class="webcut-material-preview">
               <img :src="fileUrl(file.id)" class="webcut-material-image" />
               <n-button class="webcut-add-button" size="tiny" type="primary" circle @click="handleAdd(file)">
@@ -150,7 +154,7 @@ async function handleAdd(material: any) {
               {{ file.name }}
             </div>
           </div>
-          <div v-if="files.length === 0" class="webcut-empty-materials">
+          <div v-if="allImageList.length === 0" class="webcut-empty-materials">
             暂无素材，请先导入素材
           </div>
         </div>
