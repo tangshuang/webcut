@@ -1,4 +1,4 @@
-![logo](../webcut.png)
+![logo](webcut.png)
 
 # WebCut <small>文档</small>
 
