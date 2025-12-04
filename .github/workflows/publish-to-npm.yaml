@@ -1,0 +1,28 @@
+name: Publish To NPM
+on:
+  push:
+    ## only works on master branch
+    branches:
+      - master
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org/
+      - name: Install PNPM
+        run: npm install -g pnpm
+      - name: Install Dependencies
+        run: pnpm install --verbose
+      - name: Check Version
+        run: npx can-npm-publish
+      - name: Build
+        run: pnpm run build
+      - name: Publish
+        run: pnpm publish
+        env:
+          NPM_AUTH_TOKEN: ${{secrets.NPM_AUTH_TOKEN}}
