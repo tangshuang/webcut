@@ -5,12 +5,28 @@
 
 import { computed, inject, ref, provide, type WritableComputedRef, type ModelRef } from 'vue';
 import enUS from '../locales/en-US';
+import frFR from '../locales/fr-FR';
+import jaJP from '../locales/ja-JP';
+import deDE from '../locales/de-DE';
+import esES from '../locales/es-ES';
+import zhHK from '../locales/zh-HK';
+import zhTW from '../locales/zh-TW';
 import { useWebCutContext } from '.';
 
-// 语言包映射（只保留英文）
+// 语言包映射
 const langPkgs: Record<string, Record<string, string>> = {
   'en-US': enUS,
   'en': enUS,
+  'fr-FR': frFR,
+  'fr': frFR,
+  'ja-JP': jaJP,
+  'ja': jaJP,
+  'de-DE': deDE,
+  'de': deDE,
+  'es-ES': esES,
+  'es': esES,
+  'zh-HK': zhHK,
+  'zh-TW': zhTW,
 };
 
 /**
@@ -19,10 +35,11 @@ const langPkgs: Record<string, Record<string, string>> = {
 function getLangPkg(lang?: string): Record<string, string> | null {
   const language = lang || navigator.language || 'zh-CN';
 
-  // 如果是中文，返回 null，表示使用 key 作为显示内容
-  if (language === 'zh-CN' || language === 'zh' || language.startsWith('zh')) {
-    return null;
-  }
+  // 如果是简体中文，返回 null，表示使用 key 作为显示内容
+// 香港繁体和台湾繁体返回对应的语言包
+if (language === 'zh-CN' || (language === 'zh' && !language.startsWith('zh-HK') && !language.startsWith('zh-TW'))) {
+  return null;
+}
 
   // 尝试精确匹配
   if (langPkgs[language]) {
