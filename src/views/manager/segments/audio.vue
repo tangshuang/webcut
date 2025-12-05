@@ -3,7 +3,7 @@ import { AudioClip } from '@webav/av-cliper';
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, onMounted, ref } from 'vue';
 import { useWebCutContext } from '../../../hooks';
-import { useT } from '../../../hooks';
+import { useT } from '../../../hooks/i18n';
 
 const t = useT();
 import { useWebCutManager } from '../../../hooks/manager';

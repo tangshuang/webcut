@@ -3,7 +3,7 @@ import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useWebCutContext } from '../../../hooks';
 import { NForm, NFormItem, NInputNumber, NInputGroup, NButton, NInputGroupLabel } from 'naive-ui';
 import RotateInput from '../../../components/rotate-input/index.vue';
-import { useT } from '../../../hooks';
+import { useT } from '../../../hooks/i18n';
 import { autoFitRect } from '../../../libs';
 import { ImgClip, MP4Clip } from '@webav/av-cliper';
 

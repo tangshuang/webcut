@@ -2,28 +2,27 @@
 import { computed } from 'vue';
 import { NDropdown, NButton, NIcon } from 'naive-ui';
 import { Translate } from '@vicons/carbon';
-import { useWebCutLanguage, useT } from '../../hooks';
+import { useWebCutLocale } from '../../hooks/i18n';
 
-const { language } = useWebCutLanguage();
-const t = useT();
+const { locale } = useWebCutLocale();
 
 // 语言选项
 const languageOptions = computed(() => [
   {
     label: '中文',
     key: 'zh-CN',
-    disabled: language.value === 'zh-CN' || language.value === 'zh',
+    disabled: locale.value === 'zh-CN' || locale.value === 'zh',
   },
   {
     label: 'English',
     key: 'en-US',
-    disabled: language.value === 'en-US' || language.value === 'en',
+    disabled: locale.value === 'en-US' || locale.value === 'en',
   },
 ]);
 
 // 当前语言显示文本
 const currentLanguageLabel = computed(() => {
-  const lang = language.value || 'zh-CN';
+  const lang = locale.value || 'zh-CN';
   if (lang === 'zh-CN' || lang === 'zh' || lang.startsWith('zh')) {
     return '中文';
   }
@@ -35,7 +34,7 @@ const currentLanguageLabel = computed(() => {
 
 // 处理语言切换
 function handleSelectLanguage(key: string) {
-  language.value = key;
+  locale.value = key;
 }
 </script>
 

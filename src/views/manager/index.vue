@@ -12,7 +12,7 @@ import AdjustableBox, { AdjustEventData } from '../../components/adjustable-box/
 import { WebCutRail, WebCutSegment } from '../../types';
 import { Video } from '@vicons/carbon';
 import { NIcon } from 'naive-ui';
-import { useT } from '../../hooks';
+import { useT } from '../../hooks/i18n';
 import { useWebCutContext } from '../../hooks';
 
 export type WebCutManagerProps = {

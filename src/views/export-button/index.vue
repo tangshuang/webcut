@@ -2,7 +2,7 @@
 import { NButton, NIcon } from 'naive-ui';
 import { Export } from '@vicons/carbon';
 import { useWebCutContext, useWebCutPlayer } from '../../hooks';
-import { useT } from '../../hooks';
+import { useT } from '../../hooks/i18n';
 
 const { download } = useWebCutPlayer();
 const { sprites } = useWebCutContext();
@@ -14,6 +14,6 @@ const t = useT();
         <template #icon>
             <n-icon><Export /></n-icon>
         </template>
-        <slot>导出</slot>
+        <slot>{{ t('导出') }}</slot>
     </n-button>
 </template>

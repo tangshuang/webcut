@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { NTabs, NTabPane, NIcon } from 'naive-ui';
 import { VideoClip16Filled, MusicNote220Filled, Image24Filled, TextField24Regular } from '@vicons/fluent';
 import { WebCutMaterialType } from '../../types';
+import { useT } from '../../hooks/i18n';
 
 // 导入素材面板组件
 import VideoPanel from './video.vue';
@@ -12,6 +13,7 @@ import TextPanel from './text.vue';
 
 // 当前激活的 tab
 const activeTab = ref<WebCutMaterialType>('video');
+const t = useT();
 
 // 处理 tab 切换
 const handleTabChange = (key: string) => {
@@ -26,7 +28,7 @@ const handleTabChange = (key: string) => {
         <template #tab>
             <div class="webcut-library-tab">
                 <n-icon :component="VideoClip16Filled"></n-icon>
-                <span>视频</span>
+                <span>{{ t('视频') }}</span>
             </div>
         </template>
         <VideoPanel />
@@ -35,7 +37,7 @@ const handleTabChange = (key: string) => {
         <template #tab>
             <div class="webcut-library-tab">
                 <n-icon :component="MusicNote220Filled"></n-icon>
-                <span>音频</span>
+                <span>{{ t('音频') }}</span>
             </div>
         </template>
         <AudioPanel />
@@ -44,7 +46,7 @@ const handleTabChange = (key: string) => {
         <template #tab>
             <div class="webcut-library-tab">
                 <n-icon :component="Image24Filled"></n-icon>
-                <span>图片</span>
+                <span>{{ t('图片') }}</span>
             </div>
         </template>
         <ImagePanel />
@@ -53,7 +55,7 @@ const handleTabChange = (key: string) => {
         <template #tab>
             <div class="webcut-library-tab">
                 <n-icon :component="TextField24Regular"></n-icon>
-                <span>文本</span>
+                <span>{{ t('文本') }}</span>
             </div>
         </template>
         <TextPanel />

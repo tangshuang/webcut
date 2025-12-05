@@ -13,7 +13,7 @@ import { useWebCutLibrary } from '../../hooks/library';
 import ScrollBox from '../../components/scroll-box/index.vue';
 import { useWebCutPlayer } from '../../hooks';
 import { useWebCutLocalFile } from '../../hooks/local-file';
-import { useT } from '../../hooks';
+import { useT } from '../../hooks/i18n';
 
 const t = useT();
 
@@ -109,9 +109,9 @@ async function handleAdd(material: any) {
 <template>
   <div class="webcut-material-panel">
     <aside class="webcut-material-panel-aside">
-      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'this' }" @click="actionType = 'this'">当前</div>
-      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'import' }" @click="actionType = 'import'">导入</div>
-      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'all' }" @click="actionType = 'all'">全部</div>
+      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'this' }" @click="actionType = 'this'">{{ t('当前') }}</div>
+      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'import' }" @click="actionType = 'import'">{{ t('导入') }}</div>
+      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'all' }" @click="actionType = 'all'">{{ t('全部') }}</div>
     </aside>
 
     <!-- 右侧素材列表 -->
@@ -122,8 +122,8 @@ async function handleAdd(material: any) {
             <div>
               <n-icon :component="Upload" size="large"></n-icon>
             </div>
-            <div>拖拽视频到这里</div>
-            <div><small>或者点击上传</small></div>
+            <div>{{ t('拖拽视频到这里') }}</div>
+            <div><small>{{ t('或者点击上传') }}</small></div>
           </n-upload-dragger>
         </n-upload>
       </div>
@@ -146,7 +146,7 @@ async function handleAdd(material: any) {
             </div>
           </div>
           <div v-if="projectVideoList.length === 0" class="webcut-empty-materials">
-            暂无素材，请先导入素材
+            {{ t('暂无素材，请先导入素材') }}
           </div>
         </div>
       </scroll-box>
@@ -169,7 +169,7 @@ async function handleAdd(material: any) {
             </div>
           </div>
           <div v-if="allVideoList.length === 0" class="webcut-empty-materials">
-            暂无素材，请先导入素材
+            {{ t('暂无素材，请先导入素材') }}
           </div>
         </div>
       </scroll-box>

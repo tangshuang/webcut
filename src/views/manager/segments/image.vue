@@ -2,7 +2,7 @@
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed } from 'vue';
 import { useWebCutContext } from '../../../hooks';
-import { useT } from '../../../hooks';
+import { useT } from '../../../hooks/i18n';
 
 const t = useT();
 import { useWebCutLocalFile } from '../../../hooks/local-file';

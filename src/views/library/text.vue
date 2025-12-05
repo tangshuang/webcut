@@ -6,20 +6,22 @@ import {
 } from 'naive-ui';
 import { Add } from '@vicons/carbon';
 import { useWebCutPlayer } from '../../hooks';
+import { useT } from '../../hooks/i18n';
 
 const { push } = useWebCutPlayer();
 const actionType = ref<'create'>('create');
+const t = useT();
 
 function handleAdd() {
-  push('text', '默认文本');
+  push('text', t('默认文本'));
 }
 </script>
 
 <template>
   <div class="webcut-material-panel">
     <aside class="webcut-material-panel-aside">
-      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'create' }" @click="actionType = 'create'">新建文本</div>
-      <div class="webcut-material-panel-aside-btn" style="opacity: .4;">花字库</div>
+      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'create' }" @click="actionType = 'create'">{{ t('新建文本') }}</div>
+      <div class="webcut-material-panel-aside-btn" style="opacity: .4;">{{ t('花字库') }}</div>
     </aside>
 
     <!-- 右侧素材列表 -->
@@ -27,7 +29,7 @@ function handleAdd() {
       <div class="webcut-material-list" v-if="actionType === 'create'">
         <div class="webcut-material-item">
           <div class="webcut-material-preview">
-            <div>默认文本</div>
+            <div>{{ t('默认文本') }}</div>
             <n-button class="webcut-add-button" size="tiny" type="primary" circle @click="handleAdd">
               <template #icon>
                 <n-icon>

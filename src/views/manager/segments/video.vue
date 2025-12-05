@@ -3,7 +3,7 @@ import { MP4Clip } from '@webav/av-cliper';
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, ref, watch, onMounted, markRaw } from 'vue';
 import { useWebCutContext } from '../../../hooks';
-import { useT } from '../../../hooks';
+import { useT } from '../../../hooks/i18n';
 import { blobToBase64DataURL } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';

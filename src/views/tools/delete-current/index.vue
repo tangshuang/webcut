@@ -3,7 +3,7 @@ import { NIcon, NPopover, NButton } from 'naive-ui';
 import { Delete } from '@vicons/carbon';
 import { useWebCutContext } from '../../../hooks';
 import { useWebCutManager } from '../../../hooks/manager';
-import { useT } from '../../../hooks';
+import { useT } from '../../../hooks/i18n';
 
 const { rails, selected, current } = useWebCutContext();
 const { deleteSegment } = useWebCutManager();

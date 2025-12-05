@@ -15,6 +15,7 @@ export default {
   '垂直居中': 'Vertical Center',
 
   // Basic Panel
+  '基础': 'Basic',
   '位置': 'Position',
   '尺寸': 'Size',
   '旋转': 'Rotation',
@@ -35,6 +36,10 @@ export default {
 
   // Export
   '导出': 'Export',
+
+  // Tools
+  '撤销': 'Undo',
+  '重做': 'Redo',
 
   // Tooltips
   '清除选中': 'Clear Selection',

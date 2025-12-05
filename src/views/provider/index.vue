@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { WebCutContext, WebCutColors } from '../../types';
-import { useWebCutContext, useWebCutThemeColors, useWebCutDarkMode, useWebCutLanguage } from '../../hooks';
+import { useWebCutContext, useWebCutThemeColors, useWebCutDarkMode } from '../../hooks';
 import {
     NConfigProvider,
     darkTheme,
@@ -17,6 +17,7 @@ import {
     GlobalThemeOverrides,
 } from 'naive-ui';
 import { computed, inject, provide } from 'vue';
+import { useWebCutLocale } from '../../hooks/i18n';
 
 export interface WebCutProviderProps {
     data?: Partial<WebCutContext>;
@@ -30,7 +31,7 @@ const props = defineProps<WebCutProviderProps>();
 const { themeColors, provide: provideThemeColors } = useWebCutThemeColors(() => props.colors);
 const { provide: provideContext } = useWebCutContext(() => props.data);
 const { isDarkMode, provide: provideDarkMode } = useWebCutDarkMode(darkMode);
-const { language: currentLanguage, provide: provideLanguage } = useWebCutLanguage(language);
+const { locale: currentLanguage, provide: provideLanguage } = useWebCutLocale(language);
 
 const darkOverrides = computed<GlobalThemeOverrides>  (() => ({
     common: {

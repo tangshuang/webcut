@@ -76,8 +76,6 @@ export {
     useWebCutData,
     useWebCutThemeColors,
     useWebCutDarkMode,
-    useWebCutLanguage,
-    useT,
 } from './hooks';
 export {
     useWebCutManager,
@@ -88,6 +86,9 @@ export {
 export {
     useWebCutLocalFile,
 } from './hooks/local-file';
+export {
+    useWebCutLocale,
+} from './hooks/i18n';
 
 export {
     renderTxt2ImgBitmap,

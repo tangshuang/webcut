@@ -4,9 +4,11 @@ import TextSetting from './text/index.vue';
 import ScrollBox from '../../components/scroll-box/index.vue';
 import BasicSetting from './basic/index.vue';
 import { ref, watch } from 'vue';
+import { useT } from '../../hooks/i18n';
 
 const { currentRail, currentSegment } = useWebCutContext();
 const tab = ref('basic');
+const t = useT();
 
 watch(currentSegment, () => {
     tab.value = 'basic';
@@ -18,10 +20,10 @@ watch(currentSegment, () => {
     <div class="webcut-panel-header" v-if="currentRail">
       <div class="webcut-panel-tabs">
         <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!)" :class="{'webcut-panel-tab--active': tab === 'basic'}" @click="tab = 'basic'">
-          基础
+          {{ t('基础') }}
         </div>
         <div class="webcut-panel-tab" v-if="currentRail?.type === 'text'" :class="{'webcut-panel-tab--active': tab === 'text'}" @click="tab = 'text'">
-          文本
+          {{ t('文本') }}
         </div>
       </div>
     </div>
