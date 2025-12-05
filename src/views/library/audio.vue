@@ -13,6 +13,9 @@ import { useWebCutLibrary } from '../../hooks/library';
 import ScrollBox from '../../components/scroll-box/index.vue';
 import { useWebCutPlayer } from '../../hooks';
 import { useWebCutLocalFile } from '../../hooks/local-file';
+import { useT } from '../../hooks';
+
+const t = useT();
 
 const { push } = useWebCutPlayer();
 const { projectFiles, files, addNewFile, removeFile } = useWebCutLibrary();
@@ -37,12 +40,12 @@ const y = ref(0);
 const currentFile = ref<any>(null);
 
 // 右键菜单选项
-const options = [
+const options = computed(() => [
   {
-    label: '删除',
+    label: t('删除'),
     key: 'delete'
   }
-];
+]);
 
 async function handleFileChange(e: any) {
   const file = e.file.file;

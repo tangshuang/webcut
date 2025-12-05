@@ -2,6 +2,9 @@
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed } from 'vue';
 import { useWebCutContext } from '../../../hooks';
+import { useT } from '../../../hooks';
+
+const t = useT();
 import { useWebCutLocalFile } from '../../../hooks/local-file';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
@@ -28,7 +31,7 @@ const source = computed(() => {
 
 const contextmenus = computed(() => [
     {
-        label: '删除',
+        label: t('删除'),
         key: 'delete',
     },
 ]);

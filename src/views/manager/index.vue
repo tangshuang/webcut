@@ -12,7 +12,7 @@ import AdjustableBox, { AdjustEventData } from '../../components/adjustable-box/
 import { WebCutRail, WebCutSegment } from '../../types';
 import { Video } from '@vicons/carbon';
 import { NIcon } from 'naive-ui';
-import { useT } from '../../libs/i18n';
+import { useT } from '../../hooks';
 import { useWebCutContext } from '../../hooks';
 
 export type WebCutManagerProps = {
@@ -439,7 +439,7 @@ manager.value = exposes;
                     <div class="webcute__manager__main__rail webcute__manager__main__rail--empty" v-if="!props.disableEmptyRail && rails.length === 0">
                         <div class="webcute__manager__main__rail--empty__text">
                             <n-icon :component="Video" size="large"></n-icon>
-                            <small>{{ t('Select a video, begin your creation.') }}</small>
+                            <small>{{ t('选择一个视频，开始你的创作。') }}</small>
                         </div>
                     </div>
                     <slot name="mainRailsFooter"></slot>

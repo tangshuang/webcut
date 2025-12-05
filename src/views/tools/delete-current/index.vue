@@ -3,9 +3,11 @@ import { NIcon, NPopover, NButton } from 'naive-ui';
 import { Delete } from '@vicons/carbon';
 import { useWebCutContext } from '../../../hooks';
 import { useWebCutManager } from '../../../hooks/manager';
+import { useT } from '../../../hooks';
 
 const { rails, selected, current } = useWebCutContext();
 const { deleteSegment } = useWebCutManager();
+const t = useT();
 
 function handleDelete() {
     if (!current.value) {
@@ -34,7 +36,7 @@ function handleDelete() {
                 </template>
             </n-button>
         </template>
-        <small>删除当前选中</small>
+        <small>{{ t('删除当前选中') }}</small>
     </n-popover>
 </template>
 

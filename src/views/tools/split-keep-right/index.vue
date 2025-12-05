@@ -3,11 +3,13 @@ import { NIcon, NPopover, NButton, useLoadingBar } from 'naive-ui';
 import { PanelRight16Filled } from '@vicons/fluent';
 import { useWebCutContext } from '../../../hooks';
 import { useWebCutManager } from '../../../hooks/manager';
+import { useT } from '../../../hooks';
 import { computed } from 'vue';
 
 const { rails, selected, current, cursorTime } = useWebCutContext();
 const { splitSegment } = useWebCutManager();
 const loadingBar = useLoadingBar();
+const t = useT();
 
 const currentSelected = computed(() => {
     if (!current.value) {
@@ -62,7 +64,7 @@ async function handleSplit() {
                 </template>
             </n-button>
         </template>
-        <small>分割当前选中，只保留右侧</small>
+        <small>{{ t('分割当前选中，只保留右侧') }}</small>
     </n-popover>
 </template>
 

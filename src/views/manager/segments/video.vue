@@ -3,6 +3,7 @@ import { MP4Clip } from '@webav/av-cliper';
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, ref, watch, onMounted, markRaw } from 'vue';
 import { useWebCutContext } from '../../../hooks';
+import { useT } from '../../../hooks';
 import { blobToBase64DataURL } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
@@ -10,6 +11,8 @@ import { useWebCutHistory } from '../../../hooks/history';
 import { mp4ClipToFramesData, createImageFromVideoFrame } from '../../../libs';
 import AudioShape from '../../../components/audio-shape/index.vue';
 import { useScrollBox } from '../../../components/scroll-box';
+
+const t = useT();
 
 // 轨道容器中图片的高度
 const IMAGE_HEIGHT = 58;
@@ -149,7 +152,7 @@ async function updateThumbnails() {
 
 const contextmenus = computed(() => [
     {
-        label: '删除',
+        label: t('删除'),
         key: 'delete',
     },
 ]);

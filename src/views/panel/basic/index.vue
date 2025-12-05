@@ -3,7 +3,7 @@ import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useWebCutContext } from '../../../hooks';
 import { NForm, NFormItem, NInputNumber, NInputGroup, NButton, NInputGroupLabel } from 'naive-ui';
 import RotateInput from '../../../components/rotate-input/index.vue';
-import { useT } from '../../../libs/i18n';
+import { useT } from '../../../hooks';
 import { autoFitRect } from '../../../libs';
 import { ImgClip, MP4Clip } from '@webav/av-cliper';
 
@@ -115,7 +115,7 @@ function handlePutCenter(type: 'x' | 'y') {
 
 <template>
     <n-form size="small" label-placement="left" :label-width="40" label-align="left" class="webcut-panel-form">
-        <n-form-item :label="t('位置')" class="n-form-item--flex-column" :feedback="t('视频尺寸为{width}x{height}。', { width, height })">
+        <n-form-item label="位置" class="n-form-item--flex-column" :feedback="t('视频尺寸为{width}x{height}。', { width, height })">
             <n-input-group>
                 <n-input-group-label>X</n-input-group-label>
                 <n-input-number v-model:value="formData.x"></n-input-number>
@@ -127,7 +127,7 @@ function handlePutCenter(type: 'x' | 'y') {
                 <n-button secondary @click="handlePutCenter('y')">居中</n-button>
             </n-input-group>
         </n-form-item>
-        <n-form-item :label="t('尺寸')" class="n-form-item--flex-column" :feedback="currentSource?.type === 'text' ? '调整文本尺寸可能会改变文本展示效果，建议调整字体大小' : undefined">
+        <n-form-item label="尺寸" class="n-form-item--flex-column" :feedback="currentSource?.type === 'text' ? t('调整文本尺寸可能会改变文本展示效果，建议调整字体大小') : undefined">
             <n-input-group>
                 <n-input-group-label>W</n-input-group-label>
                 <n-input-number v-model:value="formData.w"></n-input-number>
@@ -142,7 +142,7 @@ function handlePutCenter(type: 'x' | 'y') {
                 <n-button size="small" @click="handleFitSize('cover_scale')">拉伸</n-button>
             </n-input-group>
         </n-form-item>
-        <n-form-item :label="t('旋转')" class="n-form-item--flex-start">
+        <n-form-item label="旋转" class="n-form-item--flex-start">
             <n-input-number v-model:value="formData.angle">
                 <template #suffix>rad</template>
             </n-input-number>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { WebCutContext, WebCutColors } from '../../types';
-import { useWebCutContext, useWebCutThemeColors, useWebCutDarkMode } from '../../hooks';
+import { useWebCutContext, useWebCutThemeColors, useWebCutDarkMode, useWebCutLanguage } from '../../hooks';
 import {
     NConfigProvider,
     darkTheme,
@@ -24,11 +24,13 @@ export interface WebCutProviderProps {
 }
 
 const darkMode = defineModel<boolean | null>('isDarkMode', { default: null });
+const language = defineModel<string | null>('language', { default: null });
 const props = defineProps<WebCutProviderProps>();
 
 const { themeColors, provide: provideThemeColors } = useWebCutThemeColors(() => props.colors);
 const { provide: provideContext } = useWebCutContext(() => props.data);
 const { isDarkMode, provide: provideDarkMode } = useWebCutDarkMode(darkMode);
+const { language: currentLanguage, provide: provideLanguage } = useWebCutLanguage(language);
 
 const darkOverrides = computed<GlobalThemeOverrides>  (() => ({
     common: {
@@ -84,7 +86,7 @@ const lightOverrides = computed<GlobalThemeOverrides>(() => ({
 const theme = computed(() => isDarkMode.value ? darkTheme : undefined);
 const overrides = computed(() => isDarkMode.value ? darkOverrides.value : lightOverrides.value);
 
-const lang = computed(() => props.data?.language || navigator.language);
+const lang = computed(() => currentLanguage.value || navigator.language);
 const lngPkg = computed(() => {
     if (['zh-HK', 'zh-TW'].includes(lang.value)) {
         return zhTW;
@@ -107,6 +109,7 @@ provide('WEBCUT_IN_PROVIDER', true);
 provideContext();
 provideThemeColors();
 provideDarkMode();
+provideLanguage();
 </script>
 
 <template>
