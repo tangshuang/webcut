@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NIcon, NPopover, NButton, useLoadingBar } from 'naive-ui';
+import { NIcon, NPopover, NButton } from 'naive-ui';
 import { PanelRight16Filled } from '@vicons/fluent';
 import { useWebCutContext } from '../../../hooks';
 import { useWebCutManager } from '../../../hooks/manager';
@@ -8,7 +8,6 @@ import { computed } from 'vue';
 
 const { rails, selected, current, cursorTime } = useWebCutContext();
 const { splitSegment } = useWebCutManager();
-const loadingBar = useLoadingBar();
 const t = useT();
 
 const currentSelected = computed(() => {
@@ -43,14 +42,11 @@ async function handleSplit() {
     }
 
     try {
-        loadingBar.start();
         const { segment, rail } = currentSelected.value;
         await splitSegment({ segment, rail, keep: 'right' });
-        loadingBar.finish();
     }
     catch (e) {
         console.error(e);
-        loadingBar.error();
     }
 }
 </script>
@@ -67,14 +63,3 @@ async function handleSplit() {
         <small>{{ t('分割当前选中，只保留右侧') }}</small>
     </n-popover>
 </template>
-
-<style scoped>
-:global(.webcut-tooltip) {
-    padding: 4px 8px !important;
-}
-.webcut-tool-button {
-    padding: 0;
-    width: 24px;
-    height: 24px;
-}
-</style>

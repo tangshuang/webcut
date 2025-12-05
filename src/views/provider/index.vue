@@ -301,4 +301,13 @@ provideLanguage();
 .webcut-root :deep(.n-form-item--small-size .n-input__textarea-el) {
     font-size: var(--webcut-small-form-font-size);
 }
+.webcut-root :deep(.webcut-tool-button) {
+    padding: 0;
+    width: 24px;
+    height: 24px;
+}
+
+:global(.webcut-tooltip) {
+  padding: 4px 8px !important;
+}
 </style>

@@ -6,7 +6,6 @@ import {
   NUpload,
   NUploadDragger,
   NDropdown,
-  useLoadingBar
 } from 'naive-ui';
 import { Add, Upload } from '@vicons/carbon';
 import { useWebCutLibrary } from '../../hooks/library';
@@ -19,7 +18,6 @@ const t = useT();
 
 const { push } = useWebCutPlayer();
 const { projectFiles, files, addNewFile, removeFile } = useWebCutLibrary();
-const loadingBar = useLoadingBar();
 const { fileUrl } = useWebCutLocalFile();
 
 const allImageList = computed(() => {
@@ -83,13 +81,10 @@ function onClickoutside() {
 async function handleAdd(material: any) {
   try {
     const { id } = material;
-    loadingBar.start();
     await push('image', `file:${id}`, { autoFitRect: 'contain' });
-    loadingBar.finish();
   }
   catch (e) {
     console.error(e);
-    loadingBar.error();
   }
 }
 </script>

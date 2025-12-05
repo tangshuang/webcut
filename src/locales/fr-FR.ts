@@ -45,9 +45,10 @@ export default {
   '清除选中': 'Effacer la sélection',
   '删除当前选中': 'Supprimer la sélection',
   '分割当前选中': 'Diviser la sélection',
-  '分割当前选中，只保留左侧': 'Diviser la sélection, conserver uniquement la partie gauche',
-  '分割当前选中，只保留右侧': 'Diviser la sélection, conserver uniquement la partie droite',
+  '分割当前选中，只保留左侧': 'Diviser la sélection, conserver seulement la gauche',
+  '分割当前选中，只保留右侧': 'Diviser la sélection, conserver seulement la droite',
   '水平翻转': 'Retourner horizontalement',
+  '将连续且相邻的素材拼接下载': 'Concaténer et télécharger les matériaux adjacents',
 
   // Library
   '当前': 'Actuel',

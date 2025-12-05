@@ -15,6 +15,7 @@ import WebCutDeleteCurrentTool from './views/tools/delete-current/index.vue';
 import WebCutSplitCurrentTool from './views/tools/split-current/index.vue';
 import WebCutSplitKeepLeftTool from './views/tools/split-keep-left/index.vue';
 import WebCutSplitKeepRightTool from './views/tools/split-keep-right/index.vue';
+import WebCutFlipHorizontalTool from './views/tools/flip-h/index.vue';
 import WebCutPanel from './views/panel/index.vue';
 import WebCutTextPanel from './views/panel/text/index.vue';
 import WebCutBasicPanel from './views/panel/basic/index.vue';
@@ -47,6 +48,7 @@ export {
     WebCutSplitCurrentTool,
     WebCutSplitKeepLeftTool,
     WebCutSplitKeepRightTool,
+    WebCutFlipHorizontalTool,
     WebCutEditor,
     WebCutSelectAspectRatio,
     WebCutTimeClock,

@@ -24,6 +24,7 @@ import SplitCurrent from '../tools/split-current/index.vue';
 import SplitKeepLeft from '../tools/split-keep-left/index.vue';
 import SplitKeepRight from '../tools/split-keep-right/index.vue';
 import FlipH from '../tools/flip-h/index.vue';
+import Concat from '../tools/concat/index.vue';
 // import Undo from '../tools/undo/index.vue';
 // import Redo from '../tools/redo/index.vue';
 import Panel from '../panel/index.vue';
@@ -127,6 +128,7 @@ function handleToggleLocked(rail: any) {
                                 <SplitKeepLeft></SplitKeepLeft>
                                 <SplitKeepRight></SplitKeepRight>
                                 <FlipH></FlipH>
+                                <Concat></Concat>
                                 <span style="margin:auto"></span>
                                 <WebCutManagerScaler></WebCutManagerScaler>
                             </div>

@@ -48,6 +48,7 @@ export default {
   '分割当前选中，只保留左侧': 'Dividir selección, mantener solo la izquierda',
   '分割当前选中，只保留右侧': 'Dividir selección, mantener solo la derecha',
   '水平翻转': 'Voltear horizontalmente',
+  '将连续且相邻的素材拼接下载': 'Concatenar y descargar materiales adyacentes',
 
   // Library
   '当前': 'Actual',

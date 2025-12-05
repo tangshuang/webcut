@@ -598,18 +598,58 @@ export function pcmToWav(pcmData: Float32Array[], sampleRate = 44100) {
  * @param clips
  * @returns
  */
-export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>) {
+export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>, options?: {
+    type?: string;
+    size?: {
+        width: number;
+        height: number;
+    };
+    /** 主素材索引，最终导出的视频时长以该素材的时长为duration，多余的部分被截断 */
+    main?: number;
+}) {
+    const {
+        type = 'video/mp4',
+        size,
+        main,
+    } = options || {};
+
+    let width, height;
+    if (size) {
+        width = size.width;
+        height = size.height;
+    }
+    else if (typeof main === 'number' && clips[main] && (clips[main] instanceof MP4Clip || clips[main] instanceof ImgClip)) {
+        const mainClip = clips[main];
+        await mainClip.ready;
+        width = mainClip.meta.width;
+        height = mainClip.meta.height;
+    }
+    else if (clips.some(clip => clip instanceof MP4Clip || clip instanceof ImgClip)) {
+        const mainClip = clips.find(clip => clip instanceof MP4Clip || clip instanceof ImgClip)!;
+        await mainClip.ready;
+        width = mainClip.meta.width;
+        height = mainClip.meta.height;
+    }
+
     let offsetTime = 0;
-    const com = new Combinator();
+    const com = new Combinator({ width, height });
     for (const clip of clips) {
         await clip.ready;
         const spr = new OffscreenSprite(clip);
+
         spr.time.offset = offsetTime;
         offsetTime += clip.meta.duration;
-        if (clip instanceof AudioClip) {
-            spr.rect.x = -1000;
+
+        if (width && height && (clip instanceof MP4Clip || clip instanceof ImgClip)) {
+            const calcRect = autoFitRect({ width, height }, clip.meta, 'contain');
+            Object.assign(spr.rect, calcRect);
         }
-        await com.addSprite(spr);
+
+        if (clip instanceof AudioClip) {
+            spr.rect.y = -1000;
+        }
+
+        await com.addSprite(spr, { main: typeof main === 'number' && clip === clips[main] });
     }
     const readable = com.output();
     const reader = readable.getReader();
@@ -621,7 +661,7 @@ export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | Audio
         }
         chunks.push(value);
     }
-    const blob = new Blob(chunks, { type: 'video/mp4' });
+    const blob = new Blob(chunks, { type });
     com.destroy();
     return blob;
 }

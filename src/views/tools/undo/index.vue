@@ -20,14 +20,3 @@ const t = useT();
         <small>{{ t('撤销') }}</small>
     </n-popover>
 </template>
-
-<style scoped>
-:global(.webcut-tooltip) {
-    padding: 4px 8px !important;
-}
-.webcut-tool-button {
-    padding: 0;
-    width: 24px;
-    height: 24px;
-}
-</style>
