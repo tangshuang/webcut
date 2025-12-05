@@ -47,6 +47,7 @@ export default {
   '分割当前选中': 'Auswahl teilen',
   '分割当前选中，只保留左侧': 'Auswahl teilen, nur links behalten',
   '分割当前选中，只保留右侧': 'Auswahl teilen, nur rechts behalten',
+  '水平翻转': 'Horizontal spiegeln',
 
   // Library
   '当前': 'Aktuell',

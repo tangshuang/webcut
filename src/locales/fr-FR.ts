@@ -47,6 +47,7 @@ export default {
   '分割当前选中': 'Diviser la sélection',
   '分割当前选中，只保留左侧': 'Diviser la sélection, conserver uniquement la partie gauche',
   '分割当前选中，只保留右侧': 'Diviser la sélection, conserver uniquement la partie droite',
+  '水平翻转': 'Retourner horizontalement',
 
   // Library
   '当前': 'Actuel',

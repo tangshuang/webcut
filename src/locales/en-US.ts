@@ -47,6 +47,7 @@ export default {
   '分割当前选中': 'Split Selected',
   '分割当前选中，只保留左侧': 'Split Selected, Keep Left Only',
   '分割当前选中，只保留右侧': 'Split Selected, Keep Right Only',
+  '水平翻转': 'Flip Horizontal',
 
   // Library
   '当前': 'Current',

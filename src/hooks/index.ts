@@ -498,6 +498,9 @@ export function useWebCutPlayer() {
         if (typeof meta.zIndex === 'number') {
             spr.zIndex = meta.zIndex;
         }
+        if (meta.flip) {
+            spr.flip = meta.flip;
+        }
 
         sprites.value.push(markRaw(spr));
 
