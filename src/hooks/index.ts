@@ -42,7 +42,6 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         current: null,
         canUndo: false,
         canRedo: false,
-        language: navigator.language,
     };
 
     const providedContextValue = providedContext?.();

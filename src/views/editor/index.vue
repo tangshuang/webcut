@@ -8,6 +8,7 @@ import WebCutManager from '../manager/index.vue';
 import WebCutManagerScaler from '../manager/scaler/index.vue';
 import { useWebCutContext, useWebCutPlayer, useWebCutThemeColors, useWebCutDarkMode } from '../../hooks';
 import ThemeSwitch from '../theme-switch/index.vue';
+import LangSwitch from '../lang-switch/index.vue';
 import WebCutSelectAspectRatio from '../select-aspect-ratio/index.vue';
 import WebCutTimeClock from '../time-clock/index.vue';
 import WebCutLibrary from '../library/index.vue';
@@ -27,8 +28,10 @@ import SplitKeepRight from '../tools/split-keep-right/index.vue';
 import Panel from '../panel/index.vue';
 import ExportButton from '../export-button/index.vue';
 import { WebCutColors } from '../../types';
+import { useWebCutLocale } from '../../hooks/i18n';
 
 const darkMode = defineModel<boolean | null | undefined>('darkMode', { default: null });
+const language = defineModel<string | null | undefined>('language', { default: null });
 const props = defineProps<{
     projectId?: string;
     colors?: Partial<WebCutColors>;
@@ -39,6 +42,7 @@ const props = defineProps<{
 useWebCutContext(() => props.projectId ? { id: props.projectId } : undefined);
 useWebCutThemeColors(() => props.colors);
 useWebCutDarkMode(darkMode);
+useWebCutLocale(language);
 
 const { resize } = useWebCutPlayer();
 const { resizeManagerMaxHeight, toggleRailHidden, toggleRailMute } = useWebCutManager();
@@ -91,6 +95,7 @@ function handleToggleLocked(rail: any) {
                                         <div class="webcut-editor-right-side-top-bar" v-if="!props.disableTopRightBar">
                                             <ThemeSwitch></ThemeSwitch>
                                             <span style="margin: auto;"></span>
+                                            <LangSwitch></LangSwitch>
                                             <ExportButton></ExportButton>
                                         </div>
                                         <div class="webcut-editor-right-side-main">
@@ -253,7 +258,7 @@ function handleToggleLocked(rail: any) {
 .webcut-editor-right-side-top-bar {
     display: flex;
     flex-direction: row;
-    gap: 4px;
+    gap: 8px;
     align-items: center;
     justify-content: space-between;
     padding: 4px;

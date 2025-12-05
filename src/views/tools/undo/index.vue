@@ -2,8 +2,10 @@
 import { NIcon, NPopover, NButton } from 'naive-ui';
 import { Undo } from '@vicons/carbon';
 import { useWebCutHistory } from '../../../hooks/history';
+import { useT } from '../../../hooks/i18n';
 
 const { canUndo, undo } = useWebCutHistory();
+const t = useT();
 </script>
 
 <template>
@@ -15,7 +17,7 @@ const { canUndo, undo } = useWebCutHistory();
                 </template>
             </n-button>
         </template>
-        <small>撤销</small>
+        <small>{{ t('撤销') }}</small>
     </n-popover>
 </template>
 

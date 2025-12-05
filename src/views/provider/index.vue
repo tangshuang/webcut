@@ -17,6 +17,7 @@ import {
     GlobalThemeOverrides,
 } from 'naive-ui';
 import { computed, inject, provide } from 'vue';
+import { useWebCutLocale } from '../../hooks/i18n';
 
 export interface WebCutProviderProps {
     data?: Partial<WebCutContext>;
@@ -24,11 +25,13 @@ export interface WebCutProviderProps {
 }
 
 const darkMode = defineModel<boolean | null>('isDarkMode', { default: null });
+const language = defineModel<string | null>('language', { default: null });
 const props = defineProps<WebCutProviderProps>();
 
 const { themeColors, provide: provideThemeColors } = useWebCutThemeColors(() => props.colors);
 const { provide: provideContext } = useWebCutContext(() => props.data);
 const { isDarkMode, provide: provideDarkMode } = useWebCutDarkMode(darkMode);
+const { locale: currentLanguage, provide: provideLanguage } = useWebCutLocale(language);
 
 const darkOverrides = computed<GlobalThemeOverrides>  (() => ({
     common: {
@@ -84,7 +87,7 @@ const lightOverrides = computed<GlobalThemeOverrides>(() => ({
 const theme = computed(() => isDarkMode.value ? darkTheme : undefined);
 const overrides = computed(() => isDarkMode.value ? darkOverrides.value : lightOverrides.value);
 
-const lang = computed(() => props.data?.language || navigator.language);
+const lang = computed(() => currentLanguage.value || navigator.language);
 const lngPkg = computed(() => {
     if (['zh-HK', 'zh-TW'].includes(lang.value)) {
         return zhTW;
@@ -107,6 +110,7 @@ provide('WEBCUT_IN_PROVIDER', true);
 provideContext();
 provideThemeColors();
 provideDarkMode();
+provideLanguage();
 </script>
 
 <template>

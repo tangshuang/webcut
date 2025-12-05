@@ -2,10 +2,13 @@
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed } from 'vue';
 import { useWebCutContext } from '../../../hooks';
+import { useT } from '../../../hooks/i18n';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutHistory } from '../../../hooks/history';
 import { clone } from 'ts-fns';
+
+const t = useT();
 
 const props = defineProps<{
     segment: WebCutSegment;
@@ -27,7 +30,7 @@ const source = computed(() => {
 
 const contextmenus = computed(() => [
     {
-        label: '删除',
+        label: t('删除'),
         key: 'delete',
     },
 ]);

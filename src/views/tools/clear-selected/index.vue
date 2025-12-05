@@ -2,8 +2,10 @@
 import { NIcon, NPopover, NButton } from 'naive-ui';
 import { Broom16Regular } from '@vicons/fluent';
 import { useWebCutContext } from '../../../hooks';
+import { useT } from '../../../hooks/i18n';
 
 const { selected, current } = useWebCutContext();
+const t = useT();
 
 function handleClear() {
     selected.value = [];
@@ -20,7 +22,7 @@ function handleClear() {
                 </template>
             </n-button>
         </template>
-        <small>清除选中</small>
+        <small>{{ t('清除选中') }}</small>
     </n-popover>
 </template>
 

@@ -2,7 +2,7 @@
 import { NButton, NIcon } from 'naive-ui';
 import { Export } from '@vicons/carbon';
 import { useWebCutContext, useWebCutPlayer } from '../../hooks';
-import { useT } from '../../libs/i18n';
+import { useT } from '../../hooks/i18n';
 
 const { download } = useWebCutPlayer();
 const { sprites } = useWebCutContext();

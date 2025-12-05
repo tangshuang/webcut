@@ -31,8 +31,6 @@ export type WebCutContext = {
     // 当结束停止时，自动reset为第一帧
     autoResetWhenStop: boolean;
 
-    language: string;
-
     // 帧率
     fps: number;
 

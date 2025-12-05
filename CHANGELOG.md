@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.12](https://github.com/tangshuang/webcut/compare/v0.1.11...v0.1.12) (2025-12-05)
+
+
+### Features
+
+* 更新和完善了多语言体系，现在可以支持英文了 ([a47fb25](https://github.com/tangshuang/webcut/commit/a47fb255517c490207a35bc87bc10fcdbb91ccb8))
+* 完善多语言支持，目前仅增加英语 ([da392b3](https://github.com/tangshuang/webcut/commit/da392b327a46bbd87d73031dd8d148b6b482e781))
+* 新增多个语言 ([3529d5f](https://github.com/tangshuang/webcut/commit/3529d5f12d8828ffc2b73de92b3039a66170755a))
+
 ### [0.1.11](https://github.com/tangshuang/webcut/compare/v0.1.10...v0.1.11) (2025-12-04)
 
 

@@ -3,6 +3,9 @@ import { AudioClip } from '@webav/av-cliper';
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, onMounted, ref } from 'vue';
 import { useWebCutContext } from '../../../hooks';
+import { useT } from '../../../hooks/i18n';
+
+const t = useT();
 import { useWebCutManager } from '../../../hooks/manager';
 import AudioShape from '../../../components/audio-shape/index.vue';
 import { useScrollBox } from '../../../components/scroll-box';
@@ -62,7 +65,7 @@ onMounted(() => {
 
 const contextmenus = computed(() => [
     {
-        label: '删除',
+        label: t('删除'),
         key: 'delete',
     },
 ]);

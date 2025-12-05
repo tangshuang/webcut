@@ -1,6 +1,6 @@
 {
   "name": "webcut",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "A powerful video editing canvas UI library for web applications",
   "main": "esm/index.js",
   "module": "esm/index.js",
