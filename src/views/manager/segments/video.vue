@@ -4,13 +4,14 @@ import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, ref, watch, onMounted, markRaw } from 'vue';
 import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../hooks/i18n';
-import { blobToBase64DataURL, downloadBlob } from '../../../libs/file';
+import { downloadBlob } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutHistory } from '../../../hooks/history';
 import { mp4ClipToFramesData, createImageFromVideoFrame, exportBlobOffscreen } from '../../../libs';
 import AudioShape from '../../../components/audio-shape/index.vue';
 import { useScrollBox } from '../../../components/scroll-box';
+import { PerformanceMark, mark, measure } from '../../../libs/performance';
 
 const t = useT();
 
@@ -50,6 +51,15 @@ watch(source, initThumbnailsAndAudioWave, { immediate: true });
 
 watch(scale, updateThumbnails);
 
+const createImgUrl = (imgBlob: Blob) => {
+    const url = URL.createObjectURL(imgBlob);
+    // 释放内存，这些图片都是一次性使用的，下次还会再生成，因此，可以立即释放
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+    }, 1000);
+    return url;
+};
+
 async function initThumbnailsAndAudioWave() {
     try {
         if (!source.value) {
@@ -60,6 +70,9 @@ async function initThumbnailsAndAudioWave() {
             return;
         }
 
+        await clip.ready;
+        await sprite.ready;
+
         const dur = sprite.time.duration;
         const totalWidth = timeToPx(dur);
 
@@ -69,7 +82,10 @@ async function initThumbnailsAndAudioWave() {
         const realWidthPerImg = IMAGE_HEIGHT * originalWidth / originalHeight;
         sourceImageWidth.value = realWidthPerImg;
 
+        mark(PerformanceMark.GenVideoSegmentFirstThumbStart);
+        let isFirstThumbGen = false;
         sourceFrames.value = [];
+        // 通过iteratorCallback在迭代过程中逐一加载图片，从而提升首次渲染图片列表的性能
         const iteratorCallback = async (data: { video: VideoFrame, ts: number, index: number }) => {
             const { video, ts, index } = data;
             const imgBlob = await createImageFromVideoFrame(video, { width: realWidthPerImg });
@@ -81,8 +97,9 @@ async function initThumbnailsAndAudioWave() {
                 offset,
             };
             sourceFrames.value[index] = markRaw(frame);
-            video.close();
+            video.close(); // 关闭VideoFrame
 
+            // 第一次加载在载入缩略图
             let currEndPx = 0;
             for (let i = 0; i < sourceFrames.value.length; i ++) {
                 const item = sourceFrames.value[i];
@@ -94,13 +111,19 @@ async function initThumbnailsAndAudioWave() {
                     continue;
                 }
                 currEndPx = itemStartPx + realWidthPerImg;
-                if (thumbnails.value[i]) {
+
+                if (i < index) {
                     continue;
                 }
-                thumbnails.value[i] = {
-                    url: await blobToBase64DataURL(imgBlob),
+                const url = createImgUrl(imgBlob);
+                thumbnails.value.push({
+                    url,
                     left: itemStartPx,
-                };
+                });
+                if (!isFirstThumbGen) {
+                    isFirstThumbGen = true;
+                    mark(PerformanceMark.GenVideoSegmentFirstThumbEnd);
+                }
             }
         }
 
@@ -115,6 +138,19 @@ async function initThumbnailsAndAudioWave() {
         }
         else {
             audioF32.value = null;
+        }
+
+        if (import.meta.env.DEV) {
+            measure(PerformanceMark.PushVideoStart, PerformanceMark.PushVideoEnd);
+            measure(PerformanceMark.GenVideoClipStart, PerformanceMark.GenVideoClipEnd);
+            measure(PerformanceMark.MeasureVideoSizeStart, PerformanceMark.MeasureVideoSizeEnd);
+            measure(PerformanceMark.GenVideoClipEnd, PerformanceMark.VideoSpriteAddStart);
+            measure(PerformanceMark.VideoSpriteAddStart, PerformanceMark.VideoSpriteAddEnd);
+            measure(PerformanceMark.VideoSpriteAddEnd, PerformanceMark.VideoSegmentAdded);
+
+            measure(PerformanceMark.GenVideoSegmentFirstThumbStart, PerformanceMark.GenVideoSegmentFirstThumbEnd);
+            measure(PerformanceMark.ConvertMP4ClipToFramesStart, PerformanceMark.ConvertMP4ClipToFramesEnd);
+            measure(PerformanceMark.GenImageFromVideoFrameStart, PerformanceMark.GenImageFromVideoFrameEnd);
         }
     }
     catch (e) {
@@ -133,7 +169,7 @@ async function updateThumbnails() {
     const widthPerImage = sourceImageWidth.value;
 
     const outs: any[] = [{
-        url: await blobToBase64DataURL(sourceFrames.value[0].blob),
+        url: createImgUrl(sourceFrames.value[0].blob),
         left: 0,
     }];
 
@@ -149,7 +185,7 @@ async function updateThumbnails() {
             continue;
         }
         outs.push({
-            url: await blobToBase64DataURL(item.blob),
+            url: createImgUrl(item.blob),
             left: itemStartPx,
         });
         currEndPx = itemStartPx + widthPerImage;
@@ -225,12 +261,12 @@ onMounted(() => {
     <context-menu :options="contextmenus" auto-hide v-slot="{ showContextMenus }" @select="handleSelectContextMenu">
         <div class="webcut-video-segment" @contextmenu.capture.stop="showContextMenus" :style="{ '--segment-total-width': totalWidth + 'px', '--thumb-img-height': IMAGE_HEIGHT + 'px', '--audio-wave-height': AUDIO_HEIGHT + 'px' }">
             <div
-                v-for="thumbnail in thumbnails.filter(Boolean)"
+                v-for="thumbnail,index in thumbnails.filter(Boolean)"
                 :key="thumbnail.left"
                 :style="{
                     left: `${thumbnail.left}px`,
                     backgroundImage: `url(${thumbnail.url})`,
-                    width: (totalWidth - thumbnail.left) + 'px',
+                    width: thumbnails.filter(Boolean)[index + 1] ? (totalWidth - thumbnail.left) + 'px' : sourceImageWidth * 2 + 'px',
                 }"
                 class="webcut-video-segment-thumbnail"
             ></div>

@@ -10,10 +10,11 @@ import {
 import { base64ToFile, downloadBlob } from '../libs/file';
 import { assignNotEmpty } from '../libs/object';
 import { isEmpty, createRandomString, clone, assign } from 'ts-fns';
-import { mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
+import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
 import { WebCutHighlightOfText, WebCutMaterialMeta } from '../types';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { readFile, writeFile } from '../db';
+import { PerformanceMark, mark } from '../libs/performance';
 
 let context: WebCutContext | null | undefined = null;
 export function useWebCutContext(providedContext?: () => Partial<WebCutContext> | undefined | null) {
@@ -364,6 +365,7 @@ export function useWebCutPlayer() {
             const volume = meta.video?.volume;
             const offset = meta.video?.offset;
             const options = typeof volume === 'undefined' ? {} : typeof volume === 'number' && volume > 0 ? { audio: { volume }} : { audio: false };
+            mark(PerformanceMark.GenVideoClipStart);
             if (source instanceof File) {
                 file = source;
                 fileId = await writeFile(source);
@@ -387,6 +389,7 @@ export function useWebCutPlayer() {
                 url = source;
                 clip = new MP4Clip(res.body!, options);
             }
+            mark(PerformanceMark.GenVideoClipEnd);
             if (offset) {
                 const [clip1, clip2] = await clip.split(offset);
                 clip1.destroy();
@@ -451,13 +454,18 @@ export function useWebCutPlayer() {
             }
         }
         else if (type === 'text') {
-            const info = await initTextMaterial(source as string, meta.text?.css, segMeta.text?.highlights || []);
+            const info: Awaited<ReturnType<typeof initTextMaterial>> = await initTextMaterial(source as string, meta.text?.css, segMeta.text?.highlights || []);
             assign(segMeta, 'text.css', info.css);
             clip = new ImgClip(info.bitmap);
             text = source as string;
         }
+        else {
+            throw new Error(`Unknown type: ${type}`);
+        }
         clips.value.push(markRaw(clip!));
         const spr = new VisibleSprite(clip!);
+
+        // 处理rect
         if (meta.rect) {
             assignNotEmpty(spr.rect, meta.rect);
         }
@@ -479,6 +487,8 @@ export function useWebCutPlayer() {
         if (type === 'audio') {
             spr.rect.y = -1000000000;
         }
+
+        // 处理开始时间
         if (typeof meta.time?.start === 'number') {
             spr.time.offset = meta.time.start;
         }
@@ -486,12 +496,24 @@ export function useWebCutPlayer() {
         else {
             spr.time.offset = cursorTime.value;
         }
+
+        // 处理时长
         if (typeof meta.time?.duration === 'number') {
             spr.time.duration = meta.time.duration;
         }
-        else if (type === 'image' || type === 'text') {
+        else if (type === 'video') {
+            const src = (file || url) as string;
+            spr.time.duration = await measureVideoDuration(src) * 1e6;
+        }
+        else if (type === 'audio') {
+            const src = (file || url) as string;
+            spr.time.duration = await measureAudioDuration(src) * 1e6;
+        }
+        else {
             spr.time.duration = 2 * 1e6;
         }
+
+        // 处理其他信息
         if (typeof meta.time?.playbackRate === 'number') {
             spr.time.playbackRate = meta.time.playbackRate;
         }
@@ -505,8 +527,6 @@ export function useWebCutPlayer() {
         sprites.value.push(markRaw(spr));
 
         const key = meta.id || createRandomString(16);
-
-        await canvas.value?.addSprite(spr);
 
         const { withRailId, withSegmentId } = meta;
         const segment = {
@@ -552,16 +572,17 @@ export function useWebCutPlayer() {
             }
             rail.segments.push(segment);
 
-            // 对rails进行重排，audio类型放在main的下方，其他类型放在main的上方
             const audioRails = latestRails.filter(item => item.type === 'audio');
-            const otherRails = latestRails.filter(item => item.type !== 'audio' && !item.main);
-            const mainRail = latestRails.find(item => item.main);
-            const finalRails = [...audioRails];
-            if (mainRail) {
-                finalRails.push(mainRail);
-            }
-            finalRails.push(...otherRails);
-            rails.value = finalRails;
+            const otherRails = latestRails.filter(item => item.type !== 'audio');
+            // 对rails进行重排，audio类型放在main的下方，其他类型放在main的上方
+            // const otherRails = latestRails.filter(item => item.type !== 'audio' && !item.main);
+            // const mainRail = latestRails.find(item => item.main);
+            // const finalRails = [...audioRails];
+            // if (mainRail) {
+            //     finalRails.push(mainRail);
+            // }
+            // finalRails.push(...otherRails);
+            rails.value = [...audioRails, ...otherRails];
             railId = rail.id;
         }
 
@@ -579,7 +600,19 @@ export function useWebCutPlayer() {
             meta: sourceMeta,
         });
 
+        if (type === 'video') {
+            mark(PerformanceMark.VideoSpriteAddStart);
+        }
+        await canvas.value?.addSprite(spr);
+        if (type === 'video') {
+            mark(PerformanceMark.VideoSpriteAddEnd);
+        }
+
         // TODO 监听spr，当属性发生变化时，更新sourceMeta
+
+        if (type === 'video') {
+            mark(PerformanceMark.VideoSegmentAdded);
+        }
 
         return key;
     }

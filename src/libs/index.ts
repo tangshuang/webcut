@@ -5,6 +5,7 @@ import { WebCutHighlightOfText } from "../types";
 import { blobToFile } from "./file";
 // @ts-ignore
 import toWav from 'audiobuffer-to-wav';
+import { PerformanceMark, mark } from './performance';
 
 /**
  * 将文本渲染为 {@link ImageBitmap}，用来创建 {@link ImgClip}
@@ -310,22 +311,34 @@ export function textToCss(text: string) {
  * @returns
  */
 export async function measureVideoSize(source: File | string) {
-    let clip: MP4Clip;
+    mark(PerformanceMark.MeasureVideoSizeStart);
+    let url: string;
     if (source instanceof File) {
-        clip = new MP4Clip(source.stream());
+        url = URL.createObjectURL(source);
     }
     else if (source.startsWith('data:')) {
         const file = base64ToFile(source, 'video.mp4', 'video/mp4');
-        clip = new MP4Clip(file.stream());
+        url = URL.createObjectURL(file);
     }
     else {
-        const res = await fetch(source);
-        clip = new MP4Clip(res.body!);
+        url = source;
     }
-    await clip.ready;
-    const { width, height } = clip.meta;
-    clip.destroy();
-    return { width, height };
+
+    const videoEl = document.createElement('video');
+    videoEl.src = url;
+    videoEl.preload = 'metadata';
+    await new Promise((resolve) => {
+        videoEl.onloadedmetadata = resolve;
+    });
+
+    const { videoWidth, videoHeight } = videoEl;
+    videoEl.src = '';
+    if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+    }
+
+    mark(PerformanceMark.MeasureVideoSizeEnd);
+    return { width: videoWidth, height: videoHeight };
 }
 
 export async function measureImageSize(source: File | string) {
@@ -353,21 +366,31 @@ export async function measureImageSize(source: File | string) {
  * @returns
  */
 export async function measureVideoDuration(source: File | string) {
-    let clip: MP4Clip;
+    let url: string;
     if (source instanceof File) {
-        clip = new MP4Clip(source.stream());
+        url = URL.createObjectURL(source);
     }
     else if (source.startsWith('data:')) {
         const file = base64ToFile(source, 'video.mp4', 'video/mp4');
-        clip = new MP4Clip(file.stream());
+        url = URL.createObjectURL(file);
     }
     else {
-        const res = await fetch(source);
-        clip = new MP4Clip(res.body!);
+        url = source;
     }
-    await clip.ready;
-    const { duration } = clip.meta;
-    clip.destroy();
+
+    const videoEl = document.createElement('video');
+    videoEl.src = url;
+    videoEl.preload = 'metadata';
+    await new Promise((resolve) => {
+        videoEl.onloadedmetadata = resolve;
+    });
+
+    const { duration } = videoEl;
+    videoEl.src = '';
+    if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+    }
+
     return duration;
 }
 
@@ -377,21 +400,31 @@ export async function measureVideoDuration(source: File | string) {
  * @returns
  */
 export async function measureAudioDuration(source: File | string) {
-    let clip: AudioClip;
+    let url: string;
     if (source instanceof File) {
-        clip = new AudioClip(source.stream());
+        url = URL.createObjectURL(source);
     }
     else if (source.startsWith('data:')) {
         const file = base64ToFile(source, 'audio.mp3', 'audio/mpeg');
-        clip = new AudioClip(file.stream());
+        url = URL.createObjectURL(file);
     }
     else {
-        const res = await fetch(source);
-        clip = new AudioClip(res.body!);
+        url = source;
     }
-    await clip.ready;
-    const { duration } = clip.meta;
-    clip.destroy();
+
+    const audioEl = document.createElement('audio');
+    audioEl.src = url;
+    audioEl.preload = 'metadata';
+    await new Promise((resolve) => {
+        audioEl.onloadedmetadata = resolve;
+    });
+
+    const { duration } = audioEl;
+    audioEl.src = '';
+    if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+    }
+
     return duration;
 }
 
@@ -698,6 +731,7 @@ export async function mp4ClipToFramesData(
     iteratorCallback?: (data: { video: VideoFrame, ts: number, index: number }) => void,
     step = 16000 // 16ms steps in microseconds
 ): Promise<{ pcm: [Float32Array, Float32Array]; frames: { video: VideoFrame, ts: number }[] }> {
+    mark(PerformanceMark.ConvertMP4ClipToFramesStart);
     const clip = await mp4Clip.clone();
     await clip.ready;
 
@@ -733,6 +767,7 @@ export async function mp4ClipToFramesData(
     }
 
     clip.destroy();
+    mark(PerformanceMark.ConvertMP4ClipToFramesEnd);
 
     return {
         pcm: [leftChannelPCM, rightChannelPCM],
@@ -751,6 +786,7 @@ export async function mp4ClipToAudioClip(mp4Clip: MP4Clip): Promise<AudioClip> {
 }
 
 export async function createImageFromVideoFrame(videoFrame: VideoFrame, options: { width?: number, height?: number }): Promise<Blob> {
+    mark(PerformanceMark.GenImageFromVideoFrameStart);
     const canvas = document.createElement('canvas');
     const aspectRatio = videoFrame.codedWidth / videoFrame.codedHeight;
     const { width, height } = options;
@@ -774,9 +810,6 @@ export async function createImageFromVideoFrame(videoFrame: VideoFrame, options:
     // Get image data as a Blob (e.g., for saving or further processing)
     // @ts-ignore
     const blob: Blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    mark(PerformanceMark.GenImageFromVideoFrameEnd);
     return blob;
-
-    // Alternatively, get image data as a base64 string
-    // const dataURL = canvas.toDataURL('image/png');
-    // return dataURL;
 }

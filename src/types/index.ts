@@ -95,7 +95,7 @@ export type WebCutSegment = {
 
 export type WebCutRail = {
     id: string;
-    type?: string;
+    type: WebCutMaterialType;
     segments: WebCutSegment[];
     mute?: boolean;
     hidden?: boolean;

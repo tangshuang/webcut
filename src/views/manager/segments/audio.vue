@@ -6,14 +6,14 @@ import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../hooks/i18n';
 import { exportAsWavBlobOffscreen } from '../../../libs';
 import { downloadBlob } from '../../../libs/file';
-
-const t = useT();
 import { useWebCutManager } from '../../../hooks/manager';
 import AudioShape from '../../../components/audio-shape/index.vue';
 import { useScrollBox } from '../../../components/scroll-box';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutHistory } from '../../../hooks/history';
+import { watch } from 'vue';
 
+const t = useT();
 const props = defineProps<{
     segment: WebCutSegment;
     rail: WebCutRail;
@@ -27,18 +27,24 @@ const { timeToPx, deleteSegment } = useWebCutManager();
 const scrollBox = useScrollBox();
 const { pushHistory } = useWebCutHistory();
 
-const clip = computed(() => {
+const source = computed(() => {
     const key = props.segment.sourceKey;
     const source = sources.value.get(key);
-    return source?.clip;
+    return source;
 });
 const width = computed(() => {
     const duration = props.segment.end - props.segment.start;
     return timeToPx(duration);
 });
-const float32Array = computed(() => {
-    return (clip.value as AudioClip).getPCMData()[0];
-});
+const float32Array = ref<Float32Array>();
+
+watch(source, async () => {
+    if (!source.value) return;
+    const { clip } = source.value;
+    if (!clip) return;
+    await clip.ready;
+    float32Array.value = (clip as AudioClip).getPCMData()[0];
+}, { immediate: true });
 
 const visibleRange = ref<[number, number]>([0, 0]);
 function updateVisibleRange() {
@@ -112,6 +118,7 @@ async function handleSelectContextMenu(key: string) {
                 :data="float32Array"
                 :visible-range="visibleRange"
                 class="webcut-audio-segment-canvas"
+                v-if="float32Array"
             />
         </div>
     </context-menu>

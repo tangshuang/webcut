@@ -13,6 +13,7 @@ import ScrollBox from '../../components/scroll-box/index.vue';
 import { useWebCutPlayer } from '../../hooks';
 import { useWebCutLocalFile } from '../../hooks/local-file';
 import { useT } from '../../hooks/i18n';
+import { PerformanceMark, mark } from '../../libs/performance';
 
 const t = useT();
 
@@ -92,8 +93,10 @@ function onClickoutside() {
 
 async function handleAdd(material: any) {
   try {
+    mark(PerformanceMark.PushVideoStart);
     const { id } = material;
     await push('video', `file:${id}`, { autoFitRect: 'contain' });
+    mark(PerformanceMark.PushVideoEnd);
   }
   catch (e) {
     console.error(e);

@@ -1,32 +1,16 @@
 <script setup lang="ts">
-import { NIcon, NSplit } from 'naive-ui';
-import { Video, Music, Image, StringText, Locked, Unlocked, View, ViewOff, VolumeMute, VolumeUp } from '@vicons/carbon';
+import { NSplit } from 'naive-ui';
 import WebCutProvider from '../provider/index.vue';
 import WebCutPlayerScreen from '../player/screen.vue';
 import WebCutPlayerButton from '../player/button.vue';
 import WebCutManager from '../manager/index.vue';
-import WebCutManagerScaler from '../manager/scaler/index.vue';
 import { useWebCutContext, useWebCutPlayer, useWebCutThemeColors, useWebCutDarkMode } from '../../hooks';
 import ThemeSwitch from '../theme-switch/index.vue';
 import LangSwitch from '../lang-switch/index.vue';
 import WebCutSelectAspectRatio from '../select-aspect-ratio/index.vue';
 import WebCutTimeClock from '../time-clock/index.vue';
 import WebCutLibrary from '../library/index.vue';
-import VideoSegment from '../manager/segments/video.vue';
-import AudioSegment from '../manager/segments/audio.vue';
-import ImageSegment from '../manager/segments/image.vue';
-import TextSegment from '../manager/segments/text.vue';
-import { onMounted, ref } from 'vue';
-import { useWebCutManager } from '../../hooks/manager';
-import ClearTool from '../tools/clear/index.vue';
-import DeleteTool from '../tools/delete/index.vue';
-import SplitTool from '../tools/split/index.vue';
-import SplitKeepLeft from '../tools/split-keep-left/index.vue';
-import SplitKeepRight from '../tools/split-keep-right/index.vue';
-import FlipH from '../tools/flip-h/index.vue';
-import Concat from '../tools/concat/index.vue';
-// import Undo from '../tools/undo/index.vue';
-// import Redo from '../tools/redo/index.vue';
+import { ref } from 'vue';
 import Panel from '../panel/index.vue';
 import ExportButton from '../export-button/index.vue';
 import { WebCutColors } from '../../types';
@@ -47,20 +31,10 @@ useWebCutDarkMode(darkMode);
 useWebCutLocale(language);
 
 const { resize } = useWebCutPlayer();
-const { resizeManagerMaxHeight, toggleRailHidden, toggleRailMute } = useWebCutManager();
 
-const bottomSide = ref();
-
+const manager = ref();
 function handleResized() {
-    const height = bottomSide.value?.getBoundingClientRect().height - 28; // 28是工具栏的高度
-    resizeManagerMaxHeight(height);
-    resize();
-}
-
-onMounted(handleResized);
-
-function handleToggleLocked(rail: any) {
-    rail.locked = !rail.locked;
+    manager.value?.resizeHeight();
 }
 </script>
 
@@ -116,57 +90,8 @@ function handleToggleLocked(rail: any) {
                     </n-split>
                 </template>
                 <template #2>
-                    <div class="webcut-editor-bottom-side" ref="bottomSide">
-                        <div class="webcut-editor-tools-bar">
-                            <div class="webcut-editor-tools-bar-left"></div>
-                            <div class="webcut-editor-tools-bar-right">
-                                <!-- <Undo></Undo>
-                                <Redo></Redo> -->
-                                <ClearTool></ClearTool>
-                                <DeleteTool></DeleteTool>
-                                <SplitTool></SplitTool>
-                                <SplitKeepLeft></SplitKeepLeft>
-                                <SplitKeepRight></SplitKeepRight>
-                                <FlipH></FlipH>
-                                <Concat></Concat>
-                                <span style="margin:auto"></span>
-                                <WebCutManagerScaler></WebCutManagerScaler>
-                            </div>
-                        </div>
-                        <WebCutManager disable-sort :aside-width="120" class="webcut-editor-webcut-manager" :rail-height-by-type="{ audio: 32, text: 24 }">
-                            <template #asideRail="{ rail }">
-                                <div class="webcut-editor-webcut-manager-rail-left-side">
-                                    <span class="webcut-editor-webcut-manager-rail-left-side-type-icon" :class="{'webcut-editor-webcut-manager-rail-left-side-main-icon': rail.main }">
-                                        <n-icon :component="Video" v-if="rail.type === 'video'"></n-icon>
-                                        <n-icon :component="Music" v-if="rail.type === 'audio'"></n-icon>
-                                        <n-icon :component="Image" v-if="rail.type === 'image'"></n-icon>
-                                        <n-icon :component="StringText" v-if="rail.type === 'text'"></n-icon>
-                                    </span>
-                                    <span class="webcut-editor-webcut-manager-rail-left-side-action-icon">
-                                        <n-icon :component="Unlocked" @click="handleToggleLocked(rail)" v-if="!rail.locked"></n-icon>
-                                        <n-icon :component="Locked" @click="handleToggleLocked(rail)" v-if="rail.locked"></n-icon>
-                                    </span>
-                                    <span class="webcut-editor-webcut-manager-rail-left-side-action-icon">
-                                        <n-icon :component="View" @click="toggleRailHidden(rail)" v-if="!rail.hidden && !['audio'].includes(rail.type)"></n-icon>
-                                        <n-icon :component="ViewOff" @click="toggleRailHidden(rail)" v-if="rail.hidden && !['audio'].includes(rail.type)"></n-icon>
-                                    </span>
-                                    <span class="webcut-editor-webcut-manager-rail-left-side-action-icon">
-                                        <n-icon :component="VolumeUp" @click="toggleRailMute(rail)" v-if="!rail.mute && ['video'].includes(rail.type)"></n-icon>
-                                        <n-icon :component="VolumeMute" @click="toggleRailMute(rail)" v-if="rail.mute && ['video'].includes(rail.type)"></n-icon>
-                                        <n-icon :component="VolumeUp" @click="toggleRailHidden(rail)" v-if="!rail.hidden && ['audio'].includes(rail.type)"></n-icon>
-                                        <n-icon :component="VolumeMute" @click="toggleRailHidden(rail)" v-if="rail.hidden && ['audio'].includes(rail.type)"></n-icon>
-                                    </span>
-                                </div>
-                            </template>
-                            <template #mainSegment="{ rail, segment, railIndex, segmentIndex, segments }">
-                                <div class="webcut-editor-segment">
-                                    <VideoSegment v-if="rail.type === 'video'" :segment="segment" :rail="rail" :railIndex="railIndex" :segmentIndex="segmentIndex" :segments="segments"></VideoSegment>
-                                    <AudioSegment v-if="rail.type === 'audio'" :segment="segment" :rail="rail" :railIndex="railIndex" :segmentIndex="segmentIndex" :segments="segments"></AudioSegment>
-                                    <ImageSegment v-if="rail.type === 'image'" :segment="segment" :rail="rail" :railIndex="railIndex" :segmentIndex="segmentIndex" :segments="segments"></ImageSegment>
-                                    <TextSegment v-if="rail.type === 'text'" :segment="segment" :rail="rail" :railIndex="railIndex" :segmentIndex="segmentIndex" :segments="segments"></TextSegment>
-                                </div>
-                            </template>
-                        </WebCutManager>
+                    <div class="webcut-editor-bottom-side">
+                        <WebCutManager ref="manager" />
                     </div>
                 </template>
                 <template #resize-trigger>
@@ -184,30 +109,6 @@ function handleToggleLocked(rail: any) {
     height: 100%;
     width: 100%;
 }
-// .webcut-editor-actions {
-//     position: absolute;
-//     top: 2px;
-//     right: 0;
-//     z-index: 0;
-//     transition: right .2s;
-//     display: flex;
-//     flex-direction: column;
-//     gap: 4px;
-
-//     .video-app--aside-hidden & {
-//         right: 60px;
-//     }
-
-//     :deep(.n-button__content) {
-//         color: var(--text-color-3);
-//     }
-// }
-// .webcut-editor-actions--selected {
-//     background-color: var(--webcut-grey-color) !important;
-//     :deep(.n-button__content) {
-//         color: var(--primary-color);
-//     }
-// }
 .webcut-editor-split-resize-trigger--horizontal {
     width: 100%;
     height: 2px;
@@ -272,72 +173,15 @@ function handleToggleLocked(rail: any) {
     flex: 1;
     overflow: auto;
 }
-.webcut-editor-tools-bar {
-    display: flex;
-    align-items: center;
-    height: 28px;
-    border-bottom: 1px solid var(--webcut-line-color);
-}
-.webcut-editor-tools-bar-left {
-    width: 120px;
-    height: 100%;
-    border-right: 1px solid var(--webcut-line-color);
-}
-.webcut-editor-tools-bar-right {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 2px;
-    padding: 4px;
-    margin-right: 8px;
-    margin-left: 4px;
-    border-bottom: 1px solid var(--webcut-line-color);
-}
 .webcut-editor-bottom-side {
     height: 100%;
-    display: flex;
-    flex-direction: column;
 }
-.webcut-editor-webcut-manager {
-    flex: 1;
-}
-
 .webcut-editor-left-side {
     height: 100%;
     overflow: hidden;
 }
-
-.webcut-editor-segment {
-    width: 100%;
-    height: 100%;
-}
-
 .webcut-editor-right-side-top-bar-export-button {
     height: 18px;
     font-size: .7em;
-}
-.webcut-editor-webcut-manager-rail-left-side {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    margin-left: -8px;
-
-    span {
-        width: 1em;
-        height: 1em;
-    }
-}
-.webcut-editor-webcut-manager-rail-left-side-type-icon {
-    opacity: .3;
-}
-.webcut-editor-webcut-manager-rail-left-side-main-icon {
-    color: var(--primary-color);
-}
-.webcut-editor-webcut-manager-rail-left-side-action-icon {
-    transition: color .2s;
-}
-.webcut-editor-webcut-manager-rail-left-side-action-icon:hover {
-    color: var(--primary-color);
 }
 </style>

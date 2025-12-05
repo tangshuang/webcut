@@ -4,7 +4,11 @@ import { getGridFrame, getGridPixel } from '../libs/timeline';
 import { WebCutSegment, WebCutRail } from '../types';
 
 export function useWebCutManager() {
-    const { cursorTime, fps, scale, canvas, duration, scroll1, scroll2, status, ruler, manager, sources, updateDuration, rails, unselectSegment } = useWebCutContext();
+    const {
+        cursorTime, fps, scale, canvas, duration, scroll1, scroll2, status, ruler, manager, sources, updateDuration,
+        // rails,
+        unselectSegment,
+    } = useWebCutContext();
     const { pause, push } = useWebCutPlayer();
 
     // 同步两边scroll的滚动情况
@@ -159,6 +163,7 @@ export function useWebCutManager() {
         const source = sources.value.get(sourceKey);
         const { clip, sprite } = source!;
 
+        canvas.value?.removeSprite(sprite);
         sprite.destroy();
         clip.destroy();
         sources.value.delete(sourceKey);
@@ -166,10 +171,10 @@ export function useWebCutManager() {
         const segmentIndex = rail.segments.findIndex(s => s.id === segment.id);
         rail.segments.splice(segmentIndex, 1);
 
-        if (rail.segments.length === 0) {
-            const railIndex = rails.value.findIndex(r => r.id === rail.id);
-            rails.value.splice(railIndex, 1);
-        }
+        // if (rail.segments.length === 0) {
+        //     const railIndex = rails.value.findIndex(r => r.id === rail.id);
+        //     rails.value.splice(railIndex, 1);
+        // }
 
         // 强制取消选中
         unselectSegment(segment.id, rail.id);
