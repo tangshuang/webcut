@@ -266,7 +266,7 @@ onMounted(() => {
                 :style="{
                     left: `${thumbnail.left}px`,
                     backgroundImage: `url(${thumbnail.url})`,
-                    width: thumbnails.filter(Boolean)[index + 1] ? (totalWidth - thumbnail.left) + 'px' : sourceImageWidth * 2 + 'px',
+                    width: thumbnails.filter(Boolean)[index + 1] ? (thumbnails.filter(Boolean)[index + 1].left - thumbnail.left) + 'px' : sourceImageWidth * 2 + 'px',
                 }"
                 class="webcut-video-segment-thumbnail"
             ></div>

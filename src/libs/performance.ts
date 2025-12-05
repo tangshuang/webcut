@@ -32,7 +32,10 @@ export function measure(start: PerformanceMark, end: PerformanceMark) {
         console.log(`%cPerformance measure: %c${id}; cost: ${entries[0].duration}ms`, 'color: #0f0', 'color: #ffbb00', entries);
         return entries;
     }
-    catch (error) {
+    catch (error: any) {
+        if (error?.message.includes('does not exist.')) {
+            return;
+        }
         console.error(error);
     }
 }
