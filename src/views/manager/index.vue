@@ -39,7 +39,7 @@ const emit = defineEmits(['sort', 'resize']);
 const maxHeight = defineModel<number>('maxHeight', { default: 264 });
 const props = defineProps<WebCutManagerProps>();
 
-const { rails, manager, selected, current, toggleSegment } = useWebCutContext();
+const { rails, manager, selected, current, toggleSegment, unselectSegment, selectSegment } = useWebCutContext();
 const slots = useSlots();
 const { scroll1, scroll2, totalPx, timeToPx, pxToTime, pxOf1Frame, resetSegmentTime } = useWebCutManager();
 const t = useT();
@@ -293,6 +293,9 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
     let finalEnd = end;
     let targetRail = rail;
 
+
+    const isSegmentSelected = selected.value.some(item => item.segmentId === segment.id);
+
     // 检查是否需要移动到新轨道
     const targetRailId = highlightedRailId.value;
     const newTargetRail = rails.value.find(r => r.id === targetRailId);
@@ -311,14 +314,23 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
         const overlap = targetSegments.some(seg => !(newStartTime >= seg.end || newEndTime <= seg.start));
         // 只有当新轨道中的segment没有与当前segment存在重叠时，才可以移到新轨道
         if (!overlap && newTargetRail) {
-            // 添加segment到目标轨道
-            newTargetRail.segments.push(segment);
-            targetRail = newTargetRail;
+            // 先取消选中，避免在移动之后其rail与真实的rail对应不上
+            if (isSegmentSelected) {
+                unselectSegment(segment.id, rail.id);
+            }
 
             // 从原轨道移除segment
             const segmentIndex = rail.segments.indexOf(segment);
             if (segmentIndex > -1) {
                 rail.segments.splice(segmentIndex, 1);
+            }
+
+            // 添加segment到目标轨道
+            newTargetRail.segments.push(segment);
+            targetRail = newTargetRail;
+            // 重新选中该segment
+            if (isSegmentSelected) {
+                selectSegment(segment.id, targetRail.id);
             }
 
             finalStart = newStart;
