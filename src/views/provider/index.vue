@@ -114,7 +114,7 @@ provideLanguage();
 </script>
 
 <template>
-    <div :class="{ 'webcut-root': !isInProvider, 'webcut-root--inside': isInProvider }">
+    <div :class="{ 'webcut-root': !isInProvider, 'webcut-root--inside': isInProvider, [`webcut-root--lang-${lang?.split('-')?.[0]}`]: true }">
         <slot v-if="isInProvider"></slot>
         <n-config-provider :theme="theme" :theme-overrides="overrides" :locale="lngPkg" :date-locale="dateLngPkg" v-else>
             <n-loading-bar-provider>
@@ -277,6 +277,15 @@ provideLanguage();
   font-size: var(--webcut-small-form-font-size) !important;
   --n-label-font-size: var(--webcut-small-form-font-size) !important;
 }
+.webcut-root :deep(.n-form-item-label__text) {
+  word-break: keep-all;
+}
+.webcut-root--lang-zh :deep(.n-form-item-label__text),
+.webcut-root--lang-ja :deep(.n-form-item-label__text),
+.webcut-root--lang-kr :deep(.n-form-item-label__text) {
+  word-break: break-all;
+}
+
 .webcut-root :deep(.n-form-item--small-size .n-input-group-label) {
     font-size: var(--webcut-small-form-font-size) !important;
 }
