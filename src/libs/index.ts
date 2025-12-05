@@ -693,15 +693,19 @@ export async function mp4BlobToWavBlob(mp4Blob: Blob): Promise<Blob> {
     return wavBlob;
 }
 
-export async function mp4ClipToFramesData(mp4Clip: MP4Clip): Promise<{ pcm: [Float32Array, Float32Array]; frames: { video: VideoFrame, ts: number }[] }> {
+export async function mp4ClipToFramesData(
+    mp4Clip: MP4Clip,
+    iteratorCallback?: (data: { video: VideoFrame, ts: number, index: number }) => void,
+    step = 16000 // 16ms steps in microseconds
+): Promise<{ pcm: [Float32Array, Float32Array]; frames: { video: VideoFrame, ts: number }[] }> {
     const clip = await mp4Clip.clone();
     await clip.ready;
 
     // Extract all PCM data from the MP4Clip
     const pcmData: Float32Array[][] = [];
     const frames: { video: VideoFrame, ts: number }[] = [];
-    const step = 10000; // 10ms steps in microseconds
 
+    let index = 0;
     for (let time = 0; time < clip.meta.duration; time += step) {
         const { audio, video } = await clip.tick(time);
         if (audio && audio.length > 0) {
@@ -709,7 +713,11 @@ export async function mp4ClipToFramesData(mp4Clip: MP4Clip): Promise<{ pcm: [Flo
         }
         if (video) {
             frames.push({ video, ts: time });
+            if (iteratorCallback) {
+                iteratorCallback({ video, ts: time, index });
+            }
         }
+        index++;
     }
 
     // Concatenate all PCM fragments
