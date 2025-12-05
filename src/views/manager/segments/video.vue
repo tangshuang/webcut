@@ -4,11 +4,11 @@ import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, ref, watch, onMounted, markRaw } from 'vue';
 import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../hooks/i18n';
-import { blobToBase64DataURL } from '../../../libs/file';
+import { blobToBase64DataURL, downloadBlob } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutHistory } from '../../../hooks/history';
-import { mp4ClipToFramesData, createImageFromVideoFrame } from '../../../libs';
+import { mp4ClipToFramesData, createImageFromVideoFrame, exportBlobOffscreen } from '../../../libs';
 import AudioShape from '../../../components/audio-shape/index.vue';
 import { useScrollBox } from '../../../components/scroll-box';
 
@@ -155,6 +155,10 @@ const contextmenus = computed(() => [
         label: t('删除'),
         key: 'delete',
     },
+    {
+        label: t('导出'),
+        key: 'export',
+    },
 ]);
 
 async function handleSelectContextMenu(key: string) {
@@ -167,6 +171,19 @@ async function handleSelectContextMenu(key: string) {
             sourceKey: props.segment.sourceKey,
         });
         deleteSegment({ segment: props.segment, rail: props.rail });
+    } else if (key === 'export') {
+        try {
+            const sourceInfo = sources.value.get(props.segment.sourceKey);
+            if (!sourceInfo || !sourceInfo.clip) return;
+
+            const clip = sourceInfo.clip as MP4Clip;
+            await clip.ready;
+
+            const blob = await exportBlobOffscreen([clip]);
+            downloadBlob(blob, `video-segment-${Date.now()}.mp4`);
+        } catch (error) {
+            console.error('导出失败:', error);
+        }
     }
 }
 

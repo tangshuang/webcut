@@ -4,6 +4,8 @@ import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, onMounted, ref } from 'vue';
 import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../hooks/i18n';
+import { exportAsWavBlobOffscreen } from '../../../libs';
+import { downloadBlob } from '../../../libs/file';
 
 const t = useT();
 import { useWebCutManager } from '../../../hooks/manager';
@@ -68,6 +70,10 @@ const contextmenus = computed(() => [
         label: t('删除'),
         key: 'delete',
     },
+    {
+        label: t('导出'),
+        key: 'export',
+    },
 ]);
 
 async function handleSelectContextMenu(key: string) {
@@ -80,6 +86,19 @@ async function handleSelectContextMenu(key: string) {
             sourceKey: props.segment.sourceKey,
         });
         deleteSegment({ segment: props.segment, rail: props.rail });
+    } else if (key === 'export') {
+        try {
+            const sourceInfo = sources.value.get(props.segment.sourceKey);
+            if (!sourceInfo || !sourceInfo.clip) return;
+
+            const clip = sourceInfo.clip as AudioClip;
+            await clip.ready;
+
+            const blob = await exportAsWavBlobOffscreen([clip]);
+            downloadBlob(blob, `audio-segment-${Date.now()}.wav`);
+        } catch (error) {
+            console.error('导出失败:', error);
+        }
     }
 }
 </script>
