@@ -200,6 +200,7 @@ async function handleAdd(material: any) {
   font-size: .7em;
   padding: 2px 4px;
   cursor: pointer;
+  white-space: nowrap;
 
   &--active {
     background-color: var(--webcut-grey-color);
