@@ -14,8 +14,8 @@
 
 ## 工具视图
 
-- `WebCutSplitCurrentTool`、`WebCutSplitKeepLeftTool`、`WebCutSplitKeepRightTool`
-- `WebCutDeleteCurrentTool`、`WebCutClearSelectedTool`
+- `WebCutSplitTool`、`WebCutSplitKeepLeftTool`、`WebCutSplitKeepRightTool`
+- `WebCutDeleteTool`、`WebCutClearTool`
 - `WebCutSelectAspectRatio`、`WebCutPanel`、`WebCutBasicPanel`、`WebCutTextPanel`
 
 ## 基础组件

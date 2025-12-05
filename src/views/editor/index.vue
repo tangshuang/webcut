@@ -18,9 +18,9 @@ import ImageSegment from '../manager/segments/image.vue';
 import TextSegment from '../manager/segments/text.vue';
 import { onMounted, ref } from 'vue';
 import { useWebCutManager } from '../../hooks/manager';
-import ClearSelected from '../tools/clear-selected/index.vue';
-import DeleteCurrent from '../tools/delete-current/index.vue';
-import SplitCurrent from '../tools/split-current/index.vue';
+import ClearTool from '../tools/clear/index.vue';
+import DeleteTool from '../tools/delete/index.vue';
+import SplitTool from '../tools/split/index.vue';
 import SplitKeepLeft from '../tools/split-keep-left/index.vue';
 import SplitKeepRight from '../tools/split-keep-right/index.vue';
 import FlipH from '../tools/flip-h/index.vue';
@@ -122,9 +122,9 @@ function handleToggleLocked(rail: any) {
                             <div class="webcut-editor-tools-bar-right">
                                 <!-- <Undo></Undo>
                                 <Redo></Redo> -->
-                                <ClearSelected></ClearSelected>
-                                <DeleteCurrent></DeleteCurrent>
-                                <SplitCurrent></SplitCurrent>
+                                <ClearTool></ClearTool>
+                                <DeleteTool></DeleteTool>
+                                <SplitTool></SplitTool>
                                 <SplitKeepLeft></SplitKeepLeft>
                                 <SplitKeepRight></SplitKeepRight>
                                 <FlipH></FlipH>

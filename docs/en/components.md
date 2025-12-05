@@ -20,8 +20,8 @@ Key exported components for building your editor UI.
 
 ## Tools
 
-- `WebCutSplitCurrentTool`, `WebCutSplitKeepLeftTool`, `WebCutSplitKeepRightTool`
-- `WebCutDeleteCurrentTool`, `WebCutClearSelectedTool`
+- `WebCutSplitTool`, `WebCutSplitKeepLeftTool`, `WebCutSplitKeepRightTool`
+- `WebCutDeleteTool`, `WebCutClearTool`
 - `Undo`, `Redo`
 
 All tools live under `src/views/tools/*` and operate on the current segment and cursor.

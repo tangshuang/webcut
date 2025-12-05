@@ -10,12 +10,13 @@ import WebCutVideoSegment from './views/manager/segments/video.vue';
 import WebCutAudioSegment from './views/manager/segments/audio.vue';
 import WebCutImageSegment from './views/manager/segments/image.vue';
 import WebCutTextSegment from './views/manager/segments/text.vue';
-import WebCutClearSelectedTool from './views/tools/clear-selected/index.vue';
-import WebCutDeleteCurrentTool from './views/tools/delete-current/index.vue';
-import WebCutSplitCurrentTool from './views/tools/split-current/index.vue';
+import WebCutClearTool from './views/tools/clear/index.vue';
+import WebCutDeleteTool from './views/tools/delete/index.vue';
+import WebCutSplitTool from './views/tools/split/index.vue';
 import WebCutSplitKeepLeftTool from './views/tools/split-keep-left/index.vue';
 import WebCutSplitKeepRightTool from './views/tools/split-keep-right/index.vue';
 import WebCutFlipHorizontalTool from './views/tools/flip-h/index.vue';
+import WebCutConcatTool from './views/tools/concat/index.vue';
 import WebCutPanel from './views/panel/index.vue';
 import WebCutTextPanel from './views/panel/text/index.vue';
 import WebCutBasicPanel from './views/panel/basic/index.vue';
@@ -43,12 +44,13 @@ export {
     WebCutAudioSegment,
     WebCutImageSegment,
     WebCutTextSegment,
-    WebCutClearSelectedTool,
-    WebCutDeleteCurrentTool,
-    WebCutSplitCurrentTool,
+    WebCutClearTool,
+    WebCutDeleteTool,
+    WebCutSplitTool,
     WebCutSplitKeepLeftTool,
     WebCutSplitKeepRightTool,
     WebCutFlipHorizontalTool,
+    WebCutConcatTool,
     WebCutEditor,
     WebCutSelectAspectRatio,
     WebCutTimeClock,
