@@ -739,7 +739,7 @@ export function useWebCutPlayer() {
             ['line-height']: 'initial', // 如果没有设置，外部容器的line-height会影响实际生成图片中的行高
             ['font-size']: 48,
             ['text-align']: 'center',
-            color: '#fff',
+            color: 'rgba(255,255,255,1)',
         }, {
             ...css,
             // 强制设为0，覆盖外部传入值，具体的margin则通过x, y来控制
@@ -840,8 +840,8 @@ export function useWebCutPlayer() {
         source.clip = newClip;
         source.sprite = newSprite;
         source.text = text;
-        assign(meta, 'text.css', info.css);
-        assign(meta, 'text.highlights', highlights);
+        assign(source, 'meta.text.css', info.css);
+        assign(source, 'meta.text.highlights', highlights);
 
         // 移除并销毁老的clip, sprite
         canvas.value!.removeSprite(sprite);
@@ -849,6 +849,8 @@ export function useWebCutPlayer() {
         clip.destroy();
         clips.value.splice(clips.value.indexOf(clip), 1);
         sprites.value.splice(sprites.value.indexOf(sprite), 1);
+        // 重新选中新的sprite
+        canvas.value!.activeSprite = newSprite;
     }
 
     /**

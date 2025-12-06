@@ -7,8 +7,10 @@ import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { ref, watch } from 'vue';
 import { clone, throttle } from 'ts-fns';
 import { useT } from '../../../hooks/i18n';
+import { useWebCutHistory } from '../../../hooks/history';
 const { currentSource, currentSegment, height } = useWebCutContext();
 const { updateText } = useWebCutPlayer();
+const { push: pushHistory } = useWebCutHistory();
 const t = useT();
 
 const text = ref('');
@@ -22,7 +24,12 @@ const AlignIcons: any = {
     justify: TextAlignJustify,
 };
 
-const update = throttle(updateText, 200);
+const throttleUpdateText = throttle(async (sourceKey: string, data: any) => {
+    await updateText(sourceKey, data);
+    await pushHistory();
+}, 200);
+// 节流保存历史记录，避免频繁操作时过度保存
+const throttledPushHistory = throttle(pushHistory, 200);
 
 let isSyncing = false;
 watch(currentSource, () => {
@@ -48,7 +55,7 @@ watch(text, (text) => {
         return;
     }
     const { sourceKey } = currentSegment.value;
-    update(sourceKey, { text });
+    throttleUpdateText(sourceKey, { text });
 });
 
 watch(cssData, (css) => {
@@ -59,7 +66,7 @@ watch(cssData, (css) => {
         return;
     }
     const { sourceKey } = currentSegment.value;
-    update(sourceKey, { css });
+    throttleUpdateText(sourceKey, { css });
 }, { deep: true });
 
 watch(marginBottom, () => {
@@ -74,20 +81,35 @@ watch(marginBottom, () => {
     const { h } = rect;
     const newY = height.value - marginBottom.value - h;
     rect.y = newY;
+    // 保存到历史记录
+    throttledPushHistory();
 });
 
-function handleSetVerticalMiddle() {
+async function handleSetVerticalMiddle() {
     if (!currentSource.value) {
         return;
     }
     const { sprite } = currentSource.value;
     const { rect } = sprite;
     const { h } = rect;
+
+    isSyncing = true;
     marginBottom.value = (height.value - h) / 2;
+    await nextTick();
+    isSyncing = false;
+
+    // 保存到历史记录
+    await pushHistory();
 }
 
-function handleSetVerticalBottom() {
+async function handleSetVerticalBottom() {
+    isSyncing = true;
     marginBottom.value = 0;
+    await nextTick();
+    isSyncing = false;
+
+    // 保存到历史记录
+    await pushHistory();
 }
 </script>
 

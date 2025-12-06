@@ -80,7 +80,7 @@ export function useWebCutHistory() {
             audio: meta.audio,
             video: meta.video,
             // TODO text的处理比较复杂，需进一步研究，可能需要从seg上获取
-            // text: meta.text,
+            text: meta.text,
             autoFitRect: meta.autoFitRect,
             withRailId: railId,
             withSegmentId: segment.id,

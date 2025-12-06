@@ -6,9 +6,15 @@ import RotateInput from '../../../components/rotate-input/index.vue';
 import { useT } from '../../../hooks/i18n';
 import { autoFitRect } from '../../../libs';
 import { ImgClip, MP4Clip } from '@webav/av-cliper';
+import { useWebCutHistory } from '../../../hooks/history';
+import { throttle } from 'ts-fns';
 
 const { currentSource, width, height } = useWebCutContext();
+const { push: pushHistory } = useWebCutHistory();
 const t = useT();
+
+// 节流保存历史记录，避免频繁操作时过度保存
+const throttledPushHistory = throttle(pushHistory, 500);
 
 const formData = ref<any>({
     x: 0,
@@ -72,6 +78,8 @@ function setupWatch(type: 'x' | 'y' | 'w' | 'h' | 'angle' | 'opacity') {
             return;
         }
         if (isSyncing) {
+            // 保存到历史记录
+            throttledPushHistory();
             return;
         }
 
@@ -80,14 +88,16 @@ function setupWatch(type: 'x' | 'y' | 'w' | 'h' | 'angle' | 'opacity') {
         } else {
             currentSource.value.sprite.rect[type] = next;
         }
-        // TODO 同步到状态以及history等中去
+
+        // 保存到历史记录
+        throttledPushHistory();
     });
 }
 ;['x', 'y', 'w', 'h', 'angle', 'opacity'].forEach((key) => {
     setupWatch(key as any);
 });
 
-function handleFitSize(type?: 'contain' | 'cover' | 'contain_scale' | 'cover_scale') {
+async function handleFitSize(type?: 'contain' | 'cover' | 'contain_scale' | 'cover_scale') {
     if (!currentSource.value) {
         return;
     }
@@ -103,9 +113,12 @@ function handleFitSize(type?: 'contain' | 'cover' | 'contain_scale' | 'cover_sca
     nextTick(() => {
         isSyncing = false;
     });
+
+    // 保存到历史记录
+    await pushHistory();
 }
 
-function handlePutCenter(type: 'x' | 'y') {
+async function handlePutCenter(type: 'x' | 'y') {
     if (!currentSource.value) {
         return;
     }
@@ -119,6 +132,9 @@ function handlePutCenter(type: 'x' | 'y') {
     nextTick(() => {
         isSyncing = false;
     });
+
+    // 保存到历史记录
+    await pushHistory();
 }
 </script>
 

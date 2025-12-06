@@ -15,6 +15,7 @@ dist-ssr
 /webcomponents
 .trae
 .claude
+.vscode
 
 # Editor directories and files
 .vscode/*

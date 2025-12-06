@@ -87,11 +87,12 @@ export class HistoryMachine {
     }
 
     // 保存当前状态到历史记录
-    async push(state: WebCutProjectHistoryState): Promise<void> {
+    async push(state: WebCutProjectHistoryState): Promise<string> {
         await this.ready();
         // 保存到数据库
         const historyId = await pushProjectHistory(this.projectId, state);
         await this.updateCurrent(historyId);
+        return historyId!;
     }
 
     // 撤销操作
