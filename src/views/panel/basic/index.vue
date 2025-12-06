@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useWebCutContext } from '../../../hooks';
-import { NForm, NFormItem, NInputNumber, NInputGroup, NButton, NInputGroupLabel } from 'naive-ui';
+import { NForm, NFormItem, NInputNumber, NInputGroup, NButton, NInputGroupLabel, NSlider } from 'naive-ui';
 import RotateInput from '../../../components/rotate-input/index.vue';
 import { useT } from '../../../hooks/i18n';
 import { autoFitRect } from '../../../libs';
@@ -16,6 +16,7 @@ const formData = ref<any>({
     w: 0,
     h: 0,
     angle: 0,
+    opacity: 1,
 });
 
 let isSyncing = false;
@@ -33,6 +34,10 @@ function syncCanvasToForm(e: any) {
         }
         formData.value[key] = rect[key];
     });
+    // Sync opacity from sprite
+    if (currentSource.value) {
+        formData.value.opacity = currentSource.value.sprite.opacity;
+    }
     nextTick(() => {
         isSyncing = false;
     });
@@ -51,9 +56,9 @@ watch(() => currentSource.value, () => {
     }
     unsubscribe = sprite.on('propsChange', syncCanvasToForm);
 
-    const { rect } = sprite;
+    const { rect, opacity } = sprite;
     const { x, y, w, h, angle } = rect;
-    formData.value = { x, y, w, h, angle };
+    formData.value = { x, y, w, h, angle, opacity };
 }, { immediate: true });
 onBeforeUnmount(() => {
     if (unsubscribe) {
@@ -61,7 +66,7 @@ onBeforeUnmount(() => {
     }
 });
 
-function setupWatch(type: 'x' | 'y' | 'w' | 'h' | 'angle') {
+function setupWatch(type: 'x' | 'y' | 'w' | 'h' | 'angle' | 'opacity') {
     watch(() => formData.value[type], (next) => {
         if (!currentSource.value) {
             return;
@@ -70,11 +75,15 @@ function setupWatch(type: 'x' | 'y' | 'w' | 'h' | 'angle') {
             return;
         }
 
-        currentSource.value.sprite.rect[type] = next;
+        if (type === 'opacity') {
+            currentSource.value.sprite.opacity = next;
+        } else {
+            currentSource.value.sprite.rect[type] = next;
+        }
         // TODO 同步到状态以及history等中去
     });
 }
-;['x', 'y', 'w', 'h', 'angle'].forEach((key) => {
+;['x', 'y', 'w', 'h', 'angle', 'opacity'].forEach((key) => {
     setupWatch(key as any);
 });
 
@@ -141,6 +150,10 @@ function handlePutCenter(type: 'x' | 'y') {
                 <n-button size="small" @click="handleFitSize('contain_scale')">{{t('平铺')}}</n-button>
                 <n-button size="small" @click="handleFitSize('cover_scale')">{{t('拉伸')}}</n-button>
             </n-input-group>
+        </n-form-item>
+        <n-form-item :label="t('透明度')" class="n-form-item--flex-row">
+            <n-slider v-model:value="formData.opacity" :min="0" :max="1" :step="0.01"></n-slider>
+            <n-input-number v-model:value="formData.opacity" :min="0" :max="1" :step="0.01" :precision="2"></n-input-number>
         </n-form-item>
         <n-form-item :label="t('旋转')" class="n-form-item--flex-start">
             <n-input-number v-model:value="formData.angle">

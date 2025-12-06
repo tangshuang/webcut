@@ -23,6 +23,7 @@ export default {
   '原始尺寸': 'Taille originale',
   '平铺': 'Mosaïque',
   '拉伸': 'Étirer',
+  '透明度': 'Opacité',
   '视频尺寸为{width}x{height}。': 'La taille de la vidéo est {width}x{height}.',
   '调整文本尺寸可能会改变文本展示效果，建议调整字体大小': 'Ajuster la taille du texte peut modifier son affichage, il est recommandé d\'ajuster la taille de la police',
 

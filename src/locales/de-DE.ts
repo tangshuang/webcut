@@ -23,6 +23,7 @@ export default {
   '原始尺寸': 'Ursprüngliche Größe',
   '平铺': 'Kacheln',
   '拉伸': 'Strecken',
+  '透明度': 'Transparenz',
   '视频尺寸为{width}x{height}。': 'Videogröße ist {width}x{height}.',
   '调整文本尺寸可能会改变文本展示效果，建议调整字体大小': 'Die Anpassung der Textgröße kann die Textanzeige ändern, es wird empfohlen, die Schriftgröße anzupassen',
 
