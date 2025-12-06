@@ -9,11 +9,33 @@ defineProps<{
     rail: WebCutRail
 }>();
 
-const { rails } = useWebCutContext();
+const { rails, sources, current, canvas, selected } = useWebCutContext();
 const { toggleRailHidden, toggleRailMute } = useWebCutManager();
 
 function handleToggleLocked(rail: any) {
-    rail.locked = !rail.locked;
+    const next = !rail.locked;
+    rail.locked = next;
+
+    // 设置rail上所有segment对应的source.sprite.interactable
+    for (const segment of rail.segments) {
+        const source = sources.value.get(segment.sourceKey);
+        if (source && source.sprite) {
+            if (next) {
+                source.sprite.interactable = 'disabled';
+                // 如果当前的segment还是被选中的状态，则取消选中
+                if (selected.value.some(item => item.segmentId === segment.id)) {
+                    selected.value = selected.value.filter(item => item.segmentId !== segment.id);
+                }
+                if (current.value === segment.id) {
+                    current.value = null;
+                    // 使canvas上的选中素材失活
+                    canvas.value!.activeSprite = null;
+                }
+            } else {
+                source.sprite.interactable = 'interactive';
+            }
+        }
+    }
 }
 
 function handleDeleteRail(railId: string) {
