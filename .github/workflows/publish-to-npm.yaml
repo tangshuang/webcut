@@ -9,7 +9,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       id-token: write
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     steps:
@@ -18,8 +18,17 @@ jobs:
         with:
           node-version: 24.x
           registry-url: https://registry.npmjs.org
-      - run: npx can-npm-publish
       - run: npm install -g pnpm
+      - run: pnpm release
+      - run: npx can-npm-publish
+      - run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+      - uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
+          tags: true
       - run: pnpm install --verbose
       - run: pnpm run build
       - run: npm publish --provenance --access public
