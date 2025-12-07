@@ -33,6 +33,7 @@ const { push: pushHistory } = useWebCutHistory();
 const scrollBox = useScrollBox();
 
 const thumbnails = ref<{ url: string; left: number }[]>([]);
+// 在轨道中渲染后每张图片的真实宽度
 const sourceImageWidth = ref(0);
 const sourceFrames = ref<{ ts: number; blob: Blob; offset: number }[]>([]);
 
@@ -41,6 +42,7 @@ const totalDuration = computed(() => {
     const { sprite } = source.value || {};
     return sprite ? sprite.time.duration || 0 : 0;
 });
+// 容器的总宽度
 const totalWidth = computed(() => {
     return timeToPx(totalDuration.value);
 });
@@ -132,7 +134,17 @@ async function initThumbnailsAndAudioWave() {
             }
         }
 
-        const { pcm } = await mp4ClipToFramesData(clip as MP4Clip, iteratorCallback);
+        // PCM 渐进式回调：实时更新音频波形图
+        const pcmProgressCallback = (pcm: [Float32Array, Float32Array]) => {
+            const [leftChannelPCM, rightChannelPCM] = pcm;
+            if (leftChannelPCM) {
+                audioF32.value = leftChannelPCM;
+            } else if (rightChannelPCM) {
+                audioF32.value = rightChannelPCM;
+            }
+        };
+
+        const { pcm } = await mp4ClipToFramesData(clip as MP4Clip, iteratorCallback, undefined, pcmProgressCallback);
         const [leftChannelPCM, rightChannelPCM] = pcm;
 
         if (leftChannelPCM) {
@@ -263,7 +275,7 @@ function calcImgWidth(thumb: { left: number }, index: number) {
     if (index === sourceFrames.value.length - 1) {
         return totalWidth.value - thumb.left;
     }
-    return sourceImageWidth.value * 2;
+    return sourceImageWidth.value;
 }
 </script>
 
@@ -305,6 +317,13 @@ function calcImgWidth(thumb: { left: number }, index: number) {
     height: var(--thumb-img-height);
     background-repeat: repeat-x;
     background-size: auto 100%;
+    opacity: 0;
+    animation: webcut-video-segment-thumbnail-fade-in 0.1s ease-in-out forwards;
+}
+@keyframes webcut-video-segment-thumbnail-fade-in {
+    to {
+        opacity: 1;
+    }
 }
 .webcut-video-segment-bottom {
     width: 100%;
