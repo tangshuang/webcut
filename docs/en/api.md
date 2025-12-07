@@ -39,11 +39,29 @@ This is a detailed reference for all exports from `src/index.ts`. It explains re
 - v-model: `maxHeight` to constrain internal scroll areas (`src/views/manager/index.vue:20`). Public method `resizeManagerMaxHeight(h)` is proxied via `useWebCutManager` (`src/views/manager/index.vue:90–93`).
 - Behavior: Auto layout rails height from prop map per type, keeps scroll areas synced, exposes slots for rail aside and segment rendering (`src/views/manager/index.vue:67–88`, `src/views/manager/index.vue:126–157`).
 
+### WebCutManagerContainer
+- Purpose: Container component for the manager, providing layout and scroll synchronization.
+- Used internally by WebCutManager to wrap the manager UI.
+
 ### WebCutManagerScaler
-- Purpose: UI control for timeline scale; changes `scale` used by grid math. Used inside Editor bottom bar (`src/views/editor/index.vue:122–123`).
+- Purpose: UI control for timeline scale; changes `scale` used by grid math.
+- Used inside Editor bottom bar to adjust timeline zoom level (`src/views/editor/index.vue:122–123`).
+
+### WebCutManagerAsideRail
+- Purpose: Rail aside component for displaying rail information and controls.
+- Used inside WebCutManager to render the left sidebar of rails (`src/views/manager/aside/index.vue`).
+
+### WebCutManagerMainSegment
+- Purpose: Main segment container for rendering and editing segments.
+- Used inside WebCutManager to render the main timeline area with segments (`src/views/manager/main/index.vue`).
+
+### WebCutManagerToolBar
+- Purpose: Toolbar component for manager operations.
+- Provides tools like zoom, fit, and other timeline operations (`src/views/manager/tool-bar/index.vue`).
 
 ### WebCutPlayer
-- Purpose: Player container used within Editor; delegates to PlayerScreen and PlayerButton (`src/views/editor/index.vue`).
+- Purpose: Player container used within Editor; delegates to PlayerScreen and PlayerButton.
+- Combines the player screen and controls into a single component (`src/views/player/index.vue`).
 
 ### WebCutSelectAspectRatio
 - Purpose: Change canvas dimensions by predefined aspect ratios.
@@ -57,16 +75,68 @@ This is a detailed reference for all exports from `src/index.ts`. It explains re
 - Purpose: Project file library with list, add, remove operations.
 - Behavior: Binds to project id, loads project files, deduplicates by MD5, updates DB relations on add/remove (`src/hooks/library.ts:14–59`).
 
+### WebCutPanel
+- Purpose: Main panel container for property editing.
+- Hosts different types of panels based on the selected segment type (`src/views/panel/index.vue`).
+
+### WebCutBasicPanel
+- Purpose: Basic property panel for editing common segment properties.
+- Provides controls for position, size, rotation, opacity, etc. (`src/views/panel/basic/index.vue`).
+
+### WebCutTextPanel
+- Purpose: Text property panel for editing text segments.
+- Provides controls for text content, style, formatting, etc. (`src/views/panel/text/index.vue`).
+
+### WebCutExportButton
+- Purpose: Button component for exporting the project.
+- Triggers the export process using `useWebCutPlayer.download` (`src/views/export-button/index.vue`).
+
+### WebCutLangSwitch
+- Purpose: Language switch component for changing the editor locale.
+- Allows users to switch between different languages (`src/views/lang-switch/index.vue`).
+
+### WebCutThemeSwitch
+- Purpose: Theme switch component for toggling dark/light mode.
+- Changes the editor's color scheme (`src/views/theme-switch/index.vue`).
+
+### WebCutTimeClock
+- Purpose: Displays the current time in the editor.
+- Shows the current timeline cursor position (`src/views/time-clock/index.vue`).
+
 ### Segment Components
-- WebCutVideoSegment / WebCutAudioSegment / WebCutImageSegment / WebCutTextSegment render per‑type segment UI inside Manager slots (`src/views/editor/index.vue:151–155`).
+- **WebCutVideoSegment**: Renders video segments in the timeline (`src/views/manager/segments/video.vue`).
+- **WebCutAudioSegment**: Renders audio segments in the timeline (`src/views/manager/segments/audio.vue`).
+- **WebCutImageSegment**: Renders image segments in the timeline (`src/views/manager/segments/image.vue`).
+- **WebCutTextSegment**: Renders text segments in the timeline (`src/views/manager/segments/text.vue`).
+- These components render per-type segment UI inside Manager slots (`src/views/editor/index.vue:151–155`).
 
-### Panels
-- WebCutPanel / WebCutBasicPanel / WebCutTextPanel host editing panels for properties.
+### Tool Components
+- **WebCutClearTool**: Clears all segments from the timeline (`src/views/tools/clear/index.vue`).
+- **WebCutDeleteTool**: Deletes the selected segments (`src/views/tools/delete/index.vue`).
+- **WebCutSplitTool**: Splits segments at the cursor position (`src/views/tools/split/index.vue`).
+- **WebCutSplitKeepLeftTool**: Splits segments and keeps only the left part (`src/views/tools/split-keep-left/index.vue`).
+- **WebCutSplitKeepRightTool**: Splits segments and keeps only the right part (`src/views/tools/split-keep-right/index.vue`).
+- **WebCutFlipHorizontalTool**: Flips segments horizontally (`src/views/tools/flip-h/index.vue`).
+- **WebCutConcatTool**: Concatenates segments (`src/views/tools/concat/index.vue`).
 
-### Misc Components
-- WebCutTimeClock displays current time. WebCutThemeSwitch toggles dark mode. AdjustableBox / AudioShape / ContextMenu / ScrollBox / DraggableHandler / RotateInput are utility UI components used across panel/manager.
+### Utility Components
+- **AdjustableBox**: Resizable box component for property panels (`src/components/adjustable-box/index.vue`).
+- **AudioShape**: Audio waveform visualization component (`src/components/audio-shape/index.vue`).
+- **ContextMenu**: Context menu component for right-click operations (`src/components/context-menu/index.vue`).
+- **ScrollBox**: Scrollable container component with scroll synchronization (`src/components/scroll-box/index.vue`).
+- **DraggableHandler**: Draggable handler component for resizing and positioning (`src/components/draggable-handler/index.vue`).
+- **RotateInput**: Rotation input component with visual feedback (`src/components/rotate-input/index.vue`).
 
 ## Hooks
+
+### Component Hooks
+
+#### useScrollBox
+- Purpose: Hook for ScrollBox component, manages scroll behavior.
+- Source: `src/components/scroll-box`
+- Behavior: Handles scroll events, implements custom scrollbars and scrolling logic.
+
+### Core Hooks
 
 ### useWebCutContext(providedContext?: Partial<WebCutContext>)
 - Purpose: Provide/consume the shared reactive editor state. If called at the root with `providedContext`, creates and provides; otherwise consumes injected context or constructs default (`src/hooks/index.ts:19–65`, `src/hooks/index.ts:95`).
@@ -106,7 +176,8 @@ This is a detailed reference for all exports from `src/index.ts`. It explains re
   - `readSources()` returns `Map<string, WebCutSource>` (`src/hooks/index.ts:774–776`).
   - `download(filename?)` exports MP4 and triggers browser download (`src/hooks/index.ts:778–781`).
 
-Parameters: `WebCutMaterialMeta` (`src/types/index.ts:119–151`)
+Parameters:
+`WebCutMaterialMeta` (`src/types/index.ts:119–151`)
 - `id?`: custom source key
 - `rect?`: `{ x,y,w,h,angle }`
 - `time?`: `{ start?, duration?, playbackRate? }`
@@ -116,6 +187,23 @@ Parameters: `WebCutMaterialMeta` (`src/types/index.ts:119–151`)
 - `zIndex?`: number
 - `autoFitRect?`: `'contain'|'cover'|'contain_scale'|'cover_scale'`
 - `withRailId?`, `withSegmentId?`: place into a specific rail or segment id (used in history recovery)
+
+#### useWebCutData()
+- Purpose: Manages editor data, handling loading, saving, and updating of project data.
+- Source: `src/hooks/index.ts`
+- Behavior: Provides data management functionality, supporting project data persistence and recovery.
+
+#### useWebCutThemeColors()
+- Purpose: Manages theme colors for the editor.
+- Source: `src/hooks/index.ts`
+- Behavior: Provides functionality to get and manage theme colors, supporting custom themes.
+
+#### useWebCutDarkMode()
+- Purpose: Manages dark mode state for the editor.
+- Source: `src/hooks/index.ts`
+- Behavior: Handles dark mode switching and state management.
+
+### Manager Hooks
 
 ### useWebCutManager()
 - Purpose: Timeline math/control and segment operations (`src/hooks/manager.ts`).
@@ -146,7 +234,7 @@ Parameters: `WebCutMaterialMeta` (`src/types/index.ts:119–151`)
 - Returns: `applyFileUrl(fileId)`, `fileUrl(fileId)`, `readFile(fileId)` (`src/hooks/local-file.ts:6–55`).
 - Behavior: Promise cache per fileId to avoid duplicate reads and produces `URL.createObjectURL(file)`.
 
-### useWebCutHistory()
+#### useWebCutHistory()
 - Purpose: Undo/redo/history persistence and recovery.
 - Internals:
   - One `HistoryMachine` per project id (`src/hooks/history.ts:12–24`).
@@ -157,28 +245,77 @@ Parameters: `WebCutMaterialMeta` (`src/types/index.ts:119–151`)
   - `undo()` re‑adds deleted material; `redo()` re‑deletes it (`src/hooks/history.ts:162–202`).
   - `clearHistory()` clears machine; `canUndo`, `canRedo`, `canRecover` refs track availability (`src/hooks/history.ts:204–221`).
 
-## Libs
+### Internationalization Hooks
 
-Key utilities from `src/libs/index.ts`:
+#### useWebCutLocale()
+- Purpose: Internationalization language management.
+- Source: `src/hooks/i18n`
+- Behavior: Provides language switching and localization support, managing multi-language display in the editor.
+
+## Library Functions
+
+### Core Library Functions (`src/libs/index.ts`)
 - `renderTxt2ImgBitmap(text, css?, highlights?)` renders HTML styled text to `ImageBitmap` (`src/libs/index.ts:27`).
+- `createTxt2Img` creates a text-to-image instance.
 - `buildTextAsDOM({ text, css?, highlights? })` builds DOM structure for measurement/rendering (`src/libs/index.ts:86`).
 - `cssToText(css)`, `textToCss(text)` convert between object and inline style string (`src/libs/index.ts:248, 276`).
-- `measureVideoSize`, `measureImageSize`, `measureVideoDuration`, `measureAudioDuration`, `measureTextSize` (`src/libs/index.ts:317–409`).
-- `exportBlobOffscreen`, `exportAsWavBlobOffscreen`, `mp4BlobToWavBlob` media export/convert (`src/libs/index.ts:420–458`).
+- `measureAudioDuration` measures audio duration.
+- `measureImageSize` measures image dimensions.
+- `measureTextSize` measures text dimensions.
+- `measureVideoDuration` measures video duration.
+- `measureVideoSize` measures video dimensions.
 - `autoFitRect(canvasSize, elementSize, type?)` returns rect for contain/cover strategies (`src/libs/index.ts:477`).
 - `formatTime(ns)` human readable string (`src/libs/index.ts:512`).
+- `mp4ClipToBlob` converts MP4 clip to Blob.
+- `mp4ClipToFile(clip)` converts MP4 clip to File.
+- `audioClipToFile(clip)` converts audio clip to File.
+- `pcmToWav(pcmData, sampleRate?)` converts PCM data to WAV format.
+- `exportBlobOffscreen` offscreen Blob export.
+- `exportAsWavBlobOffscreen` offscreen WAV Blob export.
+- `mp4BlobToWavArrayBuffer` converts MP4 Blob to WAV ArrayBuffer.
+- `mp4BlobToWavBlob` converts MP4 Blob to WAV Blob.
+- `mp4ClipToAudioClip` converts MP4 clip to audio clip.
+- `mp4ClipToFramesData` converts MP4 clip to frames data.
+- `createImageFromVideoFrame` creates image from video frame.
+- `progressiveClipToPCMData` progressively converts clip to PCM data.
 
-## File Helpers (`src/libs/file.ts`)
-- `base64ToFile`, `blobToBase64DataURL`, `fileToBase64DataURL`, `downloadBlob`, `getFileMd5`, `blobToFile`.
+### File Helpers (`src/libs/file.ts`)
+- `base64ToFile` converts Base64 to File.
+- `blobToBase64DataURL` converts Blob to Base64 DataURL.
+- `fileToBase64DataURL` converts File to Base64 DataURL.
+- `downloadBlob` downloads Blob as file.
+- `getFileMd5` gets file MD5 hash.
+- `blobToFile` converts Blob to File.
 
-## Media Helpers (`src/libs/index.ts`)
-- `mp4ClipToFile(clip)`, `audioClipToFile(clip)`, `pcmToWav(pcmData, sampleRate?)`.
-
-## Timeline Math (`src/libs/timeline.ts`)
-- Grid sizing, pixel/frame conversions, step calculation, format helpers.
-
-## DB (`src/db/index.ts`)
-- Project CRUD, file CRUD, history list, project state read/write.
+### Database Helpers (`src/db/index.ts`)
+- `getProject` gets project information.
+- `createNewProject` creates a new project.
+- `addFileToProject` adds file to project.
+- `removeFileFromProject` removes file from project.
+- `writeFile` writes file.
+- `readFile` reads file.
+- `addFile` adds file.
+- `getFile` gets file.
+- `getAllFiles` gets all files.
+- `moveProjectHistoryTo` moves project history to specific point.
+- `pushProjectHistory` pushes new history entry.
+- `getProjectHistory` gets project history.
+- `clearProjectHistory` clears project history.
+- `getProjectState` gets project state.
+- `updateProjectState` updates project state.
 
 ## Types (`src/types/index.ts`)
-- `WebCutContext`, `WebCutRail`, `WebCutSegment`, text types, material types, `WebCutMaterialMeta`, `WebCutSource`, `WebCutSourceMeta`, `WebCutHistoryState`.
+- `WebCutContext` editor context type.
+- `WebCutHighlightOfText` text highlight type.
+- `WebCutSegmentOfText` text segment type.
+- `WebCutRailOfText` text rail type.
+- `WebCutSegment` segment type.
+- `WebCutRail` rail type.
+- `WebCutMaterialType` material type.
+- `WebCutMaterial` material type.
+- `WebCutMaterialMeta` material metadata type.
+- `WebCutSource` source type.
+- `WebCutSourceData` source data type.
+- `WebCutProjectHistoryState` project history state type.
+- `WebCutProjectHistoryData` project history data type.
+- `WebCutColors` colors type.

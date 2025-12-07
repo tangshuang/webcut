@@ -726,53 +726,259 @@ export async function mp4BlobToWavBlob(mp4Blob: Blob): Promise<Blob> {
     return wavBlob;
 }
 
-export async function mp4ClipToFramesData(
-    mp4Clip: MP4Clip,
-    iteratorCallback?: (data: { video: VideoFrame, ts: number, index: number }) => void,
-    step = 16000 // 16ms steps in microseconds
-): Promise<{ pcm: [Float32Array, Float32Array]; frames: { video: VideoFrame, ts: number }[] }> {
+export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
+    iteratorCallback?: (data: { video: VideoFrame, ts: number, index: number }) => void | Promise<void>,
+    step?: number, // step in microseconds, will be auto-calculated if not provided
+    pcmProgressCallback?: (pcm: [Float32Array, Float32Array]) => void // 渐进式返回 PCM 数据
+}): Promise<{ pcm: [Float32Array, Float32Array]; frames: { video: VideoFrame, ts: number }[] }> {
+    const {
+        iteratorCallback,
+        step,
+        pcmProgressCallback,
+    } = options || {};
+
     mark(PerformanceMark.ConvertMP4ClipToFramesStart);
     const clip = await mp4Clip.clone();
     await clip.ready;
+
+    const duration = clip.meta.duration;
+
+    // 音频采样步长：保持较小间隔以获取完整的音频波形数据
+    const audioStep = 10000; // 10ms，确保音频波形完整
+
+    // 视频采样步长：使用智能策略减少帧数
+    let videoStep = step;
+    if (!videoStep) {
+        const targetFrameCount = 50; // 目标生成 50 帧缩略图
+        videoStep = Math.max(duration / targetFrameCount, 33333); // 最小 33ms (~30fps)
+        videoStep = Math.min(videoStep, 1000000); // 最大 1s
+    }
 
     // Extract all PCM data from the MP4Clip
     const pcmData: Float32Array[][] = [];
     const frames: { video: VideoFrame, ts: number }[] = [];
 
-    let index = 0;
-    for (let time = 0; time < clip.meta.duration; time += step) {
-        const { audio, video } = await clip.tick(time);
-        if (audio && audio.length > 0) {
-            pcmData.push(audio);
-        }
-        if (video) {
-            frames.push({ video, ts: time });
-            if (iteratorCallback) {
-                iteratorCallback({ video, ts: time, index });
-            }
-        }
-        index++;
+    let videoIndex = 0;
+    let nextVideoTime = 0;
+    const batchSize = 5; // 每批处理 5 帧后让出控制权
+    let batchCount = 0;
+
+    // 渐进式 PCM 更新策略
+    const pcmUpdateInterval = 50; // 每收集 50 个音频片段更新一次
+    let pcmUpdateCounter = 0;
+
+    // 预先估算并分配固定大小的 PCM 数组，避免波形图长度变化导致的闪动
+    // 估算采样点数：duration / audioStep
+    const estimatedSampleCount = Math.ceil(duration / audioStep);
+    // 每个音频片段大约包含的样本数（44.1kHz * 10ms = 441 samples）
+    const estimatedSamplesPerChunk = Math.ceil((clip.meta.audioSampleRate || 44100) * (audioStep / 1000000));
+    const estimatedTotalSamples = estimatedSampleCount * estimatedSamplesPerChunk;
+
+    // 预先创建固定大小的 PCM 数组（初始值为 0）
+    const leftChannelPCM = new Float32Array(estimatedTotalSamples);
+    const rightChannelPCM = new Float32Array(estimatedTotalSamples);
+    let currentOffset = 0;
+
+    // 立即调用一次回调，让波形图显示完整长度（全零，表示未加载）
+    if (pcmProgressCallback) {
+        pcmProgressCallback([leftChannelPCM, rightChannelPCM]);
     }
 
-    // Concatenate all PCM fragments
-    const totalSamples = pcmData.reduce((sum, chunk) => sum + chunk[0].length, 0);
-    const leftChannelPCM = new Float32Array(totalSamples);
-    const rightChannelPCM = new Float32Array(totalSamples);
+    // 使用音频采样间隔遍历，确保获取完整的音频数据
+    for (let time = 0; time < duration; time += audioStep) {
+        const { audio, video } = await clip.tick(time);
 
-    let offset = 0;
-    for (const chunk of pcmData) {
-        leftChannelPCM.set(chunk[0], offset);
-        rightChannelPCM.set(chunk[1], offset);
-        offset += chunk[0].length;
+        // 收集所有音频数据并直接填充到固定数组
+        if (audio && audio.length > 0) {
+            const [left, right] = audio;
+            const chunkLength = left.length;
+
+            // 确保不会超出预分配的数组边界
+            if (currentOffset + chunkLength <= estimatedTotalSamples) {
+                leftChannelPCM.set(left, currentOffset);
+                rightChannelPCM.set(right, currentOffset);
+                currentOffset += chunkLength;
+            }
+
+            pcmData.push(audio);
+            pcmUpdateCounter++;
+
+            // 定期通过回调返回固定大小的 PCM 数组
+            if (pcmProgressCallback && pcmUpdateCounter >= pcmUpdateInterval) {
+                pcmUpdateCounter = 0;
+                // 传递相同的固定大小数组，只是内容在不断填充
+                pcmProgressCallback([leftChannelPCM.slice(), rightChannelPCM.slice()]);
+            }
+        }
+
+        // 只在特定时间点收集视频帧（稀疏采样）
+        if (video && time >= nextVideoTime) {
+            frames.push({ video, ts: time });
+            if (iteratorCallback) {
+                await iteratorCallback({ video, ts: time, index: videoIndex });
+            }
+            videoIndex++;
+            nextVideoTime += videoStep;
+            batchCount++;
+        } else if (video) {
+            // 不需要的视频帧立即关闭，释放资源
+            video.close();
+        }
+
+        // 每处理一批帧后，让出控制权给浏览器，避免长时间阻塞主线程
+        if (batchCount >= batchSize) {
+            batchCount = 0;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    }
+
+    // 如果实际填充的数据少于预估大小，裁剪数组以节省内存
+    // 通常误差很小，可以选择直接返回预分配的数组（尾部会有少量零值）
+    let finalLeftChannelPCM = leftChannelPCM;
+    let finalRightChannelPCM = rightChannelPCM;
+
+    // 如果实际数据量与预估差异较大（超过 5%），则裁剪
+    if (currentOffset < estimatedTotalSamples * 0.95) {
+        finalLeftChannelPCM = leftChannelPCM.slice(0, currentOffset);
+        finalRightChannelPCM = rightChannelPCM.slice(0, currentOffset);
     }
 
     clip.destroy();
     mark(PerformanceMark.ConvertMP4ClipToFramesEnd);
 
     return {
-        pcm: [leftChannelPCM, rightChannelPCM],
+        pcm: [finalLeftChannelPCM, finalRightChannelPCM],
         frames,
     };
+}
+
+/**
+ * 从 MP4Clip 或 AudioClip 中渐进式提取 PCM 数据
+ * @param clip - MP4Clip 或 AudioClip 实例
+ * @param progressCallback - 每提取一部分 PCM 数据后触发的回调
+ * @returns 完整的 PCM 数据 [leftChannel, rightChannel]
+ */
+export async function progressiveClipToPCMData(
+    clip: MP4Clip | AudioClip,
+    progressCallback?: (pcm: [Float32Array, Float32Array]) => void
+): Promise<[Float32Array, Float32Array]> {
+    // 处理 AudioClip
+    if (clip instanceof AudioClip) {
+        await clip.ready;
+
+        // 获取完整 PCM 数据
+        const [fullLeft, fullRight] = clip.getPCMData();
+
+        // 渐进式返回数据，分 10 批
+        const batchCount = 10;
+        const samplesPerBatch = Math.ceil(fullLeft.length / batchCount);
+
+        // 预先创建完整大小的数组并初始化为 0
+        const leftChannel = new Float32Array(fullLeft.length);
+        const rightChannel = new Float32Array(fullRight.length);
+
+        // 立即触发第一次回调
+        if (progressCallback) {
+            progressCallback([leftChannel, rightChannel]);
+        }
+
+        // 分批填充并触发回调
+        for (let batch = 0; batch < batchCount; batch++) {
+            const start = batch * samplesPerBatch;
+            const end = Math.min(start + samplesPerBatch, fullLeft.length);
+
+            leftChannel.set(fullLeft.subarray(start, end), start);
+            rightChannel.set(fullRight.subarray(start, end), start);
+
+            // 触发进度回调
+            if (progressCallback) {
+                progressCallback([leftChannel.slice(), rightChannel.slice()]);
+            }
+
+            // 让出控制权，避免阻塞
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        return [leftChannel, rightChannel];
+    }
+
+    // 处理 MP4Clip
+    if (clip instanceof MP4Clip) {
+        const clonedClip = await clip.clone();
+        await clonedClip.ready;
+
+        const duration = clonedClip.meta.duration;
+        // 音频采样步长：10ms，确保音频波形完整
+        const audioStep = 10000;
+
+        // 预先估算并分配固定大小的 PCM 数组，避免波形图长度变化导致的闪动
+        const estimatedSampleCount = Math.ceil(duration / audioStep);
+        const estimatedSamplesPerChunk = Math.ceil((clonedClip.meta.audioSampleRate || 44100) * (audioStep / 1000000));
+        const estimatedTotalSamples = estimatedSampleCount * estimatedSamplesPerChunk;
+
+        // 预先创建固定大小的 PCM 数组（初始值为 0）
+        const leftChannelPCM = new Float32Array(estimatedTotalSamples);
+        const rightChannelPCM = new Float32Array(estimatedTotalSamples);
+        let currentOffset = 0;
+
+        // 渐进式 PCM 更新策略
+        const pcmUpdateInterval = 50; // 每收集 50 个音频片段更新一次
+        let pcmUpdateCounter = 0;
+
+        // 立即调用一次回调，让波形图显示完整长度（全零，表示未加载）
+        if (progressCallback) {
+            progressCallback([leftChannelPCM, rightChannelPCM]);
+        }
+
+        // 使用音频采样间隔遍历，确保获取完整的音频数据
+        for (let time = 0; time < duration; time += audioStep) {
+            const { audio } = await clonedClip.tick(time);
+
+            // 收集所有音频数据并直接填充到固定数组
+            if (audio && audio.length > 0) {
+                const [left, right] = audio;
+                const chunkLength = left.length;
+
+                // 确保不会超出预分配的数组边界
+                if (currentOffset + chunkLength <= estimatedTotalSamples) {
+                    leftChannelPCM.set(left, currentOffset);
+                    rightChannelPCM.set(right, currentOffset);
+                    currentOffset += chunkLength;
+                }
+
+                pcmUpdateCounter++;
+
+                // 定期通过回调返回固定大小的 PCM 数组
+                if (progressCallback && pcmUpdateCounter >= pcmUpdateInterval) {
+                    pcmUpdateCounter = 0;
+                    // 传递相同的固定大小数组，只是内容在不断填充
+                    progressCallback([leftChannelPCM.slice(), rightChannelPCM.slice()]);
+                }
+            }
+        }
+
+        // 如果实际填充的数据少于预估大小，裁剪数组以节省内存
+        let finalLeftChannelPCM = leftChannelPCM;
+        let finalRightChannelPCM = rightChannelPCM;
+
+        // 如果实际数据量与预估差异较大（超过 5%），则裁剪
+        if (currentOffset < estimatedTotalSamples * 0.95) {
+            finalLeftChannelPCM = leftChannelPCM.slice(0, currentOffset);
+            finalRightChannelPCM = rightChannelPCM.slice(0, currentOffset);
+        }
+
+        clonedClip.destroy();
+
+        // 最后一次回调返回完整数据
+        if (progressCallback) {
+            progressCallback([finalLeftChannelPCM, finalRightChannelPCM]);
+        }
+
+        return [finalLeftChannelPCM, finalRightChannelPCM];
+    }
+
+    // 未知类型，返回空数据
+    return [new Float32Array(), new Float32Array()];
 }
 
 export async function mp4ClipToAudioClip(mp4Clip: MP4Clip): Promise<AudioClip> {
@@ -785,11 +991,11 @@ export async function mp4ClipToAudioClip(mp4Clip: MP4Clip): Promise<AudioClip> {
     return audioClip;
 }
 
-export async function createImageFromVideoFrame(videoFrame: VideoFrame, options: { width?: number, height?: number }): Promise<Blob> {
+export async function createImageFromVideoFrame(videoFrame: VideoFrame, options: { width?: number, height?: number, quality?: number, format?: 'jpeg' | 'png' | 'webp' }): Promise<Blob> {
     mark(PerformanceMark.GenImageFromVideoFrameStart);
     const canvas = document.createElement('canvas');
     const aspectRatio = videoFrame.codedWidth / videoFrame.codedHeight;
-    const { width, height } = options;
+    const { width, height, quality = 0.7, format = 'jpeg' } = options;
 
     if (width) {
         canvas.width = width;
@@ -807,9 +1013,11 @@ export async function createImageFromVideoFrame(videoFrame: VideoFrame, options:
     const ctx = canvas.getContext('2d')!;
     ctx.drawImage(videoFrame, 0, 0, canvas.width, canvas.height);
 
-    // Get image data as a Blob (e.g., for saving or further processing)
+    // 使用 JPEG 格式并降低质量，大幅减少 Blob 大小和生成时间
+    // JPEG 比 PNG 快 3-5 倍，且文件更小
+    const mimeType = `image/${format}`;
     // @ts-ignore
-    const blob: Blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const blob: Blob = await new Promise(resolve => canvas.toBlob(resolve, mimeType, quality));
     mark(PerformanceMark.GenImageFromVideoFrameEnd);
     return blob;
 }

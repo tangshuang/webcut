@@ -14,6 +14,9 @@ dist-ssr
 /esm
 /webcomponents
 .trae
+.claude
+.vscode
+/performance
 
 # Editor directories and files
 .vscode/*

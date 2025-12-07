@@ -1,155 +1,160 @@
-import { WebCutHistoryState } from '../types';
+import { WebCutProjectHistoryData, WebCutProjectHistoryState } from '../types';
 import { pushProjectHistory, getProjectHistory, clearProjectHistory, moveProjectHistoryTo, getProjectState } from '../db';
+import { aspectRatioMap } from '../constants';
 
 // 历史记录管理器类
 export class HistoryMachine {
-  history: {
-    id: string;
-    projectId: string;
-    timestamp: number;
-    state: WebCutHistoryState
-  }[] = [];
-  private currentIndex: number = -1;
-  private projectId: string;
-  private maxHistoryLength: number = 50;
-  isInitialized: boolean = false;
-  projectState: any = null;
+    private currentHistoryId: string | null = null;
+    private currentIndex: number = -1;
+    private historyLength: number = 0;
 
-  constructor(projectId: string) {
-    this.projectId = projectId;
-  }
+    private projectId: string;
+    private isInitializing: boolean = false;
+    private isInitialized: boolean = false;
+    private isReadyResolve: any = null;
+    private isReady = new Promise<{ aspectRatio: keyof typeof aspectRatioMap, state: WebCutProjectHistoryState }>(r => this.isReadyResolve = r);
 
-  // 初始化，从数据库加载历史记录
-  async init(): Promise<void> {
-    if (this.isInitialized) {
-      return;
+    constructor(projectId: string) {
+        this.projectId = projectId;
     }
 
-    try {
-      const savedHistory = await getProjectHistory(this.projectId);
-      const savedState = await getProjectState(this.projectId);
-      if (savedHistory && savedHistory.length > 0) {
-        this.history = savedHistory;
-        if (savedState?.historyAt) {
-          this.currentIndex = this.history.findIndex((item: any) => item.id === savedState.historyAt) + 1;
+    private async updateCurrent(historyId: string | null) {
+        this.currentHistoryId = historyId || null;
+        const history = await this.getHistoryList();
+        this.historyLength = history.length;
+        const index = history.findIndex(item => item.id === historyId);
+        this.currentIndex = index;
+        return history[index];
+    }
+
+    private resetCurrent() {
+        this.currentHistoryId = null;
+        this.currentIndex = -1;
+        this.historyLength = 0;
+    }
+
+    // 初始化，从数据库加载历史记录，并且在有存储的当前项目状态时，返回该状态
+    async init(): Promise<Awaited<typeof this.isReady> | null> {
+        if (this.isInitialized || this.isInitializing) {
+            return await this.ready();
         }
-        else {
-          this.currentIndex = this.history.length;
+
+        this.isInitializing = true;
+
+        let currentHistory: WebCutProjectHistoryData | null = null;
+        try {
+            const savedState = await getProjectState(this.projectId);
+            if (savedState) {
+                const { aspectRatio, historyAt } = savedState;
+                currentHistory = await this.updateCurrent(historyAt);
+                const state = currentHistory.state;
+                this.isReadyResolve({
+                    aspectRatio,
+                    state,
+                });
+            }
         }
-      }
-      this.isInitialized = true;
-      this.projectState = savedState;
-    } catch (error) {
-      console.error('Failed to initialize history:', error);
-      this.isInitialized = true;
-    }
-  }
+        catch (error) {}
 
-  // 保存当前状态到历史记录
-  async push(state: WebCutHistoryState): Promise<string | null> {
-    if (!this.isInitialized) {
-      await this.init();
+        // 即使失败了，也标记为已初始化
+        if (!currentHistory) {
+            this.resetCurrent();
+            this.isReadyResolve(null);
+        }
+
+        this.isInitialized = true;
+        return await this.isReady;
     }
 
-    try {
-      // 如果当前不是在历史记录的最后，删除后面的历史记录
-      if (this.currentIndex < this.history.length - 1) {
-        this.history = this.history.slice(0, this.currentIndex + 1);
-      }
-
-      // 限制历史记录长度
-      if (this.history.length >= this.maxHistoryLength) {
-        this.history.shift();
-        this.currentIndex--;
-      }
-
-      // 保存到数据库
-      const historyId = await pushProjectHistory(this.projectId, state);
-      if (historyId) {
-        this.history.push({
-          id: historyId,
-          projectId: this.projectId,
-          timestamp: Date.now(),
-          state,
-        });
-        this.currentIndex = this.history.length - 1;
-        return historyId;
-      }
-      return null;
-    } catch (error) {
-      console.error('Failed to save history:', error);
-      return null;
-    }
-  }
-
-  // 撤销操作
-  async undo(): Promise<WebCutHistoryState | null> {
-    if (!this.isInitialized) {
-      await this.init();
+    ready() {
+        return this.isReady;
     }
 
-    if (this.currentIndex <= 0) {
-      return null; // 已经是最早的历史记录
+    // 获取历史记录列表
+    async getHistoryList(): Promise<WebCutProjectHistoryData[]> {
+        return await getProjectHistory(this.projectId);
     }
 
-    // 移动历史记录指针
-    await moveProjectHistoryTo(this.projectId, -1);
-
-    this.currentIndex--;
-    return this.history[this.currentIndex]?.state;
-  }
-
-  // 重做操作
-  async redo(): Promise<WebCutHistoryState | null> {
-    if (!this.isInitialized) {
-      await this.init();
+    // 获取历史记录长度
+    async getHistoryLength(): Promise<number> {
+        await this.ready();
+        return this.historyLength;
     }
 
-    if (this.currentIndex >= this.history.length) {
-      return null; // 已经是最新的历史记录
+    // 获取当前历史记录ID
+    async getCurrentHistoryId() {
+        return this.currentHistoryId;
     }
 
-    // 移动历史记录指针
-    await moveProjectHistoryTo(this.projectId, 1);
-
-    const next = this.history[this.currentIndex];
-    this.currentIndex++;
-    return next?.state;
-  }
-
-  // 清除历史记录
-  async clear(): Promise<void> {
-    try {
-      await clearProjectHistory(this.projectId);
-      this.history = [];
-      this.currentIndex = -1;
-    } catch (error) {
-      console.error('Failed to clear history:', error);
+    // 保存当前状态到历史记录
+    async push(state: WebCutProjectHistoryState): Promise<string> {
+        await this.ready();
+        // 保存到数据库
+        const historyId = await pushProjectHistory(this.projectId, state);
+        await this.updateCurrent(historyId);
+        return historyId!;
     }
-  }
 
-  // 获取当前历史记录状态
-  getCurrentState(): WebCutHistoryState | null {
-    return this.history[this.currentIndex]?.state;
-  }
+    // 撤销操作
+    async undo(): Promise<WebCutProjectHistoryData['state'] | null> {
+        await this.ready();
 
-  // 获取历史记录长度
-  getProjectHistoryLength(): number {
-    return this.history.length;
-  }
+        // 移动历史记录指针
+        const historyData = await moveProjectHistoryTo(this.projectId, -1);
+        if (!historyData) {
+            return null;
+        }
 
-  // 获取当前索引
-  getCurrentIndex(): number {
-    return this.currentIndex;
-  }
+        const { id, state } = historyData;
+        await this.updateCurrent(id);
 
-  // 检查是否可以撤销
-  canUndo(): boolean {
-    return this.isInitialized && this.currentIndex > 0;
-  }
+        return state;
+    }
 
-  // 检查是否可以重做
-  canRedo(): boolean {
-    return this.isInitialized && this.currentIndex < this.history.length;
-  }
+    // 重做操作
+    async redo(): Promise<WebCutProjectHistoryData['state'] | null> {
+        await this.ready();
+
+        // 移动历史记录指针
+        const historyData = await moveProjectHistoryTo(this.projectId, 1);
+        if (!historyData) {
+            return null;
+        }
+
+        const { id, state } = historyData;
+        await this.updateCurrent(id);
+
+        return state;
+    }
+
+    // 清除历史记录
+    async clear(): Promise<void> {
+        await clearProjectHistory(this.projectId);
+        this.currentHistoryId = null;
+        this.currentIndex = -1;
+        this.historyLength = 0;
+    }
+
+    // 检查是否可以撤销
+    canUndo(): boolean {
+        if (!this.isInitialized) {
+            return false;
+        }
+        if (this.historyLength <= 1) {
+            return false;
+        }
+        return this.currentIndex > 0;
+    }
+
+    // 检查是否可以重做
+    canRedo(): boolean {
+        if (!this.isInitialized) {
+            return false;
+        }
+        if (this.historyLength <= 1) {
+            return false;
+        }
+
+        return this.currentIndex < this.historyLength - 1;
+    }
 }

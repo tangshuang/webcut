@@ -134,6 +134,7 @@ export {
     mp4ClipToAudioClip,
     mp4ClipToFramesData,
     createImageFromVideoFrame,
+    progressiveClipToPCMData,
 } from './libs';
 export {
     base64ToFile,
@@ -159,7 +160,7 @@ export {
     getProjectHistory,
     clearProjectHistory,
     getProjectState,
-    setProjectState,
+    updateProjectState,
 } from './db';
 
 export {
@@ -173,7 +174,8 @@ export {
     type WebCutMaterial,
     type WebCutMaterialMeta,
     type WebCutSource,
-    type WebCutSourceMeta,
-    type WebCutHistoryState,
+    type WebCutSourceData,
+    type WebCutProjectHistoryState,
+    type WebCutProjectHistoryData,
     type WebCutColors,
 } from './types';

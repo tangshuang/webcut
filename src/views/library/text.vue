@@ -7,13 +7,16 @@ import {
 import { Add } from '@vicons/carbon';
 import { useWebCutPlayer } from '../../hooks';
 import { useT } from '../../hooks/i18n';
+import { useWebCutHistory } from '../../hooks/history';
 
 const { push } = useWebCutPlayer();
+const { push: pushHistory } = useWebCutHistory();
 const actionType = ref<'create'>('create');
 const t = useT();
 
-function handleAdd() {
-  push('text', t('默认文本'));
+async function handleAdd() {
+  await push('text', t('默认文本'));
+  await pushHistory();
 }
 </script>
 

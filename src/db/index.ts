@@ -4,14 +4,14 @@ import { write, file } from 'opfs-tools'; // https://github.com/hughfenghen/opfs
 import { createRandomString } from 'ts-fns';
 import { getFileMd5 } from '../libs/file';
 import { AsyncQueue } from '../libs/async-queue';
-import { WebCutHistoryState, WebCutRail, WebCutSourceMeta } from '../types';
+import { WebCutProjectHistoryData, WebCutProjectHistoryState, WebCutProjectState } from '../types';
 
 const queue = new AsyncQueue();
 
 // 初始化 InDB 实例
 const idb = new InDB({
     name: 'webcut',
-    version: 6,
+    version: 7,
     stores: [
         {
             name: 'file',
@@ -36,7 +36,7 @@ const idb = new InDB({
             ]
         },
         {
-            name: 'history',
+            name: 'project_history',
             primaryKeyPath: 'id',
             indexes: [
                 {
@@ -64,7 +64,7 @@ const filesStorage = idb.use('file');
 const projectsStorage = idb.use('project');
 
 // 获取 history 存储实例
-const historyStorage = idb.use('history');
+const historyStorage = idb.use('project_history');
 
 const projectStateStorage = idb.use('project_state');
 
@@ -190,12 +190,46 @@ export async function getAllFiles() {
 }
 
 /**
+ * 更新项目状态
+ * @param projectId 项目ID
+ * @param state 项目状态
+ */
+export async function updateProjectState(projectId: string, state: Partial<WebCutProjectState>) {
+    if (!projectId || !state) {
+        return;
+    }
+
+    let neeedToUpdate = false;
+    const data: any = {};
+    if (state.historyAt) {
+        data.historyAt = state.historyAt;
+        neeedToUpdate = true;
+    }
+    if (state.aspectRatio) {
+        data.aspectRatio = state.aspectRatio;
+        neeedToUpdate = true;
+    }
+
+    if (neeedToUpdate) {
+        const prevState = await getProjectState(projectId) || {};
+        await projectStateStorage.setItem(projectId, {
+            ...prevState,
+            ...data,
+        });
+    }
+}
+
+/**
  * 移动项目的历史记录指针
  * @param projectId 项目ID
  * @param to 移动方向，-1 表示上一个历史记录，即Undo，1 表示下一个历史记录，即Redo
  * @returns 移动后的历史记录数据
  */
 export async function moveProjectHistoryTo(projectId: string, to: -1 | 1) {
+    if (!projectId || !to) {
+        return null;
+    }
+
     const projectState = await getProjectState(projectId);
     const projectHistory = await getProjectHistory(projectId);
     const historyAt = projectState.historyAt || '';
@@ -204,29 +238,51 @@ export async function moveProjectHistoryTo(projectId: string, to: -1 | 1) {
     if (historyAt) {
         index = projectHistory.findIndex((item: any) => item.id === historyAt);
     }
-    index = Math.max(0, index);
 
+    // 这里之所以要+1，是因为我们真实操作的对象，是其下一个历史记录
+    // 比如当前index是4，to是1，其实代表的是我们要把索引值为6的历史记录进行还原
+    // 同样的道理，to是-1，代表的是我们要把索引值为4（而非3）的历史记录进行还原
     const next = index + to;
-    const nextHistory = projectHistory[next];
-    if (!nextHistory) {
+    const targetHistory = projectHistory[next];
+    if (!targetHistory) {
         return null;
     }
 
-    const nextHistoryAt = nextHistory.id;
-    await setProjectState(projectId, { historyAt: nextHistoryAt });
+    const { id } = targetHistory;
+    await updateProjectState(projectId, { historyAt: id });
 
-    return nextHistory;
+    return targetHistory;
 }
 
-// 保存历史记录
-export async function pushProjectHistory(projectId: string, state: WebCutHistoryState) {
-    if (!projectId || !state) {
+/**
+ * 将当前项目的状态保存为一个历史记录
+ * @param projectId
+ * @returns 历史记录ID
+ */
+export async function pushProjectHistory(projectId: string, historyState: WebCutProjectHistoryState) {
+    if (!projectId) {
         return null;
     }
 
-    const projectData = await projectsStorage.get(projectId);
-    if (!projectData) {
-        return null;
+    const projectState = await getProjectState(projectId);
+    if (projectState?.historyAt) {
+        const { historyAt } = projectState;
+        const projectHistory: any[] = await getProjectHistory(projectId);
+        const closest = projectHistory.find((item: any) => item.id === historyAt);
+        if (closest) {
+            const sortedHistory = projectHistory.sort((a: any, b: any) => a.timestamp - b.timestamp);
+            // 清除timestamp比它大的历史记录
+            const deleteAfterItems = sortedHistory.filter((item: any) => item.timestamp > closest.timestamp).map(({ id }) => id);
+            if (deleteAfterItems.length) {
+                await historyStorage.delete(deleteAfterItems);
+            }
+            // 将历史记录控制在50以内
+            const beforeItems = sortedHistory.filter((item: any) => item.timestamp <= closest.timestamp);
+            if (beforeItems.length > 50) {
+                const deleteBeforeItems = beforeItems.slice(0, beforeItems.length - 50).map(({ id }) => id);
+                await historyStorage.delete(deleteBeforeItems);
+            }
+        }
     }
 
     const historyId = createRandomString(16);
@@ -234,30 +290,16 @@ export async function pushProjectHistory(projectId: string, state: WebCutHistory
         id: historyId,
         projectId,
         timestamp: Date.now(),
-        state,
+        state: historyState,
     };
-
-    const prevAt = projectData.historyAt;
-    if (prevAt) {
-        const projectHistory: any[] = await getProjectHistory(projectId);
-        const prev = projectHistory.find((item: any) => item.id === prevAt);
-        if (prev) {
-            // 清除timestamp比它大的
-            const actions = projectHistory.filter((item: any) => item.timestamp > prev.timestamp).map(({ id }) => id);
-            if (actions.length) {
-                await historyStorage.delete(actions);
-            }
-        }
-    }
-
     await historyStorage.put(historyData);
-    await setProjectState(projectId, { historyAt: historyId });
+    await updateProjectState(projectId, { historyAt: historyId });
 
     return historyId;
 }
 
 // 获取项目的历史记录
-export async function getProjectHistory(projectId: string) {
+export async function getProjectHistory(projectId: string): Promise<WebCutProjectHistoryData[]> {
     if (!projectId) {
         return [];
     }
@@ -279,44 +321,13 @@ export async function clearProjectHistory(projectId: string) {
     }
 }
 
-export async function getProjectState(projectId: string): Promise<{
-    rails: WebCutRail[],
-    sources: Record<string, WebCutSourceMeta>,
-    historyAt?: string,
-}> {
+export async function getProjectState(projectId: string): Promise<WebCutProjectState> {
     if (!projectId) {
         return {
-            rails: [],
-            sources: {},
+            historyAt: '',
+            aspectRatio: '4:3',
         };
     }
     const projectState = await projectStateStorage.getItem(projectId);
     return projectState;
-}
-
-export async function setProjectState(projectId: string, state: {
-    rails?: WebCutRail[],
-    sources?: Record<string, WebCutSourceMeta>,
-    historyAt?: string,
-}) {
-    if (!projectId) {
-        return;
-    }
-    const { rails, sources, historyAt } = state;
-    if (!rails && !sources && !historyAt) {
-        return;
-    }
-
-    const prevState = await getProjectState(projectId) || {};
-    if (rails) {
-        prevState.rails = rails;
-    }
-    if (sources) {
-        prevState.sources = sources;
-    }
-    if (historyAt) {
-        prevState.historyAt = historyAt;
-    }
-
-    await projectStateStorage.setItem(projectId, prevState);
 }

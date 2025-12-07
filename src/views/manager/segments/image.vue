@@ -23,7 +23,7 @@ const props = defineProps<{
 const { fileUrl } = useWebCutLocalFile();
 const { sources } = useWebCutContext();
 const { deleteSegment } = useWebCutManager();
-const { pushHistory } = useWebCutHistory();
+const { push: pushHistory } = useWebCutHistory();
 
 const source = computed(() => {
     const key = props.segment.sourceKey;
@@ -44,14 +44,8 @@ const contextmenus = computed(() => [
 
 async function handleSelectContextMenu(key: string) {
     if (key === 'delete') {
-        await pushHistory({
-            action: 'materialDeleted',
-            deletedFromRailId: props.rail.id,
-            deletedSegmentId: props.segment.id,
-            materialType: 'image',
-            sourceKey: props.segment.sourceKey,
-        });
         deleteSegment({ segment: props.segment, rail: props.rail });
+        await pushHistory();
     } else if (key === 'export') {
         try {
             const sourceInfo = sources.value.get(props.segment.sourceKey);

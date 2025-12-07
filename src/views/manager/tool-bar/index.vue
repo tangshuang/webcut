@@ -7,8 +7,8 @@ import SplitKeepLeft from '../../tools/split-keep-left/index.vue';
 import SplitKeepRight from '../../tools/split-keep-right/index.vue';
 import FlipH from '../../tools/flip-h/index.vue';
 import Concat from '../../tools/concat/index.vue';
-// import Undo from '../tools/undo/index.vue';
-// import Redo from '../tools/redo/index.vue';
+import Undo from '../../tools/undo/index.vue';
+import Redo from '../../tools/redo/index.vue';
 </script>
 
 <template>
@@ -17,8 +17,8 @@ import Concat from '../../tools/concat/index.vue';
             <slot name="left"></slot>
         </div>
         <div class="webcut-manager-tools-bar-right">
-            <!-- <Undo></Undo>
-            <Redo></Redo> -->
+            <Undo></Undo>
+            <Redo></Redo>
             <ClearTool></ClearTool>
             <DeleteTool></DeleteTool>
             <SplitTool></SplitTool>

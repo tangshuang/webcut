@@ -3,13 +3,15 @@ import { NIcon, NPopover, NButton } from 'naive-ui';
 import { Delete } from '@vicons/carbon';
 import { useWebCutContext } from '../../../hooks';
 import { useWebCutManager } from '../../../hooks/manager';
+import { useWebCutHistory } from '../../../hooks/history';
 import { useT } from '../../../hooks/i18n';
 
-const { rails, selected, current } = useWebCutContext();
+const { rails, selected, current, sources } = useWebCutContext();
 const { deleteSegment } = useWebCutManager();
+const { push: pushHistory } = useWebCutHistory();
 const t = useT();
 
-function handleDelete() {
+async function handleDelete() {
     if (!current.value) {
         return;
     }
@@ -23,6 +25,12 @@ function handleDelete() {
     if (!segment) {
         return;
     }
+
+    const source = sources.value.get(segment.sourceKey);
+    if (source) {
+        await pushHistory();
+    }
+
     deleteSegment({ segment, rail });
 }
 </script>

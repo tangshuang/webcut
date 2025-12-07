@@ -29,10 +29,11 @@ const props = defineProps<{
 
 const { sources, scale } = useWebCutContext();
 const { timeToPx, deleteSegment } = useWebCutManager();
-const { pushHistory } = useWebCutHistory();
+const { push: pushHistory } = useWebCutHistory();
 const scrollBox = useScrollBox();
 
 const thumbnails = ref<{ url: string; left: number }[]>([]);
+// 在轨道中渲染后每张图片的真实宽度
 const sourceImageWidth = ref(0);
 const sourceFrames = ref<{ ts: number; blob: Blob; offset: number }[]>([]);
 
@@ -41,6 +42,7 @@ const totalDuration = computed(() => {
     const { sprite } = source.value || {};
     return sprite ? sprite.time.duration || 0 : 0;
 });
+// 容器的总宽度
 const totalWidth = computed(() => {
     return timeToPx(totalDuration.value);
 });
@@ -88,7 +90,12 @@ async function initThumbnailsAndAudioWave() {
         // 通过iteratorCallback在迭代过程中逐一加载图片，从而提升首次渲染图片列表的性能
         const iteratorCallback = async (data: { video: VideoFrame, ts: number, index: number }) => {
             const { video, ts, index } = data;
-            const imgBlob = await createImageFromVideoFrame(video, { width: realWidthPerImg });
+            // 使用 JPEG 格式和 0.6 质量，大幅提升性能
+            const imgBlob = await createImageFromVideoFrame(video, {
+                width: realWidthPerImg,
+                quality: 0.6,
+                format: 'jpeg'
+            });
 
             const offset = ts / dur;
             const frame = {
@@ -127,7 +134,17 @@ async function initThumbnailsAndAudioWave() {
             }
         }
 
-        const { pcm } = await mp4ClipToFramesData(clip as MP4Clip, iteratorCallback);
+        // PCM 渐进式回调：实时更新音频波形图
+        const pcmProgressCallback = (pcm: [Float32Array, Float32Array]) => {
+            const [leftChannelPCM, rightChannelPCM] = pcm;
+            if (leftChannelPCM) {
+                audioF32.value = leftChannelPCM;
+            } else if (rightChannelPCM) {
+                audioF32.value = rightChannelPCM;
+            }
+        };
+
+        const { pcm } = await mp4ClipToFramesData(clip as MP4Clip, { iteratorCallback, pcmProgressCallback });
         const [leftChannelPCM, rightChannelPCM] = pcm;
 
         if (leftChannelPCM) {
@@ -207,14 +224,8 @@ const contextmenus = computed(() => [
 
 async function handleSelectContextMenu(key: string) {
     if (key === 'delete') {
-        await pushHistory({
-            action: 'materialDeleted',
-            deletedFromRailId: props.rail.id,
-            deletedSegmentId: props.segment.id,
-            materialType: 'video',
-            sourceKey: props.segment.sourceKey,
-        });
         deleteSegment({ segment: props.segment, rail: props.rail });
+        await pushHistory();
     } else if (key === 'export') {
         try {
             const sourceInfo = sources.value.get(props.segment.sourceKey);
@@ -255,6 +266,17 @@ onMounted(updateVisibleRange);
 onMounted(() => {
     scrollBox.onScroll(updateVisibleRange);
 });
+
+const filteredThumbnails = computed(() => thumbnails.value.filter(Boolean));
+function calcImgWidth(thumb: { left: number }, index: number) {
+    if (filteredThumbnails.value[index + 1]) {
+        return filteredThumbnails.value[index + 1].left - thumb.left;
+    }
+    if (index === sourceFrames.value.length - 1) {
+        return totalWidth.value - thumb.left;
+    }
+    return sourceImageWidth.value;
+}
 </script>
 
 <template>
@@ -266,7 +288,7 @@ onMounted(() => {
                 :style="{
                     left: `${thumbnail.left}px`,
                     backgroundImage: `url(${thumbnail.url})`,
-                    width: thumbnails.filter(Boolean)[index + 1] ? (thumbnails.filter(Boolean)[index + 1].left - thumbnail.left) + 'px' : sourceImageWidth * 2 + 'px',
+                    width: calcImgWidth(thumbnail, index) + 'px',
                 }"
                 class="webcut-video-segment-thumbnail"
             ></div>
@@ -274,7 +296,7 @@ onMounted(() => {
                 <audio-shape
                     :height="AUDIO_HEIGHT - 4"
                     :width="totalWidth"
-                    :data="audioF32"
+                    :data="source?.fileId || audioF32"
                     :visible-range="visibleRange"
                     class="webcut-video-segment-audio-shape"
                 />
@@ -294,7 +316,14 @@ onMounted(() => {
     top: 0;
     height: var(--thumb-img-height);
     background-repeat: repeat-x;
-    background-size: contain;
+    background-size: auto 100%;
+    opacity: 0;
+    animation: webcut-video-segment-thumbnail-fade-in 0.1s ease-in-out forwards;
+}
+@keyframes webcut-video-segment-thumbnail-fade-in {
+    to {
+        opacity: 1;
+    }
 }
 .webcut-video-segment-bottom {
     width: 100%;

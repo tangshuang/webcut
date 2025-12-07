@@ -2,12 +2,14 @@
 import { NIcon, NPopover, NButton } from 'naive-ui';
 import { PanelRight16Filled } from '@vicons/fluent';
 import { useWebCutContext } from '../../../hooks';
+import { useWebCutHistory } from '../../../hooks/history';
 import { useWebCutManager } from '../../../hooks/manager';
 import { useT } from '../../../hooks/i18n';
 import { computed } from 'vue';
 
 const { rails, selected, current, cursorTime } = useWebCutContext();
 const { splitSegment } = useWebCutManager();
+const { push: pushHistory } = useWebCutHistory();
 const t = useT();
 
 const currentSelected = computed(() => {
@@ -44,6 +46,7 @@ async function handleSplit() {
     try {
         const { segment, rail } = currentSelected.value;
         await splitSegment({ segment, rail, keep: 'right' });
+        await pushHistory();
     }
     catch (e) {
         console.error(e);

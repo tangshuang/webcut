@@ -13,6 +13,7 @@ import ScrollBox from '../../components/scroll-box/index.vue';
 import { useWebCutPlayer } from '../../hooks';
 import { useWebCutLocalFile } from '../../hooks/local-file';
 import { useT } from '../../hooks/i18n';
+import { useWebCutHistory } from '../../hooks/history';
 import { PerformanceMark, mark } from '../../libs/performance';
 
 const t = useT();
@@ -20,6 +21,7 @@ const t = useT();
 const { push } = useWebCutPlayer();
 const { projectFiles, files, addNewFile, removeFile } = useWebCutLibrary();
 const { fileUrl } = useWebCutLocalFile();
+const { push: pushHistory } = useWebCutHistory();
 
 const allVideoList = computed(() => {
   const items = files.value.filter((file) => file.type.startsWith('video/')).sort((a, b) => (b.time || 0) - (a.time || 0));
@@ -97,6 +99,7 @@ async function handleAdd(material: any) {
     const { id } = material;
     await push('video', `file:${id}`, { autoFitRect: 'contain' });
     mark(PerformanceMark.PushVideoEnd);
+    await pushHistory();
   }
   catch (e) {
     console.error(e);

@@ -161,12 +161,13 @@ export function useWebCutManager() {
     function deleteSegment({ segment, rail }: { segment: WebCutSegment; rail: WebCutRail }) {
         const { sourceKey } = segment;
         const source = sources.value.get(sourceKey);
-        const { clip, sprite } = source!;
-
-        canvas.value?.removeSprite(sprite);
-        sprite.destroy();
-        clip.destroy();
-        sources.value.delete(sourceKey);
+        if (source) {
+            const { clip, sprite } = source!;
+            canvas.value?.removeSprite(sprite);
+            sprite.destroy();
+            clip.destroy();
+            sources.value.delete(sourceKey);
+        }
 
         const segmentIndex = rail.segments.findIndex(s => s.id === segment.id);
         rail.segments.splice(segmentIndex, 1);

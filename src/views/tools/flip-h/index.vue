@@ -2,10 +2,12 @@
 import { NIcon, NPopover, NButton } from 'naive-ui';
 import { FlipHorizontal16Regular } from '@vicons/fluent';
 import { useWebCutContext } from '../../../hooks';
+import { useWebCutHistory } from '../../../hooks/history';
 import { useT } from '../../../hooks/i18n';
 import { computed } from 'vue';
 
 const { currentSource } = useWebCutContext();
+const { push: pushHistory } = useWebCutHistory();
 const t = useT();
 
 // 检查当前选中的素材是否可以进行水平翻转
@@ -19,7 +21,7 @@ const canFlip = computed(() => {
 });
 
 // 处理水平翻转
-function handleFlip() {
+async function handleFlip() {
   if (!currentSource.value) {
     return;
   }
@@ -34,6 +36,8 @@ function handleFlip() {
     currentSource.value.meta = {};
   }
   currentSource.value.meta.flip = next as any;
+
+  await pushHistory();
 }
 </script>
 

@@ -3,13 +3,16 @@ import { NIcon, NPopover, NButton } from 'naive-ui';
 import { Broom16Regular } from '@vicons/fluent';
 import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../hooks/i18n';
+import { useWebCutHistory } from '../../../hooks/history';
 
 const { selected, current } = useWebCutContext();
+const { push: pushHistory } = useWebCutHistory();
 const t = useT();
 
-function handleClear() {
+async function handleClear() {
     selected.value = [];
     current.value = null;
+    await pushHistory();
 }
 </script>
 

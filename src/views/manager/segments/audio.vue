@@ -25,25 +25,27 @@ const props = defineProps<{
 const { sources } = useWebCutContext();
 const { timeToPx, deleteSegment } = useWebCutManager();
 const scrollBox = useScrollBox();
-const { pushHistory } = useWebCutHistory();
+const { push: pushHistory } = useWebCutHistory();
 
 const source = computed(() => {
     const key = props.segment.sourceKey;
     const source = sources.value.get(key);
     return source;
 });
+// 总宽度
 const width = computed(() => {
     const duration = props.segment.end - props.segment.start;
     return timeToPx(duration);
 });
-const float32Array = ref<Float32Array>();
+const audioF32 = ref<Float32Array>();
 
 watch(source, async () => {
     if (!source.value) return;
     const { clip } = source.value;
     if (!clip) return;
     await clip.ready;
-    float32Array.value = (clip as AudioClip).getPCMData()[0];
+    // 一次性加载波形图
+    audioF32.value = (clip as AudioClip).getPCMData()[0];
 }, { immediate: true });
 
 const visibleRange = ref<[number, number]>([0, 0]);
@@ -84,14 +86,8 @@ const contextmenus = computed(() => [
 
 async function handleSelectContextMenu(key: string) {
     if (key === 'delete') {
-        await pushHistory({
-            action: 'materialDeleted',
-            deletedFromRailId: props.rail.id,
-            deletedSegmentId: props.segment.id,
-            materialType: 'audio',
-            sourceKey: props.segment.sourceKey,
-        });
         deleteSegment({ segment: props.segment, rail: props.rail });
+        await pushHistory();
     } else if (key === 'export') {
         try {
             const sourceInfo = sources.value.get(props.segment.sourceKey);
@@ -107,6 +103,10 @@ async function handleSelectContextMenu(key: string) {
         }
     }
 }
+
+const data = computed(() => {
+    return source.value?.fileId || source.value?.clip as AudioClip || audioF32.value || null;
+});
 </script>
 
 <template>
@@ -115,10 +115,10 @@ async function handleSelectContextMenu(key: string) {
             <audio-shape
                 :height="20"
                 :width="width"
-                :data="float32Array"
+                :data="data"
                 :visible-range="visibleRange"
                 class="webcut-audio-segment-canvas"
-                v-if="float32Array"
+                v-if="source || audioF32"
             />
         </div>
     </context-menu>

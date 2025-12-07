@@ -13,12 +13,14 @@ import ScrollBox from '../../components/scroll-box/index.vue';
 import { useWebCutPlayer } from '../../hooks';
 import { useWebCutLocalFile } from '../../hooks/local-file';
 import { useT } from '../../hooks/i18n';
+import { useWebCutHistory } from '../../hooks/history';
 
 const t = useT();
 
 const { push } = useWebCutPlayer();
 const { projectFiles, files, addNewFile, removeFile } = useWebCutLibrary();
 const { fileUrl } = useWebCutLocalFile();
+const { push: pushHistory } = useWebCutHistory();
 
 const allImageList = computed(() => {
   const items = files.value.filter((file) => file.type.startsWith('image/')).sort((a, b) => (b.time || 0) - (a.time || 0));
@@ -82,6 +84,7 @@ async function handleAdd(material: any) {
   try {
     const { id } = material;
     await push('image', `file:${id}`, { autoFitRect: 'contain' });
+    await pushHistory();
   }
   catch (e) {
     console.error(e);

@@ -6,7 +6,6 @@ import { useT } from '../../../hooks/i18n';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutHistory } from '../../../hooks/history';
-import { clone } from 'ts-fns';
 
 const t = useT();
 
@@ -20,7 +19,7 @@ const props = defineProps<{
 
 const { sources } = useWebCutContext();
 const { deleteSegment } = useWebCutManager();
-const { pushHistory } = useWebCutHistory();
+const { push: pushHistory } = useWebCutHistory();
 
 const source = computed(() => {
     const key = props.segment.sourceKey;
@@ -37,15 +36,8 @@ const contextmenus = computed(() => [
 
 async function handleSelectContextMenu(key: string) {
     if (key === 'delete') {
-        await pushHistory({
-            action: 'materialDeleted',
-            deletedFromRailId: props.rail.id,
-            deletedSegmentId: props.segment.id,
-            deletedSegmentData: clone(props.segment),
-            materialType: 'text',
-            sourceKey: props.segment.sourceKey,
-        });
         deleteSegment({ segment: props.segment, rail: props.rail });
+        await pushHistory();
     }
 }
 </script>
