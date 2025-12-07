@@ -728,30 +728,63 @@ export async function mp4BlobToWavBlob(mp4Blob: Blob): Promise<Blob> {
 
 export async function mp4ClipToFramesData(
     mp4Clip: MP4Clip,
-    iteratorCallback?: (data: { video: VideoFrame, ts: number, index: number }) => void,
-    step = 16000 // 16ms steps in microseconds
+    iteratorCallback?: (data: { video: VideoFrame, ts: number, index: number }) => void | Promise<void>,
+    step?: number // step in microseconds, will be auto-calculated if not provided
 ): Promise<{ pcm: [Float32Array, Float32Array]; frames: { video: VideoFrame, ts: number }[] }> {
     mark(PerformanceMark.ConvertMP4ClipToFramesStart);
     const clip = await mp4Clip.clone();
     await clip.ready;
 
+    const duration = clip.meta.duration;
+
+    // 音频采样步长：保持较小间隔以获取完整的音频波形数据
+    const audioStep = 10000; // 10ms，确保音频波形完整
+
+    // 视频采样步长：使用智能策略减少帧数
+    let videoStep = step;
+    if (!videoStep) {
+        const targetFrameCount = 50; // 目标生成 50 帧缩略图
+        videoStep = Math.max(duration / targetFrameCount, 33333); // 最小 33ms (~30fps)
+        videoStep = Math.min(videoStep, 1000000); // 最大 1s
+    }
+
     // Extract all PCM data from the MP4Clip
     const pcmData: Float32Array[][] = [];
     const frames: { video: VideoFrame, ts: number }[] = [];
 
-    let index = 0;
-    for (let time = 0; time < clip.meta.duration; time += step) {
+    let videoIndex = 0;
+    let nextVideoTime = 0;
+    const batchSize = 5; // 每批处理 5 帧后让出控制权
+    let batchCount = 0;
+
+    // 使用音频采样间隔遍历，确保获取完整的音频数据
+    for (let time = 0; time < duration; time += audioStep) {
         const { audio, video } = await clip.tick(time);
+
+        // 收集所有音频数据
         if (audio && audio.length > 0) {
             pcmData.push(audio);
         }
-        if (video) {
+
+        // 只在特定时间点收集视频帧（稀疏采样）
+        if (video && time >= nextVideoTime) {
             frames.push({ video, ts: time });
             if (iteratorCallback) {
-                iteratorCallback({ video, ts: time, index });
+                await iteratorCallback({ video, ts: time, index: videoIndex });
             }
+            videoIndex++;
+            nextVideoTime += videoStep;
+            batchCount++;
+        } else if (video) {
+            // 不需要的视频帧立即关闭，释放资源
+            video.close();
         }
-        index++;
+
+        // 每处理一批帧后，让出控制权给浏览器，避免长时间阻塞主线程
+        if (batchCount >= batchSize) {
+            batchCount = 0;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
     }
 
     // Concatenate all PCM fragments
@@ -785,11 +818,11 @@ export async function mp4ClipToAudioClip(mp4Clip: MP4Clip): Promise<AudioClip> {
     return audioClip;
 }
 
-export async function createImageFromVideoFrame(videoFrame: VideoFrame, options: { width?: number, height?: number }): Promise<Blob> {
+export async function createImageFromVideoFrame(videoFrame: VideoFrame, options: { width?: number, height?: number, quality?: number, format?: 'jpeg' | 'png' | 'webp' }): Promise<Blob> {
     mark(PerformanceMark.GenImageFromVideoFrameStart);
     const canvas = document.createElement('canvas');
     const aspectRatio = videoFrame.codedWidth / videoFrame.codedHeight;
-    const { width, height } = options;
+    const { width, height, quality = 0.7, format = 'jpeg' } = options;
 
     if (width) {
         canvas.width = width;
@@ -807,9 +840,11 @@ export async function createImageFromVideoFrame(videoFrame: VideoFrame, options:
     const ctx = canvas.getContext('2d')!;
     ctx.drawImage(videoFrame, 0, 0, canvas.width, canvas.height);
 
-    // Get image data as a Blob (e.g., for saving or further processing)
+    // 使用 JPEG 格式并降低质量，大幅减少 Blob 大小和生成时间
+    // JPEG 比 PNG 快 3-5 倍，且文件更小
+    const mimeType = `image/${format}`;
     // @ts-ignore
-    const blob: Blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const blob: Blob = await new Promise(resolve => canvas.toBlob(resolve, mimeType, quality));
     mark(PerformanceMark.GenImageFromVideoFrameEnd);
     return blob;
 }

@@ -88,7 +88,12 @@ async function initThumbnailsAndAudioWave() {
         // 通过iteratorCallback在迭代过程中逐一加载图片，从而提升首次渲染图片列表的性能
         const iteratorCallback = async (data: { video: VideoFrame, ts: number, index: number }) => {
             const { video, ts, index } = data;
-            const imgBlob = await createImageFromVideoFrame(video, { width: realWidthPerImg });
+            // 使用 JPEG 格式和 0.6 质量，大幅提升性能
+            const imgBlob = await createImageFromVideoFrame(video, {
+                width: realWidthPerImg,
+                quality: 0.6,
+                format: 'jpeg'
+            });
 
             const offset = ts / dur;
             const frame = {
@@ -249,6 +254,17 @@ onMounted(updateVisibleRange);
 onMounted(() => {
     scrollBox.onScroll(updateVisibleRange);
 });
+
+const filteredThumbnails = computed(() => thumbnails.value.filter(Boolean));
+function calcImgWidth(thumb: { left: number }, index: number) {
+    if (filteredThumbnails.value[index + 1]) {
+        return filteredThumbnails.value[index + 1].left - thumb.left;
+    }
+    if (index === sourceFrames.value.length - 1) {
+        return totalWidth.value - thumb.left;
+    }
+    return sourceImageWidth.value * 2;
+}
 </script>
 
 <template>
@@ -260,7 +276,7 @@ onMounted(() => {
                 :style="{
                     left: `${thumbnail.left}px`,
                     backgroundImage: `url(${thumbnail.url})`,
-                    width: thumbnails.filter(Boolean)[index + 1] ? (thumbnails.filter(Boolean)[index + 1].left - thumbnail.left) + 'px' : sourceImageWidth * 2 + 'px',
+                    width: calcImgWidth(thumbnail, index) + 'px',
                 }"
                 class="webcut-video-segment-thumbnail"
             ></div>

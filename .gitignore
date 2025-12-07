@@ -16,6 +16,7 @@ dist-ssr
 .trae
 .claude
 .vscode
+/performance
 
 # Editor directories and files
 .vscode/*
