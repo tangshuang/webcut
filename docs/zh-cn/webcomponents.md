@@ -70,9 +70,128 @@ import 'webcut/webcomponents/style.css';
 <webcut-editor project-id="my-project"></webcut-editor>
 ```
 
+## JavaScript API
+
+你可以使用JavaScript API以编程方式控制编辑器：
+
+```javascript
+// 获取编辑器元素
+const editor = document.querySelector('webcut-editor');
+
+// 等待编辑器准备就绪
+editor.addEventListener('webcut-ready', async () => {
+  // 访问播放器API
+  const player = editor.player;
+  
+  // 添加视频
+  await player.push('video', 'https://example.com/video.mp4', {
+    autoFitRect: 'contain',
+    time: { start: 0, duration: 5000000 } // 5秒，以纳秒为单位
+  });
+  
+  // 播放控制
+  player.play();
+  player.pause();
+  player.moveTo(1000); // 移动到1秒位置
+  
+  // 导出
+  const blob = await player.exportBlob();
+  player.download('my-export');
+});
+```
+
+## 事件
+
+Web Components会触发你可以监听的事件：
+
+- **webcut-ready**: 编辑器完全初始化时触发
+- **webcut-project-loaded**: 项目加载时触发
+- **webcut-segment-selected**: 选择片段时触发
+- **webcut-export-complete**: 导出完成时触发
+
+```javascript
+const editor = document.querySelector('webcut-editor');
+
+editor.addEventListener('webcut-ready', () => {
+  console.log('编辑器已准备就绪！');
+});
+
+editor.addEventListener('webcut-export-complete', (event) => {
+  console.log('导出已完成:', event.detail);
+});
+```
+
 ## 示例
 
 你可以在 examples/webcomponents 目录下找到完整的示例代码。
+
+以下是一个完整的Web Components使用示例：
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebCut Web Components 示例</title>
+    <style>
+      html, body, #app {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #controls {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+      }
+    </style>
+    <!-- 使用CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/webcut@latest/webcomponents/index.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/webcut@latest/webcomponents/style.css">
+  </head>
+  <body>
+    <div id="app">
+      <webcut-editor id="editor" project-id="demo-project"></webcut-editor>
+    </div>
+    <div id="controls">
+      <button id="add-video">添加视频</button>
+      <button id="export">导出</button>
+    </div>
+    <script>
+      const editor = document.getElementById('editor');
+      const addVideoBtn = document.getElementById('add-video');
+      const exportBtn = document.getElementById('export');
+      
+      editor.addEventListener('webcut-ready', () => {
+        console.log('编辑器已准备就绪');
+        
+        addVideoBtn.addEventListener('click', async () => {
+          try {
+            await editor.player.push('video', 'https://example.com/sample.mp4', {
+              autoFitRect: 'contain',
+              time: { start: 0, duration: 10000000 } // 10秒
+            });
+          } catch (error) {
+            console.error('添加视频失败:', error);
+          }
+        });
+        
+        exportBtn.addEventListener('click', async () => {
+          try {
+            await editor.player.exportBlob();
+            editor.player.download('my-creation');
+          } catch (error) {
+            console.error('导出失败:', error);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
+```
 
 ## 浏览器支持
 
