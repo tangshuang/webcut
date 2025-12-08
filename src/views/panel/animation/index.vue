@@ -297,6 +297,7 @@ function fixedPercent(dur: number) {
 .webcut-animation-item {
     position: relative;
     width: 42px;
+  cursor: default;
 }
 .webcut-animation-item-thumb {
     width: 42px;

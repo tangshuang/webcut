@@ -4,6 +4,7 @@ import TextSetting from './text/index.vue';
 import ScrollBox from '../../components/scroll-box/index.vue';
 import BasicSetting from './basic/index.vue';
 import AnimationSetting from './animation/index.vue';
+import FilterSetting from './filter/index.vue';
 import { ref, watch } from 'vue';
 import { useT } from '../../hooks/i18n';
 
@@ -29,12 +30,16 @@ watch(currentSegment, () => {
         <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!)" :class="{'webcut-panel-tab--active': tab === 'animation'}" @click="tab = 'animation'">
           {{ t('动画') }}
         </div>
+        <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!)" :class="{'webcut-panel-tab--active': tab === 'filter'}" @click="tab = 'filter'">
+          {{ t('滤镜') }}
+        </div>
       </div>
     </div>
     <div class="webcut-panel-content" v-if="currentRail">
       <ScrollBox>
         <BasicSetting v-if="tab === 'basic' && ['text', 'image', 'video'].includes(currentRail?.type!)" />
         <TextSetting v-if="tab === 'text' && ['text'].includes(currentRail?.type!)" />
+        <FilterSetting v-if="tab === 'filter' && ['text', 'image', 'video'].includes(currentRail?.type!)" />
         <AnimationSetting v-if="tab === 'animation' && ['text', 'image', 'video'].includes(currentRail?.type!)" />
       </ScrollBox>
     </div>

@@ -10,7 +10,7 @@ export function useWebCutManager() {
         unselectSegment,
         loading,
     } = useWebCutContext();
-    const { pause, push } = useWebCutPlayer();
+    const { pause, push, syncTickInterceptor } = useWebCutPlayer();
 
     // 同步两边scroll的滚动情况
     watchEffect(() => {
@@ -147,15 +147,11 @@ export function useWebCutManager() {
                 continue;
             }
             const clip = source.clip;
-            // 注意，此处覆盖tickInterceptor后，其他地方不可以再次覆盖，否则会导致功能丢失
-            clip.tickInterceptor = async (_time: number, tickRet: any) => {
-                const { audio, ...others } = tickRet;
-                const ret = {
-                    ...others,
-                    audio: rail.mute ? [] : audio,
-                };
-                return ret;
-            };
+            // 使用复用的syncTickInterceptor函数
+            syncTickInterceptor(clip, sourceKey);
+
+            // 调用previewFrame立即显示效果
+            canvas.value?.previewFrame(cursorTime.value);
         }
     }
 

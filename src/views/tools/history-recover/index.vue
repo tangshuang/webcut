@@ -19,6 +19,6 @@ const showTooltip = ref(true);
         </template>
       </n-button>
     </template>
-    <small>{{ t('恢复本地数据') }}</small>
+    <small>{{ t('恢复正在编辑的数据') }}</small>
   </n-popover>
 </template>

@@ -242,6 +242,9 @@ export type WebCutMaterialMeta = {
         highlights?: WebCutHighlightOfText[];
     },
 
+    /** 滤镜配置数组，支持包含参数的对象形式 */
+    filters?: Array<string | { name: string; params?: Record<string, any> }>;
+
     /** 自动调整视频尺寸到容器内，仅对视频和图片有效，带_scale后缀表示当图片小于视频视口时，会把图片放大以撑满整个视口 */
     autoFitRect?: 'contain' | 'cover' | 'contain_scale' | 'cover_scale';
     /** 添加到指定轨道 */
