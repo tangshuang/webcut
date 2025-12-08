@@ -36,7 +36,7 @@ const iconsPerRow = 8;
 // 原始图标在雪碧图中每一行的顶部位置，后面用于y的计算
 const originalTopPositions = [13, 150, 321, 457];
 // 原始图标在雪碧图中每一行的左侧位置，后面用于x的计算
-const originalLeftPositions = [19, 148, 276, 403, 530, 660, 788, 916];
+const originalLeftPositions = [19, 148, 276, 403, 532, 660, 788, 916];
 
 // 计算实际使用的图标尺寸
 const iconSize = computed(() => props.size || defaultSize);

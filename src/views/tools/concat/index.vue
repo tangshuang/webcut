@@ -136,7 +136,7 @@ async function handleConcat() {
         </template>
       </n-button>
     </template>
-    <small>{{ t('将连续且相邻的素材拼接下载') }}</small>
+    <small>{{ t('将连续且相邻的素材拼接后下载') }}</small>
   </n-popover>
 </template>
 

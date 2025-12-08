@@ -114,7 +114,7 @@ async function handleSetVerticalBottom() {
 </script>
 
 <template>
-    <n-form size="small" label-placement="left" :label-width="60" label-align="left" class="webcut-panel-form">
+    <n-form size="small" label-placement="left" :label-width="60" label-align="right" class="webcut-panel-form">
         <n-form-item :label="t('文本')">
             <n-input type="textarea" v-model:value="text"></n-input>
         </n-form-item>

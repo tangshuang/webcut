@@ -144,7 +144,7 @@ async function handlePutCenter(type: 'x' | 'y') {
 </script>
 
 <template>
-    <n-form size="small" label-placement="left" :label-width="48" label-align="left" class="webcut-panel-form">
+    <n-form size="small" label-placement="left" :label-width="48" label-align="right" class="webcut-panel-form">
         <n-alert class="webcut-message" v-if="currentSource?.meta.animation" type="warning">{{ t('当前有动画，调整可能不能直接看到效果，请播放片段查看') }}</n-alert>
         <n-form-item :label="t('位置')" class="n-form-item--flex-column" :feedback="t('视频尺寸为{width}x{height}。', { width, height })">
             <n-input-group>

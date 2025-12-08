@@ -49,7 +49,7 @@ export default {
   '分割当前选中，只保留左侧': 'Split Selected, Keep Left Only',
   '分割当前选中，只保留右侧': 'Split Selected, Keep Right Only',
   '水平翻转': 'Flip Horizontal',
-  '将连续且相邻的素材拼接下载': 'Concatenate and Download Adjacent Materials',
+  '将连续且相邻的素材拼接后下载': 'Concatenate and Download Adjacent Materials',
 
   // Library
   '当前': 'Current',
@@ -125,4 +125,16 @@ export default {
     '亮度': 'Brightness',
     '对比度': 'Contrast',
     '饱和度': 'Saturate',
+
+  'div': 'div',
+  '无': 'None',
+  '入场': 'Entry',
+  '出场': 'Exit',
+  '动效': 'Animation',
+  '结束位置': 'End Position',
+  '使用当前时间轴上的当前时间点': 'Use current time point on timeline',
+  '开始位置': 'Start Position',
+  '当前有动画，调整可能不能直接看到效果，请播放片段查看': 'Current animation may not show direct effect, please play the segment to check',
+  '滤镜': 'Filter',
+  '恢复正在编辑的数据': 'Restore editing data',
 };

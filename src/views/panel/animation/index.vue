@@ -158,7 +158,7 @@ function fixedPercent(dur: number) {
 </script>
 
 <template>
-    <n-form size="small" label-placement="left" :label-width="60" label-align="left" class="webcut-panel-form webcut-animation-panel">
+    <n-form size="small" label-placement="left" :label-width="60" label-align="right" class="webcut-panel-form webcut-animation-panel">
         <!-- 添加动画按钮 -->
         <div class="webcut-animation-type-section">
             <n-radio-group v-model:value="selectedAnimationType" size="small" class="webcut-animation-type-radio-group">
@@ -198,7 +198,7 @@ function fixedPercent(dur: number) {
             </div>
             <div class="webcut-animation-form-section" v-if="usedAnimation?.type === selectedAnimationType">
                 <n-divider style="margin: 12px 0;" />
-                <n-form size="small" label-placement="left" :label-width="60" label-align="left" v-if="usedAnimation?.type === WebCutAnimationType.Enter">
+                <n-form size="small" label-placement="left" :label-width="60" label-align="right" v-if="usedAnimation?.type === WebCutAnimationType.Enter">
                     <div class="webcut-animation-form-header">{{ readPresetName(usedAnimation?.key) }}</div>
                     <n-form-item :label="t('结束位置')">
                         <n-input-group>
@@ -221,7 +221,7 @@ function fixedPercent(dur: number) {
                         </n-input-group>
                     </n-form-item>
                 </n-form>
-                <n-form size="small" label-placement="left" :label-width="60" label-align="left" v-if="usedAnimation?.type === WebCutAnimationType.Exit">
+                <n-form size="small" label-placement="left" :label-width="60" label-align="right" v-if="usedAnimation?.type === WebCutAnimationType.Exit">
                     <div class="webcut-animation-form-header">{{ readPresetName(usedAnimation?.key) }}</div>
                     <n-form-item :label="t('开始位置')">
                         <n-input-group>

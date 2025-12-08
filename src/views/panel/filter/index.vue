@@ -122,7 +122,7 @@ function readFilterName(filterKey: string) {
 </script>
 
 <template>
-  <n-form size="small" label-placement="left" :label-width="60" class="webcut-panel-form webcut-filter-panel">
+  <n-form size="small" label-placement="left" :label-width="60" label-align="right" class="webcut-panel-form webcut-filter-panel">
     <!-- 滤镜列表标题 -->
     <div class="webcut-filter-section-header">{{ t('可用滤镜') }}</div>
 
