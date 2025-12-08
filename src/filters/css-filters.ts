@@ -73,7 +73,7 @@ export class GrayscaleFilter extends BaseFilter {
   async apply(frame: VideoFrame, config: FilterConfig): Promise<VideoFrame> {
     const cssFilter = new CSSFilter();
     const result = await cssFilter.apply(frame, {
-      filter: `grayscale(${config.amount || 100}%)`
+      filter: `grayscale(${config.amount || 0}%)`
     });
     cssFilter.dispose();
     return result;
@@ -89,7 +89,7 @@ export class BlurFilter extends BaseFilter {
   async apply(frame: VideoFrame, config: FilterConfig): Promise<VideoFrame> {
     const cssFilter = new CSSFilter();
     const result = await cssFilter.apply(frame, {
-      filter: `blur(${config.radius || 5}px)`
+      filter: `blur(${config.amount / 100 * 5}px)`
     });
     cssFilter.dispose();
     return result;
@@ -105,7 +105,7 @@ export class BrightnessFilter extends BaseFilter {
   async apply(frame: VideoFrame, config: FilterConfig): Promise<VideoFrame> {
     const cssFilter = new CSSFilter();
     const result = await cssFilter.apply(frame, {
-      filter: `brightness(${config.amount || 150}%)`
+      filter: `brightness(${config.amount || 0}%)`
     });
     cssFilter.dispose();
     return result;
@@ -121,7 +121,7 @@ export class ContrastFilter extends BaseFilter {
   async apply(frame: VideoFrame, config: FilterConfig): Promise<VideoFrame> {
     const cssFilter = new CSSFilter();
     const result = await cssFilter.apply(frame, {
-      filter: `contrast(${config.amount || 150}%)`
+      filter: `contrast(${config.amount || 0}%)`
     });
     cssFilter.dispose();
     return result;

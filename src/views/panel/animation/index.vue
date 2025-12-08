@@ -21,6 +21,7 @@ import { fixNum, throttle } from 'ts-fns';
 import { WebCutAnimationType, WebCutAnimationData } from '../../../types';
 import { animationPresets } from '../../../constants/animation';
 import { ScanObject20Filled } from '@vicons/fluent';
+import EffectIcon from '../../../components/effect-icon/index.vue';
 
 const { currentSource, currentSegment, cursorTime } = useWebCutContext();
 const { applyAnimation } = useWebCutPlayer();
@@ -31,6 +32,7 @@ const t = useT();
 const throttledPushHistory = throttle(pushHistory, 500);
 
 const selectedAnimationType = ref<WebCutAnimationType>(WebCutAnimationType.Enter);
+
 // 当前选中的素材及其配置
 const usedAnimation = ref<WebCutAnimationData | null>(null);
 
@@ -180,14 +182,17 @@ function fixedPercent(dur: number) {
                     v-for="anim in currentPresetOptions"
                     class="webcut-animation-item"
                     :class="{
-                        'webcut-animation-item--selected': usedAnimation?.key === anim.key,
+                        'webcut-animation-item--selected': usedAnimation?.key === anim.key || (!usedAnimation?.type && anim.key === ''),
                     }"
                     :key="anim.key"
                     @click="handleToggleAnimation(anim.key)"
                 >
-                    <div class="webcut-animation-item-thumb">
-                        <n-icon :component="SubtractAlt" v-if="!anim.key" />
+                    <div class="webcut-animation-item-icon webcut-animation-item-icon-none" v-if="!anim.key">
+                        <n-icon :component="SubtractAlt" />
                     </div>
+                    <effect-icon v-else :name="anim.key" class="webcut-animation-item-icon-bg-box">
+                        <div class="webcut-animation-item-icon"></div>
+                    </effect-icon>
                     <div class="webcut-animation-item-name">{{ t(anim.name) }}</div>
                 </div>
             </div>
@@ -299,20 +304,31 @@ function fixedPercent(dur: number) {
     width: 42px;
   cursor: default;
 }
-.webcut-animation-item-thumb {
+.webcut-animation-item-icon {
     width: 42px;
     height: 42px;
+    border-radius: 6px;
+    overflow: hidden;
     box-sizing: border-box;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border: 1px solid transparent;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 18px;
     color: var(--text-color-3);
 }
-.webcut-animation-item--selected .webcut-animation-item-thumb {
+.webcut-animation-item-icon-none {
+    border: 1px solid var(--border-color);
+}
+.webcut-animation-item-icon-bg-box {
+    width: 42px;
+    height: 42px;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.webcut-animation-item--selected .webcut-animation-item-icon {
     border-color: var(--primary-color);
+    border-width: 2px;
 }
 .webcut-animation-item-name {
     text-align: center;

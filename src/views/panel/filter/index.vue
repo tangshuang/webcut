@@ -4,23 +4,24 @@ import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { NForm, NFormItem, NDivider, NSlider, NSelect } from 'naive-ui';
 import { useT } from '../../../hooks/i18n';
 import { useWebCutHistory } from '../../../hooks/history';
+import EffectIcon from '../../../components/effect-icon/index.vue';
 
 const { currentSource } = useWebCutContext();
-const { syncSourceMeta } = useWebCutPlayer();
+const { syncSourceMeta, syncTickInterceptor } = useWebCutPlayer();
 const { push: pushHistory } = useWebCutHistory();
 const t = useT();
 
 // 内置滤镜列表
-const builtinFilters = computed<string[]>(() => [
-  t('灰度'),
-  t('模糊'),
-  t('亮度'),
-  t('对比度'),
-  t('饱和度'),
+const builtinFilters = computed<{ key: string; name: string }[]>(() => [
+  { key: 'grayscale', name: t('灰度') },
+  { key: 'blur', name: t('模糊') },
+  { key: 'brightness', name: t('亮度') },
+  { key: 'contrast', name: t('对比度') },
+  { key: 'saturate', name: t('饱和度') },
 ]);
 
 // 当前素材的滤镜列表，支持带参数的格式
-const currentFilters = ref<Array<string | { name: string; params?: Record<string, any> }>>([]);
+const currentFilters = ref<Array<{ key: string; params?: Record<string, any> }>>([]);
 
 // 当前选中的滤镜，用于调节参数
 const selectedFilter = ref<string | null>(null);
@@ -31,7 +32,7 @@ watch(() => currentSource.value, () => {
     currentFilters.value = currentSource.value.meta.filters || [];
     // 默认选中第一个滤镜
     if (currentFilters.value.length > 0) {
-      selectedFilter.value = typeof currentFilters.value[0] === 'string' ? currentFilters.value[0] : currentFilters.value[0].name;
+      selectedFilter.value = currentFilters.value[0].key;
     } else {
       selectedFilter.value = null;
     }
@@ -43,14 +44,12 @@ watch(() => currentSource.value, () => {
 
 // 计算当前可用的滤镜选项
 const availableFilters = computed(() => {
-  return builtinFilters.value.map(filter => {
+  return builtinFilters.value.map((filter) => {
     // 检查滤镜是否已添加（支持字符串和对象格式）
-    const isSelected = currentFilters.value.some(f =>
-      typeof f === 'string' ? f === filter : f.name === filter
-    );
+    const isSelected = currentFilters.value.some(f => f.key === filter.key);
     return {
-      key: filter,
-      name: filter,
+      key: filter.key,
+      name: filter.name,
       isSelected
     };
   });
@@ -60,42 +59,33 @@ const availableFilters = computed(() => {
 const selectedFilterParams = computed(() => {
   if (!selectedFilter.value) return { amount: 100 };
 
-  const filter = currentFilters.value.find(f =>
-    typeof f === 'string' ? f === selectedFilter.value : f.name === selectedFilter.value
-  );
-
-  if (typeof filter === 'string') {
-      return { amount: 100 };
-    } else {
-      return filter?.params || { amount: 100 };
-    }
+  const filter = currentFilters.value.find(f => f.key === selectedFilter.value);
+  return filter?.params || { amount: 100 };
 });
 
 // 切换滤镜
-async function toggleFilter(filterName: string) {
-  let newFilters: Array<string | { name: string; params?: Record<string, any> }>;
+async function toggleFilter(filterKey: string) {
+  let newFilters: Array<{ key: string; params?: Record<string, any> }>;
 
   // 检查滤镜是否已添加
-  const existingIndex = currentFilters.value.findIndex(f =>
-    typeof f === 'string' ? f === filterName : f.name === filterName
-  );
+  const existingIndex = currentFilters.value.findIndex(f => f.key === filterKey);
 
   if (existingIndex >= 0) {
     // 移除滤镜
     newFilters = currentFilters.value.filter((_, index) => index !== existingIndex);
     // 如果移除的是当前选中的滤镜，选择第一个可用的滤镜
-    if (selectedFilter.value === filterName) {
+    if (selectedFilter.value === filterKey) {
       if (newFilters.length > 0) {
-        selectedFilter.value = typeof newFilters[0] === 'string' ? newFilters[0] : newFilters[0].name;
+        selectedFilter.value = newFilters[0].key;
       } else {
         selectedFilter.value = null;
       }
     }
   } else {
     // 添加滤镜，默认参数
-    newFilters = [...currentFilters.value, { name: filterName, params: { amount: 100 } }];
+    newFilters = [...currentFilters.value, { key: filterKey, params: { amount: 100 } }];
     // 选中新添加的滤镜
-    selectedFilter.value = filterName;
+    selectedFilter.value = filterKey;
   }
 
   updateFilters(newFilters);
@@ -107,17 +97,10 @@ async function updateFilterParams(paramName: string, value: number) {
   if (!selectedFilter.value) return;
 
   const newFilters = [...currentFilters.value].map(f => {
-    if (typeof f === 'string') {
-      if (f === selectedFilter.value) {
-        return { name: f, params: { [paramName]: value } };
-      }
-      return f;
-    } else {
-      if (f.name === selectedFilter.value) {
-        return { ...f, params: { ...f.params, [paramName]: value } };
-      }
-      return f;
+    if (f.key === selectedFilter.value) {
+      return { ...f, params: { ...f.params, [paramName]: value } };
     }
+    return f;
   });
 
   updateFilters(newFilters);
@@ -125,13 +108,16 @@ async function updateFilterParams(paramName: string, value: number) {
 }
 
 // 更新滤镜到素材meta
-function updateFilters(filters: Array<string | { name: string; params?: Record<string, any> }>) {
+function updateFilters(filters: Array<{ key: string; params?: Record<string, any> }>) {
   if (!currentSource.value) return;
-
   currentFilters.value = filters;
-  syncSourceMeta(currentSource.value, {
-    filters
-  });
+  syncSourceMeta(currentSource.value, { filters });
+  syncTickInterceptor(currentSource.value.clip, currentSource.value.key);
+}
+
+function readFilterName(filterKey: string) {
+  const filter = builtinFilters.value.find(f => f.key === filterKey);
+  return t(filter?.name || filterKey);
 }
 </script>
 
@@ -154,10 +140,9 @@ function updateFilters(filters: Array<string | { name: string; params?: Record<s
           :key="filter.key"
           @click="toggleFilter(filter.key)"
         >
-          <div class="webcut-filter-item-thumb">
-            <!-- 可以添加滤镜图标，这里暂时用文字 -->
-            <span class="filter-thumb-text"></span>
-          </div>
+          <effect-icon :name="filter.key" class="webcut-filter-item-icon-bg-box">
+            <div class="webcut-filter-item-icon"></div>
+          </effect-icon>
           <div class="webcut-filter-item-name">{{ filter.name }}</div>
         </div>
       </div>
@@ -173,8 +158,8 @@ function updateFilters(filters: Array<string | { name: string; params?: Record<s
         <n-select
           v-model:value="selectedFilter"
           :options="currentFilters.map(f => ({
-            label: typeof f === 'string' ? f : f.name,
-            value: typeof f === 'string' ? f : f.name
+            label: readFilterName(f.key),
+            value: f.key
           }))"
           placeholder="{{ t('请选择要编辑的滤镜') }}"
           style="width: 100%"
@@ -236,25 +221,30 @@ function updateFilters(filters: Array<string | { name: string; params?: Record<s
   cursor: default;
 }
 
-.webcut-filter-item-thumb {
+.webcut-filter-item-icon {
   width: 42px;
   height: 42px;
+  border-radius: 6px;
+  overflow: hidden;
   box-sizing: border-box;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border: 1px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   color: var(--text-color-3);
-  background-color: var(--background-color);
-  transition: all 0.2s ease;
 }
 
-.webcut-filter-item--selected .webcut-filter-item-thumb {
+.webcut-filter-item-icon-bg-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.webcut-filter-item--selected .webcut-filter-item-icon {
   border-color: var(--primary-color);
-  background-color: var(--primary-color-light);
-  color: var(--primary-color);
+  border-width: 2px;
 }
 
 .filter-thumb-text {

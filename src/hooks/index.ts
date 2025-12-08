@@ -407,18 +407,18 @@ export function useWebCutPlayer() {
                     if (filters.length > 0) {
                         const { filterManager } = await import('../filters');
                         // 处理滤镜配置，分离滤镜名称和参数
-                        const filterNames: string[] = [];
+                        const filterKeys: string[] = [];
                         const filterConfigs: Record<string, any>[] = [];
                         for (const filterConfig of filters) {
                             if (typeof filterConfig === 'string') {
-                                filterNames.push(filterConfig);
+                                filterKeys.push(filterConfig);
                                 filterConfigs.push({});
                             } else {
-                                filterNames.push(filterConfig.name);
+                                filterKeys.push(filterConfig.key);
                                 filterConfigs.push(filterConfig.params || {});
                             }
                         }
-                        (result as any).video = await filterManager.applyFilters(originalFrame, filterNames, filterConfigs);
+                        (result as any).video = await filterManager.applyFilters(originalFrame, filterKeys, filterConfigs);
                     } else {
                         (result as any).video = originalFrame.clone();
                     }
@@ -1138,7 +1138,7 @@ export function useWebCutPlayer() {
     function syncSourceMeta(source: WebCutSource, data: {
         rect?: any,
         opacity?: number,
-        filters?: Array<string | { name: string; params?: Record<string, any> }>,
+        filters?: Array<{ key: string; params?: Record<string, any> }>,
     }) {
         const { rect, opacity, filters } = data;
         if (rect) {
