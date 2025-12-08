@@ -172,6 +172,11 @@ const redraw = throttle((next, prev) => {
     }
 }, 16);
 watch(() => props.visibleRange, redraw);
+
+defineExpose({
+  container,
+  canvas,
+});
 </script>
 
 <template>

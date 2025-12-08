@@ -22,17 +22,27 @@ const canvasEl = viewport.querySelector('canvas');
 canvasEl.style.filter = `grayscale(50%) blur(2px)`;
 ```
 
-### 2. WebAV Sprite 滤镜 API（推荐方式）
+### 2. WebAV TickInterceptor 滤镜 API（推荐方式）
 
-使用 WebAV 提供的 `VisibleSprite` 滤镜 API，支持更灵活的滤镜控制：
+使用 WebAV 提供的 `clip.tickInterceptor` 接口，支持通过拦截视频帧来实现滤镜效果：
 
 ```javascript
-const sprite = new VisibleSprite(videoClip);
+const videoClip = new MP4Clip(videoStream);
 // 应用滤镜
-sprite.setFilter({
-  type: 'grayscale',
-  intensity: 0.5
-});
+videoClip.tickInterceptor = async (_, tickRet) => {
+  if (tickRet.video) {
+    // 对视频帧应用滤镜
+    const filteredFrame = applyFilterToVideoFrame(tickRet.video, {
+      type: 'grayscale',
+      intensity: 0.5
+    });
+    tickRet.video.close(); // 关闭原始帧
+    tickRet.video = filteredFrame; // 使用滤镜处理后的帧
+  }
+  return tickRet;
+};
+
+const sprite = new VisibleSprite(videoClip);
 // 添加到画布
 canvas.addSprite(sprite);
 ```
@@ -93,51 +103,108 @@ sprite.rect.y = 0;
 ### 3. 应用滤镜效果
 
 ```javascript
-// 应用预设滤镜
-sprite.setFilter({
-  type: 'sepia',
-  intensity: 0.7
-});
+// 定义滤镜处理函数
+async function applyFilterToVideoFrame(frame: VideoFrame, filterConfig: any): Promise<VideoFrame> {
+  // 创建离屏画布用于处理视频帧
+  const canvas = new OffscreenCanvas(frame.displayWidth, frame.displayHeight);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('无法获取画布上下文');
 
-// 或者应用自定义 GLSL 滤镜
-sprite.setFilter({
-  vertexShader: `
-    attribute vec2 a_position;
-    varying vec2 v_texCoord;
-    void main() {
-      gl_Position = vec4(a_position, 0.0, 1.0);
-      v_texCoord = (a_position + 1.0) / 2.0;
-    }
-  `,
-  fragmentShader: `
-    precision mediump float;
-    uniform sampler2D u_texture;
-    uniform float u_intensity;
-    varying vec2 v_texCoord;
-    
-    void main() {
-      vec4 color = texture2D(u_texture, v_texCoord);
-      float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-      vec4 grayColor = vec4(gray, gray, gray, color.a);
-      gl_FragColor = mix(color, grayColor, u_intensity);
-    }
-  `,
-  uniforms: {
-    u_intensity: 0.5
+  // 绘制原始帧
+  ctx.drawImage(frame, 0, 0);
+
+  // 根据滤镜类型应用不同处理
+  switch (filterConfig.type) {
+    case 'grayscale':
+      // 应用灰度滤镜
+      ctx.filter = `grayscale(${filterConfig.intensity * 100}%)`;
+      ctx.drawImage(canvas, 0, 0);
+      break;
+    case 'sepia':
+      // 应用复古滤镜
+      ctx.filter = `sepia(${filterConfig.intensity * 100}%)`;
+      ctx.drawImage(canvas, 0, 0);
+      break;
+    // 其他滤镜类型...
   }
-});
+
+  // 创建新的视频帧
+  return new VideoFrame(canvas, {
+    timestamp: frame.timestamp
+  });
+}
+
+// 应用预设滤镜
+videoClip.tickInterceptor = async (_, tickRet) => {
+  if (tickRet.video) {
+    const filteredFrame = await applyFilterToVideoFrame(tickRet.video, {
+      type: 'sepia',
+      intensity: 0.7
+    });
+    tickRet.video.close();
+    tickRet.video = filteredFrame;
+  }
+  return tickRet;
+};
+
+// 或者使用 WebGL 着色器处理
+videoClip.tickInterceptor = async (_, tickRet) => {
+  if (tickRet.video) {
+    const filteredFrame = await applyGLSLFilter(tickRet.video, {
+      vertexShader: `
+        attribute vec2 a_position;
+        varying vec2 v_texCoord;
+        void main() {
+          gl_Position = vec4(a_position, 0.0, 1.0);
+          v_texCoord = (a_position + 1.0) / 2.0;
+        }
+      `,
+      fragmentShader: `
+        precision mediump float;
+        uniform sampler2D u_texture;
+        uniform float u_intensity;
+        varying vec2 v_texCoord;
+
+        void main() {
+          vec4 color = texture2D(u_texture, v_texCoord);
+          float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+          vec4 grayColor = vec4(gray, gray, gray, color.a);
+          gl_FragColor = mix(color, grayColor, u_intensity);
+        }
+      `,
+      uniforms: {
+        u_intensity: 0.5
+      }
+    });
+    tickRet.video.close();
+    tickRet.video = filteredFrame;
+  }
+  return tickRet;
+};
 ```
 
 ### 4. 控制滤镜参数
 
 ```javascript
 // 实时更新滤镜强度
+let currentFilterConfig = {
+  type: 'grayscale',
+  intensity: 0.5
+};
+
 function updateFilterIntensity(intensity) {
-  sprite.setFilter({
-    type: 'grayscale',
-    intensity: intensity
-  });
+  currentFilterConfig.intensity = intensity;
 }
+
+// 应用更新后的滤镜配置
+videoClip.tickInterceptor = async (_, tickRet) => {
+  if (tickRet.video) {
+    const filteredFrame = await applyFilterToVideoFrame(tickRet.video, currentFilterConfig);
+    tickRet.video.close();
+    tickRet.video = filteredFrame;
+  }
+  return tickRet;
+};
 
 // 监听滑块变化
 slider.addEventListener('input', (e) => {
@@ -194,6 +261,7 @@ import { MP4Clip, VisibleSprite } from '@webav/av-cliper';
 const viewport = ref();
 const canvas = ref<AVCanvas | null>(null);
 const sprite = ref<VisibleSprite | null>(null);
+const videoClip = ref<any>(null);
 const currentFilter = ref('none');
 const intensity = ref(0.5);
 
@@ -204,6 +272,27 @@ const filters = [
   { name: 'blur', label: '模糊' }
 ];
 
+// 定义滤镜处理函数
+async function applyFilterToVideoFrame(frame: VideoFrame, filterConfig: any): Promise<VideoFrame> {
+  const canvas = new OffscreenCanvas(frame.displayWidth, frame.displayHeight);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('无法获取画布上下文');
+
+  // 绘制原始帧
+  ctx.drawImage(frame, 0, 0);
+
+  // 应用滤镜
+  if (filterConfig.type !== 'none') {
+    ctx.filter = `${filterConfig.type}(${filterConfig.intensity * 100}%)`;
+    ctx.drawImage(canvas, 0, 0);
+  }
+
+  // 创建新的视频帧
+  return new VideoFrame(canvas, {
+    timestamp: frame.timestamp
+  });
+}
+
 onMounted(async () => {
   // 初始化 AVCanvas
   canvas.value = new AVCanvas(viewport.value!, {
@@ -211,14 +300,19 @@ onMounted(async () => {
     width: 800,
     height: 600
   });
-  
-  // 加载视频并创建 Sprite
+
+  // 加载视频并创建 Clip
   const response = await fetch('video.mp4');
-  const videoClip = new MP4Clip(response.body!);
-  sprite.value = new VisibleSprite(videoClip);
-  
+  videoClip.value = new MP4Clip(response.body!);
+
+  // 创建 Sprite
+  sprite.value = new VisibleSprite(videoClip.value);
+
   // 添加到画布
   await canvas.value.addSprite(sprite.value);
+
+  // 初始应用无滤镜
+  updateFilter();
 });
 
 function applyFilter(filter: { name: string, label: string }) {
@@ -227,12 +321,20 @@ function applyFilter(filter: { name: string, label: string }) {
 }
 
 function updateFilter() {
-  if (!sprite.value) return;
-  
-  sprite.value.setFilter({
-    type: currentFilter.value,
-    intensity: parseFloat(intensity.value)
-  });
+  if (!videoClip.value) return;
+
+  // 更新 tickInterceptor 实现滤镜效果
+  videoClip.value.tickInterceptor = async (_, tickRet) => {
+    if (tickRet.video) {
+      const filteredFrame = await applyFilterToVideoFrame(tickRet.video, {
+        type: currentFilter.value,
+        intensity: parseFloat(intensity.value)
+      });
+      tickRet.video.close(); // 关闭原始帧
+      tickRet.video = filteredFrame; // 使用滤镜处理后的帧
+    }
+    return tickRet;
+  };
 }
 </script>
 ```

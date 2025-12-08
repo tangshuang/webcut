@@ -55,6 +55,10 @@ onBeforeUnmount(() => {
   document.removeEventListener('mousemove', onMouseMove);
   document.removeEventListener('mouseup', onMouseUp);
 });
+
+defineExpose({
+  cursor: cursorRef,
+});
 </script>
 
 <template>

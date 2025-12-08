@@ -1,3 +1,4 @@
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -134,6 +135,20 @@ Text is converted to images for rendering:
 - CSS properties control appearance, positioning uses margin/padding
 - Updates require regenerating the bitmap and replacing the sprite
 
+### Animation System (`src/constants/animation.ts`)
+
+- Predefined animation presets for enter, exit, and motion effects
+- Applied to sprites via `useWebCutPlayer().applyAnimation()`
+- Animation types: Enter, Exit, Motion
+- Uses keyframe-based system with duration, delay, and iteration count
+
+### History System (`src/hooks/history.ts`)
+
+- Undo/redo functionality with state persistence to IndexedDB
+- Snapshots of rails and sources state are stored
+- Uses HistoryMachine to manage history stack
+- Recover feature to restore previous project state
+
 ### Internationalization
 
 Locales in `src/locales/` (zh-HK, zh-TW, en-US, ja-JP, de-DE, es-ES, fr-FR). The `useWebCutLocale()` hook manages language switching.
@@ -153,3 +168,16 @@ Locales in `src/locales/` (zh-HK, zh-TW, en-US, ja-JP, de-DE, es-ES, fr-FR). The
 - **Sprite Selection**: When `context.disableSelectSprite` is true, clicking sprites on the canvas won't select them. This is used during certain editing operations.
 
 - **Rail Auto-assignment**: When pushing materials without specifying a rail, the system automatically finds or creates an appropriate rail, avoiding overlapping segments.
+
+## Testing
+
+The project uses Vitest for testing. No specific test files were found in the current codebase, but the infrastructure is in place (vitest.config.ts).
+
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory with support for both English and Chinese:
+- API documentation
+- Component documentation
+- Hooks documentation
+- Getting started guides
+- WebComponents documentation
