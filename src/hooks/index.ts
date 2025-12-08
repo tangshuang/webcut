@@ -1,5 +1,5 @@
 import { inject, toRefs, markRaw, reactive, provide, watch, ref, watchEffect, computed, type ComputedRef, ModelRef, WritableComputedRef } from 'vue';
-import { WebCutColors, WebCutContext } from '../types';
+import { WebCutAnimationData, WebCutAnimationKeyframe, WebCutAnimationType, WebCutColors, WebCutContext, WebCutAnimationPreset, WebCutSource } from '../types';
 import { AVCanvas } from '@webav/av-canvas';
 import {
   AudioClip,
@@ -9,13 +9,14 @@ import {
 } from '@webav/av-cliper';
 import { base64ToFile, downloadBlob } from '../libs/file';
 import { assignNotEmpty } from '../libs/object';
-import { isEmpty, createRandomString, clone, assign } from 'ts-fns';
+import { isEmpty, createRandomString, clone, assign, each } from 'ts-fns';
 import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
 import { WebCutHighlightOfText, WebCutMaterialMeta } from '../types';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
 import { aspectRatioMap } from '../constants';
+import { animationPresets } from '../constants/animation';
 
 let context: WebCutContext | null | undefined = null;
 export function useWebCutContext(providedContext?: () => Partial<WebCutContext> | undefined | null) {
@@ -44,6 +45,7 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         current: null,
         canUndo: false,
         canRedo: false,
+        canRecover: false,
     };
 
     const providedContextValue = providedContext?.();
@@ -564,6 +566,15 @@ export function useWebCutPlayer() {
             spr.interactable = meta.interactable;
         }
 
+        // 将rect固定到meta上，后续animation中需要用到
+        segMeta.rect = Object.assign(clone(meta.rect || {}), {
+            x: spr.rect.x,
+            y: spr.rect.y,
+            w: spr.rect.w,
+            h: spr.rect.h,
+            angle: spr.rect.angle,
+        });
+
         sprites.value.push(markRaw(spr));
 
         const key = meta.id || createRandomString(16);
@@ -629,6 +640,7 @@ export function useWebCutPlayer() {
         // 记录对应关系，方便后面删除
         const sourceMeta = reactive(segMeta);
         sources.value.set(key, {
+            key,
             type,
             clip: clip!,
             sprite: spr,
@@ -646,6 +658,11 @@ export function useWebCutPlayer() {
         await canvas.value?.addSprite(spr);
         if (type === 'video') {
             mark(PerformanceMark.VideoSpriteAddEnd);
+        }
+
+        // 应用动画（如果有的话），注意，它必须在sprite和source都存在的情况下才能执行
+        if (meta.animation) {
+            applyAnimation(key, meta.animation);
         }
 
         // TODO 监听spr，当属性发生变化时，更新sourceMeta
@@ -857,6 +874,169 @@ export function useWebCutPlayer() {
      * 移动到指定时间，展示对应的画面
      * @param time 时间，单位：纳秒
      */
+    /**
+     * 应用动画到指定的 sprite
+     * @param sprite 目标 sprite
+     * @param animation 动画配置
+     */
+    function applyAnimation(sourceKey: string, animation: Pick<WebCutAnimationData, 'type' | 'key'> & Partial<Pick<WebCutAnimationData, 'duration' | 'delay' | 'iterCount'>> | null) {
+        if (!sourceKey) {
+            return;
+        }
+
+        const source = sources.value.get(sourceKey);
+        if (!source) {
+            return;
+        }
+
+        const { sprite, meta, railId, segmentId } = source;
+        if (!sprite) {
+            return;
+        }
+
+        // 如果没有动画，清除现有动画并重置
+        if (!animation || animation.duration === 0) {
+            sprite.setAnimation({}, { duration: 0 });
+            meta.animation = null;
+            Object.assign(sprite.rect, meta.rect);
+            sprite.opacity = meta.opacity || 1;
+            return;
+        }
+
+        let { type, duration = 0, delay = 0, iterCount, key } = animation;
+
+        // 从预设中获取keyframe
+        const preset = animationPresets.find(p => p.key === key);
+        if (!preset) {
+            return;
+        }
+
+        const {
+            defaultKeyframe = {},
+            defaultDuration,
+            defaultIterCount,
+        } = preset || {};
+
+        const rail = rails.value.find(r => r.id === railId);
+        if (!rail) {
+            return;
+        }
+        const segment = rail.segments.find(s => s.id === segmentId);
+        if (!segment) {
+            return;
+        }
+
+        const sgementDuration = segment.end - segment.start;
+        // 动画时长不能超过segment时长
+        duration = Math.min(duration || defaultDuration || 0, sgementDuration);
+
+        // 以当前meta.rect为基准，计算关键帧的绝对位置
+        const { x: currentX, y: currentY, w: currentW, h: currentH, angle: currentAngle } = {
+            x: sprite.rect.x,
+            y: sprite.rect.y,
+            w: sprite.rect.w,
+            h: sprite.rect.h,
+            angle: sprite.rect.angle,
+            ...meta.rect,
+        };
+        const currentOpacity = meta.opacity || 1;
+        const canvasWidth = width.value;
+        const canvasHeight = height.value;
+        const keyframe: WebCutAnimationKeyframe = {};
+        each(defaultKeyframe, (props: WebCutAnimationPreset['defaultKeyframe'][keyof WebCutAnimationPreset['defaultKeyframe']], key) => {
+            const { offsetX, offsetY, scale, rotate, opacity } = props || {};
+            const data = keyframe[key] = {
+                x: currentX,
+                y: currentY,
+                w: currentW,
+                h: currentH,
+                angle: currentAngle,
+                opacity: currentOpacity,
+            };
+            if (offsetX) {
+                if (Number.isFinite(offsetX)) {
+                    data.x = currentX! + offsetX;
+                }
+                // 正无穷，也就是画面移动到最右边隐藏起来
+                else if (offsetX > 0) {
+                    data.x = canvasWidth;
+                }
+                // 负无穷，也就是画面移动到最左边隐藏起来
+                else if (offsetX < 0) {
+                    data.x = -currentW!;
+                }
+            }
+            if (offsetY) {
+                if (Number.isFinite(offsetY)) {
+                    data.y = currentY! + offsetY;
+                }
+                // 正无穷，也就是画面移动到最下边隐藏起来
+                else if (offsetY > 0) {
+                    data.y = canvasHeight;
+                }
+                // 负无穷，也就是画面移动到最上边隐藏起来
+                else if (offsetY < 0) {
+                    data.y = -currentH!;
+                }
+            }
+            if (typeof scale === 'number' && scale >= 0) {
+                // @ts-ignore
+                data.w = currentW * scale;
+                // @ts-ignore
+                data.h = currentH * scale;
+                // 缩放时，需要将画面居中
+                const info = autoFitRect({ width: width.value, height: height.value }, { width: data.w!, height: data.h! });
+                data.x = info.x;
+                data.y = info.y;
+                // TODO 缩放时，是否要处理 offsetX, offsetY ？
+            }
+            if (typeof rotate === 'number' && rotate !== 0) {
+                // rotate为deg，我们需要转为rad
+                // @ts-ignore
+                data.angle = rotate * Math.PI / 180;
+            }
+            if (typeof opacity === 'number' && opacity >= 0 && opacity < 1) {
+                // @ts-ignore
+                data.opacity = opacity;
+            }
+        });
+
+        // 出场入场只能执行1次
+        if (type === WebCutAnimationType.Enter || type === WebCutAnimationType.Exit) {
+            iterCount = 1;
+        }
+        else if (type === WebCutAnimationType.Motion && !iterCount) {
+            iterCount = defaultIterCount || Math.ceil(sgementDuration / duration);
+        }
+
+        // 对于出场，要让动画在segment结束时结束，通过延迟执行来实现
+        if (type === WebCutAnimationType.Exit) {
+            delay = sgementDuration - duration;
+        }
+
+        // 重置原始信息
+        Object.assign(sprite.rect, meta.rect);
+        sprite.opacity = meta.opacity || 1;
+
+        // 设置动画信息
+        const info = {
+            duration,
+            delay,
+            iterCount,
+        };
+        sprite.setAnimation(keyframe, info);
+        meta.animation = {
+            type,
+            key,
+            duration,
+            delay,
+            iterCount,
+        };
+
+        // 将动画参数返回给外部使用
+        return info;
+    }
+
     function moveTo(time: number) {
         cursorTime.value = time;
         canvas.value?.previewFrame(time);
@@ -880,6 +1060,26 @@ export function useWebCutPlayer() {
         player.value?.fitBoxSize?.();
     }
 
+    function syncSourceMeta(source: WebCutSource, data: {
+        rect?: any,
+        opacity?: number,
+    }) {
+        const { rect, opacity } = data;
+        if (rect) {
+            Object.assign(source.sprite.rect, rect);
+            source.meta.rect = source.meta.rect || {};
+            Object.assign(source.meta.rect, rect);
+        }
+        if (opacity !== undefined) {
+            source.sprite.opacity = opacity;
+            source.meta.opacity = opacity;
+        }
+        // 属性修改之后，需要重新计算动画
+        if (source.meta.animation) {
+            applyAnimation(source.key, source.meta.animation);
+        }
+    }
+
     return {
         init,
         play,
@@ -898,6 +1098,8 @@ export function useWebCutPlayer() {
         readSources,
         download,
         resize,
+        applyAnimation, // 导出 applyAnimation 函数
+        syncSourceMeta,
     };
 }
 
@@ -953,9 +1155,10 @@ export function useWebCutThemeColors(provideColors?: () => Partial<WebCutColors>
         greyColorDark: '#444',
         greyDeepColor: '#eee',
         greyDeepColorDark: '#2e2e2e',
+
         railBgColor: '#f5f5f5',
         railBgColorDark: '#1f1f1f',
-        railHoverBgColor: 'rgba(126, 151, 144, 0.2)',
+        railHoverBgColor: 'rgba(125, 212, 187, 0.25)',
         railHoverBgColorDark: 'rgba(114, 251, 210, 0.2)',
         lineColor: '#eee',
         lineColorDark: '#000',
@@ -963,6 +1166,8 @@ export function useWebCutThemeColors(provideColors?: () => Partial<WebCutColors>
         thumbColorDark: '#444',
         managerTopBarColor: '#f0f0f0',
         managerTopBarColorDark: '#222',
+        closeIconColor: '#999',
+        closeIconColorDark: '#ccc',
     };
     const parentThemeColors = inject<ComputedRef<WebCutColors> | null>('WEBCUT_THEME_COLORS', null);
     const themeColors = computed(() => {

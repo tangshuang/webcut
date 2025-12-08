@@ -9,22 +9,29 @@ import FlipH from '../../tools/flip-h/index.vue';
 import Concat from '../../tools/concat/index.vue';
 import Undo from '../../tools/undo/index.vue';
 import Redo from '../../tools/redo/index.vue';
+import HistoryRecover from '../../tools/history-recover/index.vue';
+import { DividerTall16Regular } from '@vicons/fluent';
+import { NIcon } from 'naive-ui';
 </script>
 
 <template>
     <div class="webcut-manager-tools-bar">
         <div class="webcut-manager-tools-bar-left">
-            <slot name="left"></slot>
+            <span style="margin:auto"></span>
         </div>
         <div class="webcut-manager-tools-bar-right">
+            <HistoryRecover />
             <Undo></Undo>
             <Redo></Redo>
+            <n-icon :component="DividerTall16Regular" class="webcut-divider-icon"></n-icon>
             <ClearTool></ClearTool>
+            <n-icon :component="DividerTall16Regular" class="webcut-divider-icon"></n-icon>
             <DeleteTool></DeleteTool>
             <SplitTool></SplitTool>
             <SplitKeepLeft></SplitKeepLeft>
             <SplitKeepRight></SplitKeepRight>
             <FlipH></FlipH>
+            <n-icon :component="DividerTall16Regular" class="webcut-divider-icon"></n-icon>
             <Concat></Concat>
             <slot name="middle"></slot>
             <span style="margin:auto"></span>
@@ -45,6 +52,10 @@ import Redo from '../../tools/redo/index.vue';
     width: 120px;
     height: 100%;
     border-right: 1px solid var(--webcut-line-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2px;
 }
 .webcut-manager-tools-bar-right {
     flex: 1;
@@ -56,5 +67,9 @@ import Redo from '../../tools/redo/index.vue';
     margin-right: 8px;
     margin-left: 4px;
     border-bottom: 1px solid var(--webcut-line-color);
+}
+.webcut-divider-icon {
+    font-size: 16px;
+    opacity: .1;
 }
 </style>

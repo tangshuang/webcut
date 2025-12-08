@@ -1,4 +1,4 @@
-import { onMounted, ref, markRaw } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useWebCutContext } from './index';
 import { useWebCutPlayer } from './index';
 import { HistoryMachine } from '../libs/history-machine';
@@ -8,7 +8,7 @@ import { clone, isEqual } from 'ts-fns';
 const historyMachines = new Map<string, HistoryMachine>();
 
 export function useWebCutHistory() {
-    const { id: projectId, rails, sources, canUndo, canRedo, canvas, selected, current, clips, sprites, updateByAspectRatio } = useWebCutContext();
+    const { id: projectId, rails, sources, canUndo, canRedo, canRecover, canvas, selected, current, clips, sprites, updateByAspectRatio } = useWebCutContext();
     const { push: pushToPlayer } = useWebCutPlayer();
 
     // 创建历史记录管理器实例
@@ -19,7 +19,6 @@ export function useWebCutHistory() {
     }
 
     // 是否有项目状态可以恢复
-    const canRecover = ref(false);
     const dataToRecover = ref<Awaited<ReturnType<HistoryMachine['init']>> | null>(null);
 
     // 初始化历史记录
@@ -27,11 +26,14 @@ export function useWebCutHistory() {
         const savedData = await historyMachine.init();
         await historyMachine.ready();
         if (savedData?.state) {
-            dataToRecover.value = markRaw(savedData);
+            dataToRecover.value = savedData;
             canRecover.value = true;
+            // 恢复一些视频基础配置
+            const { aspectRatio } = savedData;
+            if (aspectRatio) {
+                updateByAspectRatio(aspectRatio);
+            }
         }
-        canUndo.value = historyMachine.canUndo();
-        canRedo.value = historyMachine.canRedo();
     });
 
     // 将source转换为source meta便于存储
@@ -66,7 +68,7 @@ export function useWebCutHistory() {
         const src = fileId ? `file:${fileId}` : url || text || '';
         await pushToPlayer(type as any, src, {
             id: sourceKey,
-            rect: sprite.rect,
+            rect: clone(meta.rect), // 使用meta.rect，因为animation可能改变sprite.rect
             time: {
                 start: sprite.time.offset,
                 duration: sprite.time.duration,
@@ -77,10 +79,11 @@ export function useWebCutHistory() {
             flip: sprite.flip,
             visible: sprite.visible,
             interactable: sprite.interactable,
-            audio: meta.audio,
-            video: meta.video,
+            audio: clone(meta.audio),
+            video: clone(meta.video),
             // TODO text的处理比较复杂，需进一步研究，可能需要从seg上获取
-            text: meta.text,
+            text: clone(meta.text),
+            animation: clone(meta.animation),
             autoFitRect: meta.autoFitRect,
             withRailId: railId,
             withSegmentId: segment.id,
@@ -291,6 +294,11 @@ export function useWebCutHistory() {
             updateByAspectRatio(aspectRatio);
         }
         await recoverHistory(state);
+
+        dataToRecover.value = null;
+        canRecover.value = false;
+        canUndo.value = historyMachine.canUndo();
+        canRedo.value = historyMachine.canRedo();
     }
 
     // 撤销操作
@@ -316,10 +324,18 @@ export function useWebCutHistory() {
         await historyMachine.clear();
         canUndo.value = historyMachine.canUndo();
         canRedo.value = historyMachine.canRedo();
+        canRecover.value = false;
+        dataToRecover.value = null;
     }
 
     async function push() {
         await historyMachine.ready();
+
+        // 如果有项目状态可以恢复，先清除历史记录
+        if (canRecover.value) {
+            await historyMachine.clear();
+        }
+
         const railsData = clone(rails.value);
         const sourcesData: any = {};
         for (const [key, source] of sources.value.entries()) {
@@ -329,6 +345,8 @@ export function useWebCutHistory() {
         await historyMachine.push({ rails: railsData, sources: sourcesData });
         canUndo.value = historyMachine.canUndo();
         canRedo.value = historyMachine.canRedo();
+        canRecover.value = false;
+        dataToRecover.value = null;
     }
 
     return {

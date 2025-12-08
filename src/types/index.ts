@@ -61,6 +61,7 @@ export type WebCutContext = {
 
     canUndo: boolean;
     canRedo: boolean;
+    canRecover: boolean;
 };
 
 export type WebCutHighlightOfText = {
@@ -119,8 +120,84 @@ export interface WebCutMaterial {
   updatedAt: number;
 };
 
+// 动画类型定义
+export enum WebCutAnimationType {
+    /** 入场动画 */
+    Enter = 'enter',
+    /** 出场动画 */
+    Exit = 'exit',
+    /** 运动动画 */
+    Motion = 'motion',
+};
+
+// 动画可控制的属性
+export interface WebCutAnimationProps {
+    x?: number;
+    y?: number;
+    w?: number;
+    h?: number;
+    angle?: number;
+    opacity?: number;
+}
+
+// 关键帧定义，key 为百分比或 from/to
+export type WebCutAnimationKeyframe = Partial<Record<`${number}%` | 'from' | 'to', WebCutAnimationProps>>;
+
+// 动画配置
+export interface WebCutAnimationData {
+    /** 动画类型 */
+    type: WebCutAnimationType;
+    /** 动画名称，preset id */
+    key: string;
+
+    /** 动画持续时间（微秒） */
+    duration: number;
+    /** 动画延迟时间（微秒） */
+    delay?: number;
+    /** 动画重复次数，0为无限循环 */
+    iterCount?: number;
+}
+
+/**
+ * 预设动画效果
+ */
+export interface WebCutAnimationPreset {
+    /** 预设ID */
+    key: string;
+    /** 预设名称（用于展示） */
+    name: string;
+    /** 适用的动画类型 */
+    type: WebCutAnimationType;
+    /** 动画帧定义 */
+    defaultKeyframe: Partial<Record<`${number}%` | 'from' | 'to', {
+        /** 相对于素材当前位置的x偏移量 */
+        offsetX?: number;
+        /** 相对于素材当前位置的y偏移量 */
+        offsetY?: number;
+        /** 相对于当前w,h的缩放比例 */
+        scale?: number;
+        /** 相对于当前angle的旋转角度 */
+        rotate?: number;
+        /** 透明度 */
+        opacity?: number;
+    }>>;
+    /** 默认持续时间（微秒） */
+    defaultDuration: number;
+    /** 默认重复次数 */
+    defaultIterCount?: number;
+}
+
+/**
+ * 素材元数据
+ * 用于存储素材的位置信息、透明度、可见性等
+ * 需要注意，当素材存在animation时，meta中的上述元数据信息与sprite上的真实值可能会有差异，
+ * 因为animation会实时调整sprite的属性值，而元数据则保存了不考虑animation下的初始值，
+ * 切换任意的animation都是在初始值的基础上进行叠加，而非在上一个animation的值的基础上叠加
+ */
 export type WebCutMaterialMeta = {
     id?: string;
+
+    /** 素材的位置信息 */
     rect?: Partial<{
         x: number;
         y: number;
@@ -128,6 +205,12 @@ export type WebCutMaterialMeta = {
         h: number;
         angle: number;
     }>,
+    zIndex?: VisibleSprite['zIndex'];
+    opacity?: VisibleSprite['opacity'];
+    flip?: VisibleSprite['flip'];
+    visible?: VisibleSprite['visible'];
+    interactable?: VisibleSprite['interactable'];
+
     time?: {
         /** 在时间轴中的开始时间 */
         start?: number;
@@ -136,6 +219,10 @@ export type WebCutMaterialMeta = {
         /** 播放速率，1为正常速率，0.5为半速，2为双倍速 */
         playbackRate?: number;
     },
+
+    /** 动画 */
+    animation?: WebCutAnimationData | null;
+
     audio?: {
         /** 偏移时间，即音频将从该位置进行播放，单位：纳秒 */
         offset?: number;
@@ -151,11 +238,7 @@ export type WebCutMaterialMeta = {
         css?: object;
         highlights?: WebCutHighlightOfText[];
     },
-    zIndex?: VisibleSprite['zIndex'];
-    opacity?: VisibleSprite['opacity'];
-    flip?: VisibleSprite['flip'];
-    visible?: VisibleSprite['visible'];
-    interactable?: VisibleSprite['interactable'];
+
     /** 自动调整视频尺寸到容器内，仅对视频和图片有效，带_scale后缀表示当图片小于视频视口时，会把图片放大以撑满整个视口 */
     autoFitRect?: 'contain' | 'cover' | 'contain_scale' | 'cover_scale';
     /** 添加到指定轨道 */
@@ -165,6 +248,7 @@ export type WebCutMaterialMeta = {
 };
 
 export type WebCutSource = {
+    key: string;
     type: WebCutMaterialType;
     clip: MP4Clip | ImgClip | AudioClip;
     sprite: VisibleSprite;
@@ -232,6 +316,7 @@ export interface WebCutColors {
     greyColorDark: string,
     greyDeepColor: string,
     greyDeepColorDark: string,
+
     railBgColor: string,
     railBgColorDark: string,
     /** 轨道悬停颜色 */
@@ -244,4 +329,6 @@ export interface WebCutColors {
     thumbColorDark: string,
     managerTopBarColor: string,
     managerTopBarColorDark: string,
+    closeIconColor: string,
+    closeIconColorDark: string,
 }

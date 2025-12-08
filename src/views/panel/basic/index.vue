@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { useWebCutContext } from '../../../hooks';
-import { NForm, NFormItem, NInputNumber, NInputGroup, NButton, NInputGroupLabel, NSlider } from 'naive-ui';
+import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
+import { NForm, NFormItem, NInputNumber, NInputGroup, NButton, NInputGroupLabel, NSlider, NAlert } from 'naive-ui';
 import RotateInput from '../../../components/rotate-input/index.vue';
 import { useT } from '../../../hooks/i18n';
 import { autoFitRect } from '../../../libs';
@@ -11,6 +11,7 @@ import { throttle } from 'ts-fns';
 
 const { currentSource, width, height } = useWebCutContext();
 const { push: pushHistory } = useWebCutHistory();
+const { syncSourceMeta } = useWebCutPlayer();
 const t = useT();
 
 // 节流保存历史记录，避免频繁操作时过度保存
@@ -84,9 +85,13 @@ function setupWatch(type: 'x' | 'y' | 'w' | 'h' | 'angle' | 'opacity') {
         }
 
         if (type === 'opacity') {
-            currentSource.value.sprite.opacity = next;
+            syncSourceMeta(currentSource.value, {
+                opacity: next,
+            });
         } else {
-            currentSource.value.sprite.rect[type] = next;
+            syncSourceMeta(currentSource.value, {
+                rect: { [type]: next },
+            });
         }
 
         // 保存到历史记录
@@ -109,7 +114,7 @@ async function handleFitSize(type?: 'contain' | 'cover' | 'contain_scale' | 'cov
     isSyncing = true;
     const rect = autoFitRect({ width: width.value, height: height.value }, { width: imgW, height: imgH }, type);
     Object.assign(formData.value, rect);
-    Object.assign(currentSource.value.sprite.rect, rect);
+    syncSourceMeta(currentSource.value, { rect });
     nextTick(() => {
         isSyncing = false;
     });
@@ -140,6 +145,7 @@ async function handlePutCenter(type: 'x' | 'y') {
 
 <template>
     <n-form size="small" label-placement="left" :label-width="48" label-align="left" class="webcut-panel-form">
+        <n-alert class="webcut-message" v-if="currentSource?.meta.animation" type="warning">{{ t('当前有动画，调整可能不能直接看到效果，请播放片段查看') }}</n-alert>
         <n-form-item :label="t('位置')" class="n-form-item--flex-column" :feedback="t('视频尺寸为{width}x{height}。', { width, height })">
             <n-input-group>
                 <n-input-group-label>X</n-input-group-label>
@@ -183,5 +189,8 @@ async function handlePutCenter(type: 'x' | 'y') {
 <style scoped>
 .webcut-panel-form {
     padding: 8px;
+}
+.webcut-message {
+  margin-bottom: 8px;
 }
 </style>

@@ -10,12 +10,11 @@ import LangSwitch from '../lang-switch/index.vue';
 import WebCutSelectAspectRatio from '../select-aspect-ratio/index.vue';
 import WebCutTimeClock from '../time-clock/index.vue';
 import WebCutLibrary from '../library/index.vue';
-import { watch, ref } from 'vue';
+import { ref } from 'vue';
 import Panel from '../panel/index.vue';
 import ExportButton from '../export-button/index.vue';
 import { WebCutColors } from '../../types';
 import { useWebCutLocale } from '../../hooks/i18n';
-import { useWebCutHistory } from '../../hooks/history';
 
 const darkMode = defineModel<boolean | null | undefined>('darkMode', { default: null });
 const language = defineModel<string | null | undefined>('language', { default: null });
@@ -31,19 +30,12 @@ useWebCutThemeColors(() => props.colors);
 useWebCutDarkMode(darkMode);
 useWebCutLocale(language);
 
-const { canRecover, recover } = useWebCutHistory();
 const { resize } = useWebCutPlayer();
 
 const manager = ref();
 function handleResized() {
     manager.value?.resizeHeight();
 }
-
-watch(canRecover, async () => {
-    if (canRecover.value) {
-        await recover();
-    }
-}, { immediate: true });
 </script>
 
 <template>

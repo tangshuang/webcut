@@ -14,6 +14,7 @@ import { Video } from '@vicons/carbon';
 import { NIcon } from 'naive-ui';
 import { useT } from '../../../hooks/i18n';
 import { useWebCutContext } from '../../../hooks';
+import { useWebCutHistory } from '../../../hooks/history';
 
 export type WebCutManagerProps = {
     topBarColor?: string;
@@ -43,6 +44,8 @@ const { rails, manager, selected, current, toggleSegment, unselectSegment, selec
 const slots = useSlots();
 const { scroll1, scroll2, totalPx, timeToPx, pxToTime, pxOf1Frame, resetSegmentTime } = useWebCutManager();
 const t = useT();
+const { push: pushHistory } = useWebCutHistory();
+
 const container = ref();
 
 const showDragable = ref(true);
@@ -149,6 +152,7 @@ function handleMoveRelease(segment: WebCutSegment, rail: WebCutRail) {
     segment.end = pxToTime(end);
     moveState.value = {};
     resetSegmentTime(segment);
+    pushHistory();
     emit('resize', { segment, rail });
 }
 
@@ -352,6 +356,7 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
     highlightedRailId.value = null;
 
     resetSegmentTime(segment);
+    pushHistory();
     emit('resize', { segment, rail: targetRail });
 }
 

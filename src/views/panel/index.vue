@@ -3,6 +3,7 @@ import { useWebCutContext } from '../../hooks';
 import TextSetting from './text/index.vue';
 import ScrollBox from '../../components/scroll-box/index.vue';
 import BasicSetting from './basic/index.vue';
+import AnimationSetting from './animation/index.vue';
 import { ref, watch } from 'vue';
 import { useT } from '../../hooks/i18n';
 
@@ -25,12 +26,16 @@ watch(currentSegment, () => {
         <div class="webcut-panel-tab" v-if="currentRail?.type === 'text'" :class="{'webcut-panel-tab--active': tab === 'text'}" @click="tab = 'text'">
           {{ t('文本') }}
         </div>
+        <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!)" :class="{'webcut-panel-tab--active': tab === 'animation'}" @click="tab = 'animation'">
+          {{ t('动画') }}
+        </div>
       </div>
     </div>
     <div class="webcut-panel-content" v-if="currentRail">
       <ScrollBox>
-        <BasicSetting v-if="tab === 'basic'" />
-        <TextSetting v-if="tab === 'text'" />
+        <BasicSetting v-if="tab === 'basic' && ['text', 'image', 'video'].includes(currentRail?.type!)" />
+        <TextSetting v-if="tab === 'text' && ['text'].includes(currentRail?.type!)" />
+        <AnimationSetting v-if="tab === 'animation' && ['text', 'image', 'video'].includes(currentRail?.type!)" />
       </ScrollBox>
     </div>
   </div>
@@ -62,11 +67,12 @@ watch(currentSegment, () => {
   cursor: pointer;
 }
 .webcut-panel-tab--active {
-  background-color: var(--webcut-grey-deep-color);
+  background-color: var(--webcut-rail-hover-bg-color);
 }
 
 .webcut-panel :deep(.webcut-panel-form) {
   padding: 8px;
   width: calc(100% - 16px);
+  overflow: hidden;
 }
 </style>

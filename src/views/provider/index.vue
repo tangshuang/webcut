@@ -132,8 +132,10 @@ provideLanguage();
                                         '--webcut-line-color': isDarkMode ? themeColors.lineColorDark : themeColors.lineColor,
                                         '--webcut-thumb-color': isDarkMode ? themeColors.thumbColorDark : themeColors.thumbColor,
                                         '--webcut-manager-top-bar-color': isDarkMode ? themeColors.managerTopBarColorDark : themeColors.managerTopBarColor,
-                                        '--webcut-small-form-font-size': '10px',
-                                        '--webcut-small-form-font-size-tiny': '8px',
+                                        '--webcut-close-icon-color': isDarkMode ? themeColors.closeIconColorDark : themeColors.closeIconColor,
+                                        '--webcut-font-size-normal': '12px',
+                                        '--webcut-font-size-small': '10px',
+                                        '--webcut-font-size-tiny': '8px',
                                     }">
                                         <slot></slot>
                                     </div>
@@ -161,6 +163,7 @@ provideLanguage();
     width: 100%;
     color: var(--text-color-base);
     background-color: var(--webcut-background-color);
+    font-size: var(--webcut-font-size-normal);
 }
 
 .webcut-root :deep(.sprite-rect .ctrl-key-rotate) {
@@ -274,8 +277,8 @@ provideLanguage();
 }
 .webcut-root :deep(.n-form-item--small-size),
 .webcut-root :deep(.n-form-item--small-size .n-form-item-label__text) {
-  font-size: var(--webcut-small-form-font-size) !important;
-  --n-label-font-size: var(--webcut-small-form-font-size) !important;
+  font-size: var(--webcut-font-size-small) !important;
+  --n-label-font-size: var(--webcut-font-size-small) !important;
 }
 .webcut-root :deep(.n-form-item-label__text) {
   word-break: keep-all;
@@ -285,21 +288,23 @@ provideLanguage();
 .webcut-root--lang-kr :deep(.n-form-item-label__text) {
   word-break: break-all;
 }
-
-.webcut-root :deep(.n-form-item--small-size .n-input-group-label) {
-    font-size: var(--webcut-small-form-font-size) !important;
-}
-.webcut-root :deep(.n-form-item--small-size .n-button) {
-    font-size: var(--webcut-small-form-font-size) !important;
-}
-.webcut-root :deep(.n-form-item--small-size .n-form-item-feedback) {
-  font-size: var(--webcut-small-form-font-size-tiny);
-}
 .webcut-root :deep(.n-color-picker-trigger__value) {
     opacity: 0;
 }
+
+.webcut-root :deep(.webcut-panel-form),
+.webcut-root :deep(.webcut-panel-form .n-base-selection-input__content),
+.webcut-root :deep(.webcut-panel-form .n-collapse-item__header-main),
+.webcut-root :deep(.n-radio-button .n-radio__label),
+.webcut-root :deep(.n-alert-body__content) {
+    font-size: var(--webcut-font-size-normal) !important;
+}
+.webcut-root :deep(.n-form-item--small-size .n-button),
 .webcut-root :deep(.n-form-item--small-size .n-input__textarea-el) {
-    font-size: var(--webcut-small-form-font-size);
+    font-size: var(--webcut-font-size-small);
+}
+.webcut-root :deep(.n-form-item--small-size .n-form-item-feedback) {
+  font-size: var(--webcut-font-size-tiny);
 }
 .webcut-root :deep(.webcut-tool-button) {
     padding: 0;
