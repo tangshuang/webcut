@@ -11,13 +11,21 @@ import Undo from '../../tools/undo/index.vue';
 import Redo from '../../tools/redo/index.vue';
 import HistoryRecover from '../../tools/history-recover/index.vue';
 import { DividerTall16Regular } from '@vicons/fluent';
+import Loading from '../../loading/index.vue';
 import { NIcon } from 'naive-ui';
+
+const props = defineProps<{
+    asideWidth?: number | string;
+}>();
 </script>
 
 <template>
-    <div class="webcut-manager-tools-bar">
+    <div class="webcut-manager-tools-bar" :style="{
+        '--webcut-manager-aside-width': props.asideWidth && typeof props.asideWidth === 'number' ? props.asideWidth + 'px' : props.asideWidth,
+    }">
         <div class="webcut-manager-tools-bar-left">
             <span style="margin:auto"></span>
+            <Loading size="1.2em"></Loading>
         </div>
         <div class="webcut-manager-tools-bar-right">
             <HistoryRecover />
@@ -49,8 +57,9 @@ import { NIcon } from 'naive-ui';
     border-bottom: 1px solid var(--webcut-line-color);
 }
 .webcut-manager-tools-bar-left {
-    width: 120px;
+    width: calc(var(--webcut-manager-aside-width) - 8px);
     height: 100%;
+    padding: 0 4px;
     border-right: 1px solid var(--webcut-line-color);
     display: flex;
     align-items: center;

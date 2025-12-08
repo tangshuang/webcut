@@ -63,6 +63,8 @@ const createImgUrl = (imgBlob: Blob) => {
 };
 
 async function initThumbnailsAndAudioWave() {
+    const { loading } = useWebCutContext();
+    loading.value = true;
     try {
         if (!source.value) {
             return;
@@ -172,6 +174,8 @@ async function initThumbnailsAndAudioWave() {
     }
     catch (e) {
         console.error(e);
+    } finally {
+        loading.value = false;
     }
 }
 

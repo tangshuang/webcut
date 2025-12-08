@@ -12,7 +12,7 @@ const getFiles = source<{ id: string; type: string; name: string; size: number, 
 });
 
 export function useWebCutLibrary() {
-    const { id: projectId } = useWebCutContext();
+    const { id: projectId, loading } = useWebCutContext();
     const { data: projectData, init: initProjectData, refresh: refreshProjectData } = useSource(getProjectData, {});
     const { data: files, init: initFiles, refresh: refreshFiles } = useSource(getFiles, []);
 
@@ -30,22 +30,32 @@ export function useWebCutLibrary() {
     }, { immediate: true });
 
     async function addNewFile(file: File) {
-        let fileId = await getFileMd5(file);
-        if (projectFiles.value.some((item: any) => item.id === fileId)) {
-            return;
+        loading.value = true;
+        try {
+            let fileId = await getFileMd5(file);
+            if (projectFiles.value.some((item: any) => item.id === fileId)) {
+                return;
+            }
+            if (!files.value.some((item: any) => item.id === fileId)) {
+                await addFile(file);
+            }
+            await addFileToProject(projectId.value, fileId);
+            await refreshProjectData();
+            await refreshFiles();
+        } finally {
+            loading.value = false;
         }
-        if (!files.value.some((item: any) => item.id === fileId)) {
-            await addFile(file);
-        }
-        await addFileToProject(projectId.value, fileId);
-        await refreshProjectData();
-        await refreshFiles();
     }
 
     async function removeFile(fileId: string) {
-        await removeFileFromProject(projectId.value, fileId);
-        await refreshProjectData();
-        await refreshFiles();
+        loading.value = true;
+        try {
+            await removeFileFromProject(projectId.value, fileId);
+            await refreshProjectData();
+            await refreshFiles();
+        } finally {
+            loading.value = false;
+        }
     }
 
     return {

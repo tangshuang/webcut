@@ -46,6 +46,7 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         canUndo: false,
         canRedo: false,
         canRecover: false,
+        loading: false,
     };
 
     const providedContextValue = providedContext?.();
@@ -249,6 +250,7 @@ export function useWebCutPlayer() {
         selectSegment,
         unselectSegment,
         currentSource,
+        loading,
     } = refs;
 
     const opts = {
@@ -391,9 +393,11 @@ export function useWebCutPlayer() {
     }
 
     async function push(type: 'video' | 'audio' | 'image' | 'text', source: string | File, meta: WebCutMaterialMeta = {}): Promise<string> {
-        let clip: MP4Clip | ImgClip | AudioClip;
-        let text, fileId, url, file;
-        let segMeta = clone(meta);
+        loading.value = true;
+        try {
+            let clip: MP4Clip | ImgClip | AudioClip;
+            let text, fileId, url, file;
+            let segMeta = clone(meta);
         if (type === 'video') {
             const volume = meta.video?.volume;
             const offset = meta.video?.offset;
@@ -672,7 +676,10 @@ export function useWebCutPlayer() {
         }
 
         return key;
+    } finally {
+        loading.value = false;
     }
+}
 
     function remove(key: string) {
         const sourceInfo = sources.value.get(key);
@@ -1238,5 +1245,21 @@ export function useWebCutDarkMode(darkMode?: ModelRef<boolean | null | undefined
     return {
         isDarkMode,
         provide: () => provide('WEBCUT_DARK_MODE', isDarkMode),
+    };
+}
+
+/**
+ * Hook to control and access the loading state
+ */
+export function useWebCutLoading() {
+    const { loading } = useWebCutContext();
+
+    const showLoading = () => loading.value = true;
+    const hideLoading = () => loading.value = false;
+
+    return {
+        loading,
+        showLoading,
+        hideLoading,
     };
 }

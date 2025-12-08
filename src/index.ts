@@ -2,6 +2,7 @@
 import WebCutProvider from './views/provider/index.vue';
 import WebCutLangSwitch from './views/lang-switch/index.vue';
 import WebCutThemeSwitch from './views/theme-switch/index.vue';
+import WebCutLoading from './views/loading/index.vue';
 // 播放器
 import WebCutPlayer from './views/player/index.vue';
 import WebCutPlayerScreen from './views/player/screen.vue';
@@ -84,6 +85,7 @@ export {
     ScrollBox,
     DraggableHandler,
     RotateInput,
+    WebCutLoading,
 };
 
 export {
@@ -96,6 +98,7 @@ export {
     useWebCutData,
     useWebCutThemeColors,
     useWebCutDarkMode,
+    useWebCutLoading,
 } from './hooks';
 export {
     useWebCutManager,

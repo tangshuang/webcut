@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { AVCanvas } from '@webav/av-canvas';
 import { VisibleSprite, MP4Clip, ImgClip, IClip } from '@webav/av-cliper';
 

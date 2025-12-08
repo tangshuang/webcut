@@ -8,6 +8,7 @@ export function useWebCutManager() {
         cursorTime, fps, scale, canvas, duration, scroll1, scroll2, status, ruler, manager, sources, updateDuration,
         // rails,
         unselectSegment,
+        loading,
     } = useWebCutContext();
     const { pause, push } = useWebCutPlayer();
 
@@ -182,126 +183,131 @@ export function useWebCutManager() {
     }
 
     async function splitSegment({ segment, rail, keep }: { segment: WebCutSegment; rail: WebCutRail; keep?: 'left' | 'right' | 'both' }) {
-        const { sourceKey, start, end } = segment;
-        const source = sources.value.get(sourceKey);
-        if (!source) {
-            return;
-        }
-
-        const { type, clip } = source;
-        // 计算分割点（纳秒）
-        const splitTime = cursorTime.value - start;
-
-        // 将原始segment作为左侧部分
-        const splitToKeepLeft = () => {
-            segment.end = cursorTime.value;
-            resetSegmentTime(segment);
-        };
-
-        // 将原始segment作为右侧部分
-        const splitToKeepRight = () => {
-            segment.start = cursorTime.value;
-            resetSegmentTime(segment);
-        };
-
-        const onAfterGen = (key: string) => {
-            if (clip.tickInterceptor) {
-                const newClip = sources.value.get(key)!.clip;
-                newClip.tickInterceptor = clip.tickInterceptor;
+        loading.value = true;
+        try {
+            const { sourceKey, start, end } = segment;
+            const source = sources.value.get(sourceKey);
+            if (!source) {
+                return;
             }
-        };
 
-        // 通过切分，获得右侧部分时需要注意，
-        // 新的clip需要复制原来的tickInterceptor
+            const { type, clip } = source;
+            // 计算分割点（纳秒）
+            const splitTime = cursorTime.value - start;
 
-        // 如果只是保留左侧，直接更新segment时间即可
-        if (keep === 'left') {
-            splitToKeepLeft();
-        }
-        else if (type === 'video') {
-            if (keep !== 'right') {
+            // 将原始segment作为左侧部分
+            const splitToKeepLeft = () => {
+                segment.end = cursorTime.value;
+                resetSegmentTime(segment);
+            };
+
+            // 将原始segment作为右侧部分
+            const splitToKeepRight = () => {
+                segment.start = cursorTime.value;
+                resetSegmentTime(segment);
+            };
+
+            const onAfterGen = (key: string) => {
+                if (clip.tickInterceptor) {
+                    const newClip = sources.value.get(key)!.clip;
+                    newClip.tickInterceptor = clip.tickInterceptor;
+                }
+            };
+
+            // 通过切分，获得右侧部分时需要注意，
+            // 新的clip需要复制原来的tickInterceptor
+
+            // 如果只是保留左侧，直接更新segment时间即可
+            if (keep === 'left') {
                 splitToKeepLeft();
             }
-            const material = source.fileId ? `file:${source.fileId}` : source.url as string;
-            const prevVideoMeta = source.meta.video || {};
-            const key = await push('video', material, {
-                autoFitRect: 'contain',
-                time: {
-                    start: cursorTime.value,
-                    duration: end - cursorTime.value,
-                },
-                video: {
-                    ...prevVideoMeta,
-                    offset: splitTime + (prevVideoMeta.offset || 0),
-                },
-                withRailId: rail.id,
-            });
-            onAfterGen(key);
-            if (keep === 'right') {
-                deleteSegment({ segment, rail });
-            }
-        }
-        else if (type === 'audio') {
-            if (keep !== 'right') {
-                splitToKeepLeft();
-            }
-            const material = source.fileId ? `file:${source.fileId}` : source.url as string;
-            const prevAudioMeta = source.meta.audio || {};
-            const key = await push('audio', material, {
-                time: {
-                    start: cursorTime.value,
-                    duration: end - cursorTime.value,
-                },
-                audio: {
-                    ...prevAudioMeta,
-                    offset: splitTime + (prevAudioMeta.offset || 0),
-                },
-                withRailId: rail.id,
-            });
-            onAfterGen(key);
-            if (keep === 'right') {
-                deleteSegment({ segment, rail });
-            }
-        }
-        // 如果是图片，则不需要进行实际的切分，只需要调整segment的时间，并创建一个新的segment
-        else if (type === 'image') {
-            if (keep === 'right') {
-                splitToKeepRight();
-            }
-            else {
-                splitToKeepLeft();
-                const { fileId, url } = source;
-                const src = fileId ? `file:${fileId}` : url as string;
-                const key = await push('image', src, {
+            else if (type === 'video') {
+                if (keep !== 'right') {
+                    splitToKeepLeft();
+                }
+                const material = source.fileId ? `file:${source.fileId}` : source.url as string;
+                const prevVideoMeta = source.meta.video || {};
+                const key = await push('video', material, {
+                    autoFitRect: 'contain',
                     time: {
                         start: cursorTime.value,
                         duration: end - cursorTime.value,
                     },
-                    withRailId: rail.id,
-                });
-                onAfterGen(key);
-            }
-        }
-        else if (type === 'text') {
-            if (keep === 'right') {
-                splitToKeepRight();
-            }
-            else {
-                splitToKeepLeft();
-                const { text } = source;
-                const key = await push('text', text as string, {
-                    time: {
-                        start: cursorTime.value,
-                        duration: end - cursorTime.value,
+                    video: {
+                        ...prevVideoMeta,
+                        offset: splitTime + (prevVideoMeta.offset || 0),
                     },
                     withRailId: rail.id,
                 });
                 onAfterGen(key);
+                if (keep === 'right') {
+                    deleteSegment({ segment, rail });
+                }
             }
-        }
+            else if (type === 'audio') {
+                if (keep !== 'right') {
+                    splitToKeepLeft();
+                }
+                const material = source.fileId ? `file:${source.fileId}` : source.url as string;
+                const prevAudioMeta = source.meta.audio || {};
+                const key = await push('audio', material, {
+                    time: {
+                        start: cursorTime.value,
+                        duration: end - cursorTime.value,
+                    },
+                    audio: {
+                        ...prevAudioMeta,
+                        offset: splitTime + (prevAudioMeta.offset || 0),
+                    },
+                    withRailId: rail.id,
+                });
+                onAfterGen(key);
+                if (keep === 'right') {
+                    deleteSegment({ segment, rail });
+                }
+            }
+            // 如果是图片，则不需要进行实际的切分，只需要调整segment的时间，并创建一个新的segment
+            else if (type === 'image') {
+                if (keep === 'right') {
+                    splitToKeepRight();
+                }
+                else {
+                    splitToKeepLeft();
+                    const { fileId, url } = source;
+                    const src = fileId ? `file:${fileId}` : url as string;
+                    const key = await push('image', src, {
+                        time: {
+                            start: cursorTime.value,
+                            duration: end - cursorTime.value,
+                        },
+                        withRailId: rail.id,
+                    });
+                    onAfterGen(key);
+                }
+            }
+            else if (type === 'text') {
+                if (keep === 'right') {
+                    splitToKeepRight();
+                }
+                else {
+                    splitToKeepLeft();
+                    const { text } = source;
+                    const key = await push('text', text as string, {
+                        time: {
+                            start: cursorTime.value,
+                            duration: end - cursorTime.value,
+                        },
+                        withRailId: rail.id,
+                    });
+                    onAfterGen(key);
+                }
+            }
 
-        // 更新总时长
-        updateDuration();
+            // 更新总时长
+            updateDuration();
+        } finally {
+            loading.value = false;
+        }
     }
 
     return {

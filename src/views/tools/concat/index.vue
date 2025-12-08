@@ -8,7 +8,7 @@ import { exportBlobOffscreen, exportAsWavBlobOffscreen } from '../../../libs';
 import { downloadBlob } from '../../../libs/file';
 import { AudioClip } from '@webav/av-cliper';
 
-const { rails, selected, sources, currentRail } = useWebCutContext();
+const { rails, selected, sources, currentRail, loading } = useWebCutContext();
 const t = useT();
 
 // 检查是否可以拼接素材
@@ -105,6 +105,7 @@ async function handleConcat() {
 
   const type = prevSource.type;
 
+  loading.value = true;
   try {
     // 根据素材类型选择导出函数
     if (type === 'video') {
@@ -116,6 +117,8 @@ async function handleConcat() {
     }
   } catch (error) {
     console.error('拼接素材失败:', error);
+  } finally {
+    loading.value = false;
   }
 }
 </script>

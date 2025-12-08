@@ -8,7 +8,7 @@ import { clone, isEqual } from 'ts-fns';
 const historyMachines = new Map<string, HistoryMachine>();
 
 export function useWebCutHistory() {
-    const { id: projectId, rails, sources, canUndo, canRedo, canRecover, canvas, selected, current, clips, sprites, updateByAspectRatio } = useWebCutContext();
+    const { id: projectId, rails, sources, canUndo, canRedo, canRecover, canvas, selected, current, clips, sprites, updateByAspectRatio, loading } = useWebCutContext();
     const { push: pushToPlayer } = useWebCutPlayer();
 
     // 创建历史记录管理器实例
@@ -279,44 +279,59 @@ export function useWebCutHistory() {
     // 整个组件只能执行一次，避免重复执行
     let isRecovered = false;
     async function recover() {
-        if (isRecovered) {
-            return;
-        }
-        isRecovered = true;
+        loading.value = true;
+        try {
+            if (isRecovered) {
+                return;
+            }
+            isRecovered = true;
 
-        const projectState = dataToRecover.value;
-        if (!projectState) {
-            return;
-        }
+            const projectState = dataToRecover.value;
+            if (!projectState) {
+                return;
+            }
 
-        const { aspectRatio, state } = projectState;
-        if (aspectRatio) {
-            updateByAspectRatio(aspectRatio);
-        }
-        await recoverHistory(state);
+            const { aspectRatio, state } = projectState;
+            if (aspectRatio) {
+                updateByAspectRatio(aspectRatio);
+            }
+            await recoverHistory(state);
 
-        dataToRecover.value = null;
-        canRecover.value = false;
-        canUndo.value = historyMachine.canUndo();
-        canRedo.value = historyMachine.canRedo();
+            dataToRecover.value = null;
+            canRecover.value = false;
+            canUndo.value = historyMachine.canUndo();
+            canRedo.value = historyMachine.canRedo();
+        } finally {
+            loading.value = false;
+        }
     }
 
     // 撤销操作
     async function undo() {
-        const state = await historyMachine.undo();
-        if (!state) {
-            return;
+        loading.value = true;
+        try {
+            const state = await historyMachine.undo();
+            if (!state) {
+                return;
+            }
+            await recoverHistory(state);
+        } finally {
+            loading.value = false;
         }
-        await recoverHistory(state);
     }
 
     // 重做操作
     async function redo() {
-        const state = await historyMachine.redo();
-        if (!state) {
-            return;
+        loading.value = true;
+        try {
+            const state = await historyMachine.redo();
+            if (!state) {
+                return;
+            }
+            await recoverHistory(state);
+        } finally {
+            loading.value = false;
         }
-        await recoverHistory(state);
     }
 
     // 清除历史记录

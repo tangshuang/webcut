@@ -62,6 +62,9 @@ export type WebCutContext = {
     canUndo: boolean;
     canRedo: boolean;
     canRecover: boolean;
+
+    // Loading status
+    loading: boolean;
 };
 
 export type WebCutHighlightOfText = {

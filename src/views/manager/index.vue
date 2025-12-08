@@ -37,7 +37,7 @@ defineExpose({
 
 <template>
     <div class="webcut-manager-root" ref="root">
-        <ToolBar />
+        <ToolBar :aside-width="120" />
         <ManagerContainer disable-sort :aside-width="120" class="webcut-manager-container" :rail-height-by-type="{ audio: 32, text: 24 }">
             <template #asideRail="{ rail }">
                 <AsideRail :rail="rail"></AsideRail>
