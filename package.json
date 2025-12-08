@@ -57,6 +57,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
+    "@types/wicg-file-system-access": "^2023.10.7",
     "@vitejs/plugin-vue": "^5.0.3",
     "@vue/test-utils": "^2.4.4",
     "eslint": "^8.56.0",

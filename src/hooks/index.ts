@@ -386,6 +386,20 @@ export function useWebCutPlayer() {
         return blob;
     }
 
+    /**
+     * 将视频流直接导出到 WritableStream
+     * @param writable 目标 WritableStream
+     */
+    async function exportToWritable(writable: WritableStream) {
+        const com = await canvas.value!.createCombinator();
+        const readable = com.output();
+        try {
+            await readable.pipeTo(writable, { preventClose: true });
+        } finally {
+            com.destroy();
+        }
+    }
+
     async function exportAsWavBlob() {
         const mp4Blob = await exportBlob();
         const wavBlob = await mp4BlobToWavBlob(mp4Blob);
@@ -1127,6 +1141,27 @@ export function useWebCutPlayer() {
     }
 
     async function download(filename = `webcut-${Date.now()}`) {
+        if (typeof window.showSaveFilePicker !== 'function') {
+            try {
+                const fileHandle = await window.showSaveFilePicker({
+                    suggestedName: `webcut-${Date.now()}.mp4`,
+                    types: [
+                        {
+                            description: 'MP4 视频',
+                            accept: {
+                                'video/mp4': ['.mp4']
+                            }
+                        }
+                    ]
+                });
+
+                const writable = await fileHandle.createWritable();
+                await exportToWritable(writable);
+                await writable.close();
+                return;
+            }
+            catch (error) {}
+        }
         const blob = await exportBlob();
         downloadBlob(blob, filename + '.mp4');
     }

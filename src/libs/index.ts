@@ -627,12 +627,12 @@ export function pcmToWav(pcmData: Float32Array[], sampleRate = 44100) {
 
 
 /**
- * 以离屏渲染的方式导出clips为blob
+ * 创建并配置Combinator实例，添加所有剪辑
  * @param clips
+ * @param options
  * @returns
  */
-export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>, options?: {
-    type?: string;
+async function createCombinatorWithClips(clips: Array<MP4Clip | ImgClip | AudioClip>, options?: {
     size?: {
         width: number;
         height: number;
@@ -641,7 +641,6 @@ export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | Audio
     main?: number;
 }) {
     const {
-        type = 'video/mp4',
         size,
         main,
     } = options || {};
@@ -684,6 +683,37 @@ export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | Audio
 
         await com.addSprite(spr, { main: typeof main === 'number' && clip === clips[main] });
     }
+
+    return com;
+}
+
+/**
+ * 以离屏渲染的方式导出clips为blob
+ * @param clips
+ * @returns
+ */
+export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>, options?: {
+    type?: string;
+    size?: {
+        width: number;
+        height: number;
+    };
+    /** 主素材索引，最终导出的视频时长以该素材的时长为duration，多余的部分被截断 */
+    main?: number;
+}) {
+    let defaultType = 'video/mp4';
+    if (clips.every(clip => clip instanceof AudioClip)) {
+        defaultType = 'audio/mp4'; // 文件名后缀为 .m4a
+    }
+
+    const {
+        type = defaultType,
+        size,
+        main,
+    } = options || {};
+
+    const com = await createCombinatorWithClips(clips, { size, main });
+
     const readable = com.output();
     const reader = readable.getReader();
     const chunks: any[] = [];
@@ -697,6 +727,66 @@ export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | Audio
     const blob = new Blob(chunks, { type });
     com.destroy();
     return blob;
+}
+
+/**
+ * 以离屏渲染的方式下载clips，优先使用showSaveFilePicker和stream方式，不支持时回退到blob方式
+ * @param clips
+ * @returns
+ */
+export async function downloadOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>, options?: {
+    type?: string;
+    size?: {
+        width: number;
+        height: number;
+    };
+    /** 主素材索引，最终导出的视频时长以该素材的时长为duration，多余的部分被截断 */
+    main?: number;
+    filename?: string;
+}) {
+    let defaultType = 'video/mp4';
+    if (clips.every(clip => clip instanceof AudioClip)) {
+        defaultType = 'audio/mp4';
+    }
+
+    const {
+        type = defaultType,
+        size,
+        main,
+        filename = `webcut-${Date.now()}.mp4`,
+    } = options || {};
+
+    // 检查是否支持showSaveFilePicker
+    if (typeof window.showSaveFilePicker === 'function') {
+        const com = await createCombinatorWithClips(clips, { size, main });
+        try {
+            // 使用showSaveFilePicker获取文件句柄
+            const fileHandle = await window.showSaveFilePicker({
+                suggestedName: filename,
+                types: [{ description: '视频文件', accept: { [type]: [`.${type.split('/')[1]}`] } as Record<string, `.${string}`[]> }]
+            });
+
+            // 创建可写流
+            const writable = await fileHandle.createWritable();
+
+            // 获取可读流并直接管道到可写流
+            const readable = com.output();
+            await readable.pipeTo(writable, { preventClose: true });
+            await writable.close();
+
+            com.destroy();
+            return;
+        } catch (error) {
+            console.error('使用showSaveFilePicker导出失败:', error);
+            // 如果失败，回退到blob方式
+            com.destroy();
+        }
+    }
+
+    // 回退到blob方式
+    const blob = await exportBlobOffscreen(clips, { type, size, main });
+    const { downloadBlob } = await import('./file');
+    await downloadBlob(blob, filename);
 }
 
 /**

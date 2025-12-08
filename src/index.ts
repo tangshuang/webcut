@@ -138,6 +138,7 @@ export {
     mp4ClipToFramesData,
     createImageFromVideoFrame,
     progressiveClipToPCMData,
+    downloadOffscreen,
 } from './libs';
 export {
     base64ToFile,

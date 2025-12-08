@@ -46,14 +46,58 @@ export function fileToBase64DataURL(file: File): Promise<string> {
   return blobToBase64DataURL(file);
 }
 
-export function downloadBlob(blob: Blob, filename: string) {
+/**
+ * 下载文件，优先使用showSaveFilePicker API，支持Blob和ReadableStream
+ * @param data Blob或ReadableStream对象
+ * @param filename 文件名
+ * @param type 文件类型
+ * @returns Promise<boolean> 下载是否成功
+ */
+export async function downloadBlob(data: Blob | ReadableStream<Uint8Array>, filename: string, type?: string) {
+    // 检查是否支持showSaveFilePicker
+    if (typeof window.showSaveFilePicker === 'function') {
+        try {
+            // 提取文件扩展名和MIME类型
+            const ext = filename.split('.').pop() || 'bin';
+            const mimeType = data instanceof Blob && data.type ? data.type : type || `application/${ext}`;
+
+            // 使用showSaveFilePicker获取文件句柄
+            const fileHandle = await window.showSaveFilePicker({
+                suggestedName: filename,
+                types: [{
+                    description: '文件',
+                    accept: { [mimeType]: [`.${ext}`] } as Record<string, `.${string}`[]>
+                }]
+            });
+
+            // 创建可写流
+            const writable = await fileHandle.createWritable();
+
+            if (data instanceof Blob) {
+                // 如果是Blob，先转换为ReadableStream
+                const readable = data.stream();
+                await readable.pipeTo(writable, { preventClose: true });
+            } else {
+                // 如果已经是ReadableStream，直接管道
+                await data.pipeTo(writable, { preventClose: true });
+            }
+
+            await writable.close();
+            return;
+        } catch (error) {}
+    }
+
+    // 回退到传统方式
+    const blob = data instanceof Blob ? data : await new Response(data).blob();
     const URL = (window.URL || window.webkitURL);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = url;
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     setTimeout(() => {
         URL.revokeObjectURL(url);
     }, 10000);

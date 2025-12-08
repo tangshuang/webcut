@@ -4,8 +4,7 @@ import { NPopover, NButton, NIcon } from 'naive-ui';
 import { DirectLink } from '@vicons/carbon';
 import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../hooks/i18n';
-import { exportBlobOffscreen, exportAsWavBlobOffscreen } from '../../../libs';
-import { downloadBlob } from '../../../libs/file';
+import { downloadOffscreen } from '../../../libs';
 import { AudioClip } from '@webav/av-cliper';
 
 const { rails, selected, sources, currentRail, loading } = useWebCutContext();
@@ -109,11 +108,16 @@ async function handleConcat() {
   try {
     // 根据素材类型选择导出函数
     if (type === 'video') {
-      const blob = await exportBlobOffscreen([prevSource.clip, nextSource.clip]);
-      downloadBlob(blob, `concatenated-video-${Date.now()}.mp4`);
-    } else if (type === 'audio') {
-      const blob = await exportAsWavBlobOffscreen([prevSource.clip as AudioClip, nextSource.clip as AudioClip]);
-      downloadBlob(blob, `concatenated-audio-${Date.now()}.wav`);
+      await downloadOffscreen([prevSource.clip, nextSource.clip], {
+        type: 'video/mp4',
+        filename: `concatenated-video-${Date.now()}.mp4`
+      });
+    }
+    else if (type === 'audio') {
+      await downloadOffscreen([prevSource.clip as AudioClip, nextSource.clip as AudioClip], {
+        type: 'audio/mp4',
+        filename: `concatenated-audio-${Date.now()}.m4a`
+      });
     }
   } catch (error) {
     console.error('拼接素材失败:', error);
