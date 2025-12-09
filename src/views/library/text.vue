@@ -63,7 +63,7 @@ async function handleAdd() {
   background: var(--webcut-grey-deep-color);
   margin: 2px;
   border-radius: 4px;
-  font-size: .7em;
+  font-size: var(--webcut-font-size-tiny);
   padding: 2px 4px;
   cursor: pointer;
 
@@ -107,7 +107,7 @@ async function handleAdd() {
 }
 
 .webcut-material-title {
-  font-size: .6em;
+  font-size: var(--webcut-font-size-tiny);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

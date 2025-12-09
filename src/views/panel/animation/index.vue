@@ -271,6 +271,7 @@ function fixedPercent(dur: number) {
     align-items: center;
     justify-content: center;
     gap: 4px;
+    font-size: var(--webcut-font-size-small) !important;
 }
 .webcut-animation-type-radio-group :deep(.n-radio-button--checked) {
     background-color: var(--webcut-grey-color);
@@ -314,7 +315,7 @@ function fixedPercent(dur: number) {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    font-size: var(--webcut-font-size-large);
     color: var(--text-color-3);
 }
 .webcut-animation-item-icon-none {

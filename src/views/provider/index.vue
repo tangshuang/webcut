@@ -133,9 +133,10 @@ provideLanguage();
                                         '--webcut-thumb-color': isDarkMode ? themeColors.thumbColorDark : themeColors.thumbColor,
                                         '--webcut-manager-top-bar-color': isDarkMode ? themeColors.managerTopBarColorDark : themeColors.managerTopBarColor,
                                         '--webcut-close-icon-color': isDarkMode ? themeColors.closeIconColorDark : themeColors.closeIconColor,
-                                        '--webcut-font-size-normal': '12px',
-                                        '--webcut-font-size-small': '10px',
-                                        '--webcut-font-size-tiny': '8px',
+                                        '--webcut-font-size-large': '20px',
+                                        '--webcut-font-size-normal': '14px',
+                                        '--webcut-font-size-small': '12px',
+                                        '--webcut-font-size-tiny': '10px',
                                     }">
                                         <slot></slot>
                                     </div>
@@ -185,7 +186,7 @@ provideLanguage();
   padding: 0 2px;
 }
 .webcut-root :deep(.n-form-item .n-form-item-feedback) {
-  font-size: .8em;
+  font-size: var(--webcut-font-size-tiny);
   margin-bottom: 16px;
 }
 .webcut-root :deep(.n-form-item .n-input-group) {
@@ -235,7 +236,7 @@ provideLanguage();
   flex: 1;
 }
 .webcut-root :deep(.n-form-item-message) {
-  font-size: .8em;
+  font-size: var(--webcut-font-size-tiny);
   opacity: .8;
 }
 .webcut-root :deep(.n-form-item .n-input__input) {
@@ -295,10 +296,10 @@ provideLanguage();
 .webcut-root :deep(.webcut-panel-form),
 .webcut-root :deep(.webcut-panel-form .n-base-selection-input__content),
 .webcut-root :deep(.webcut-panel-form .n-collapse-item__header-main),
-.webcut-root :deep(.n-radio-button .n-radio__label),
 .webcut-root :deep(.n-alert-body__content) {
     font-size: var(--webcut-font-size-normal) !important;
 }
+.webcut-root :deep(.n-radio-button .n-radio__label),
 .webcut-root :deep(.n-form-item--small-size .n-button),
 .webcut-root :deep(.n-form-item--small-size .n-input__textarea-el) {
     font-size: var(--webcut-font-size-small);

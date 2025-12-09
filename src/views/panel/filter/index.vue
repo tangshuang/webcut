@@ -231,7 +231,7 @@ function readFilterName(filterKey: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: var(--webcut-font-size-large);
   color: var(--text-color-3);
 }
 

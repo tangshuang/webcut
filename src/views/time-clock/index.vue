@@ -17,7 +17,7 @@ const { duration, cursorTime } = useWebCutContext();
 .webcut-time-clock {
     display: flex;
     align-items: center;
-    font-size: .7em;
+    font-size: var(--webcut-font-size-tiny);
 }
 .webcut-time-clock-text {
     display: inline-block;

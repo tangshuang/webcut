@@ -198,7 +198,7 @@ async function handleAdd(material: any) {
   background: var(--webcut-grey-deep-color);
   margin: 2px;
   border-radius: 4px;
-  font-size: .7em;
+  font-size: var(--webcut-font-size-tiny);
   padding: 2px 4px;
   cursor: pointer;
   white-space: nowrap;
@@ -251,7 +251,7 @@ async function handleAdd(material: any) {
 }
 
 .webcut-material-title {
-  font-size: .6em;
+  font-size: var(--webcut-font-size-tiny);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -282,7 +282,7 @@ async function handleAdd(material: any) {
 .webcut-empty-materials {
   margin-top: 12px;
   margin-left: 24px;
-  font-size: .8em;
+  font-size: var(--webcut-font-size-tiny);
   opacity: .6;
 }
 

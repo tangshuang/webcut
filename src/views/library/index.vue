@@ -89,11 +89,11 @@ const handleTabChange = (key: string) => {
     justify-content: center;
 
     span {
-        font-size: .6em;
+        font-size: var(--webcut-font-size-tiny);
     }
 
     :deep(.n-icon) {
-        font-size: 18px;
+        font-size: var(--webcut-font-size-large);
     }
 }
 </style>

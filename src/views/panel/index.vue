@@ -49,7 +49,7 @@ watch(currentSegment, () => {
 <style scoped>
 .webcut-panel {
   height: 100%;
-  font-size: 0.8em;
+  font-size: var(--webcut-font-size-tiny);
   display: flex;
   flex-direction: column;
 }

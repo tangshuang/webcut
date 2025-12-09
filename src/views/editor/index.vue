@@ -182,6 +182,6 @@ function handleResized() {
 }
 .webcut-editor-right-side-top-bar-export-button {
     height: 18px;
-    font-size: .7em;
+    font-size: var(--webcut-font-size-tiny);
 }
 </style>

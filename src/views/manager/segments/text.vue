@@ -54,7 +54,7 @@ async function handleSelectContextMenu(key: string) {
 .webcut-text-segment {
     height: 100%;
     width: 100%;
-    font-size: .8em;
+    font-size: var(--webcut-font-size-normal);
     display: flex;
     align-items: center;
     text-indent: 12px;
