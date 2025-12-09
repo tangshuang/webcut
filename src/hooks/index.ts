@@ -548,12 +548,24 @@ export function useWebCutPlayer() {
                 if (source instanceof File) {
                     file = source;
                     fileId = await writeFile(source);
-                    clip = new ImgClip(source.stream());
+                    const type = source.type;
+                    if (type === 'image/gif') {
+                        clip = new ImgClip({ type: 'image/gif', stream: source.stream() });
+                    }
+                    else {
+                        clip = new ImgClip(source.stream());
+                    }
                 }
                 else if (source.startsWith('data:')) {
-                    file = base64ToFile(source, 'image.png', 'image/png');
+                    const ext = source.split(';')[0].split('/')[1];
+                    file = base64ToFile(source, `image.${ext}`, `image/${ext}`);
                     fileId = await writeFile(file);
-                    clip = new ImgClip(file.stream());
+                    if (ext === 'gif') {
+                        clip = new ImgClip({ type: 'image/gif', stream: file.stream() });
+                    }
+                    else {
+                        clip = new ImgClip(file.stream());
+                    }
                 }
                 else if (source.startsWith('file:')) {
                     fileId = source.replace('file:', '');
@@ -561,12 +573,24 @@ export function useWebCutPlayer() {
                     if (!file) {
                         throw new Error('File not found');
                     }
-                    clip = new ImgClip(file.stream());
+                    const type = file.type || 'image/png';
+                    if (type === 'image/gif') {
+                        clip = new ImgClip({ type: 'image/gif', stream: file.stream() });
+                    }
+                    else {
+                        clip = new ImgClip(file.stream());
+                    }
                 }
                 else {
                     const res = await fetch(source);
                     url = source;
-                    clip = new ImgClip(res.body!);
+                    const type = res.headers.get('content-type') || 'image/png';
+                    if (type === 'image/gif') {
+                        clip = new ImgClip({ type: 'image/gif', stream: res.body! });
+                    }
+                    else {
+                        clip = new ImgClip(res.body!);
+                    }
                 }
             }
             else if (type === 'text') {
