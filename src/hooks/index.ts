@@ -17,6 +17,7 @@ import { readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
 import { aspectRatioMap } from '../constants';
 import { animationPresets } from '../constants/animation';
+import { filterManager } from '../filters';
 
 let context: WebCutContext | null | undefined = null;
 export function useWebCutContext(providedContext?: () => Partial<WebCutContext> | undefined | null) {
@@ -442,7 +443,6 @@ export function useWebCutPlayer() {
                     const filters = sourceInfo?.meta.filters || [];
                     let processedFrame: VideoFrame;
                     if (filters.length > 0) {
-                        const { filterManager } = await import('../filters');
                         // 处理滤镜配置，分离滤镜名称和参数
                         const filterKeys: string[] = [];
                         const filterConfigs: Record<string, any>[] = [];

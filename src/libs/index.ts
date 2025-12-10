@@ -2,7 +2,7 @@ import { each, isNone, padLeft } from "ts-fns";
 import { MP4Clip, AudioClip, OffscreenSprite, Combinator, ImgClip } from "@webav/av-cliper";
 import { base64ToFile, blobToBase64DataURL, fileToBase64DataURL } from './file';
 import { WebCutHighlightOfText } from "../types";
-import { blobToFile } from "./file";
+import { blobToFile, downloadBlob } from "./file";
 // @ts-ignore
 import toWav from 'audiobuffer-to-wav';
 import { PerformanceMark, mark } from './performance';
@@ -785,7 +785,6 @@ export async function downloadOffscreen(clips: Array<MP4Clip | ImgClip | AudioCl
 
     // 回退到blob方式
     const blob = await exportBlobOffscreen(clips, { type, size, main });
-    const { downloadBlob } = await import('./file');
     await downloadBlob(blob, filename);
 }
 
