@@ -135,7 +135,7 @@ function updateFilters(filters: Array<WebCutFilterData>) {
                     <effect-icon :name="filter.name" class="webcut-filter-item-icon-bg-box">
                         <div class="webcut-filter-item-icon"></div>
                     </effect-icon>
-                    <div class="webcut-filter-item-name">{{ filter.name }}</div>
+                    <div class="webcut-filter-item-name">{{ t(filter.name) }}</div>
                 </div>
             </div>
         </section>

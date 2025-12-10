@@ -120,6 +120,12 @@ export {
     type ToastOptions,
     type ToastState,
 } from './hooks/toast';
+export {
+    useWebCutHistory,
+} from './hooks/history';
+export {
+    useWebCutTransition,
+} from './hooks/transition';
 
 export {
     renderTxt2ImgBitmap,
@@ -157,6 +163,25 @@ export {
     blobToFile,
 } from './libs/file';
 
+// transitions
+export {
+    transitionManager,
+    WebCutBaseTransition,
+    type WebCutTransitionConfig,
+} from './transitions';
+
+// filters
+export {
+    filterManager,
+    WebCutBaseFilter,
+    FilterManager,
+    type WebCutFilterParams,
+} from './filters';
+
+// constants
+export { aspectRatioMap } from './constants';
+export { animationPresets } from './constants/animation';
+
 export {
     getProject,
     createNewProject,
@@ -191,9 +216,11 @@ export {
     type WebCutProjectHistoryData,
     type WebCutColors,
     type WebCutAnimationType,
+    type WebCutAnimationProps,
     type WebCutAnimationPreset,
     type WebCutAnimationKeyframe,
     type WebCutAnimationData,
     type WebCutTransitionData,
+    type WebCutFilterData,
 } from './types';
 

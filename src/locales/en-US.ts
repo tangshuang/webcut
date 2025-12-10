@@ -129,7 +129,6 @@ export default {
     '对比度': 'Contrast',
     '饱和度': 'Saturate',
 
-  'div': 'div',
   '无': 'None',
   '入场': 'Entry',
   '出场': 'Exit',
@@ -140,4 +139,20 @@ export default {
   '当前有动画，调整可能不能直接看到效果，请播放片段查看': 'Current animation may not show direct effect, please play the segment to check',
   '滤镜': 'Filter',
   '恢复正在编辑的数据': 'Restore editing data',
+  // Additional translations
+  '仅支持视频和图片': 'Only support video and image',
+  '删除转场': 'Delete Transition',
+  '已经存在视频转场，请先删除': 'Video transition already exists, please delete first',
+  '当前片段是轨道最后一个片段，不能应用转场效果': 'Current segment is the last one in the track, cannot apply transition effect',
+  '暂无转场效果': 'No transition effects available',
+  '片段不存在': 'Segment does not exist',
+  '请先选择一个片段': 'Please select a segment first',
+  '轨道不存在': 'Track does not exist',
+  '默认': 'Default',
+  // Transition effects
+  'fade': 'Fade',
+  'slide': 'Slide',
+  'zoom': 'Zoom',
+  'blinds': 'Blinds',
+  'dissolve': 'Dissolve',
 };
