@@ -167,20 +167,21 @@ export {
 export {
     transitionManager,
     WebCutBaseTransition,
-    type WebCutTransitionConfig,
 } from './transitions';
 
 // filters
 export {
     filterManager,
     WebCutBaseFilter,
-    FilterManager,
-    type WebCutFilterParams,
 } from './filters';
+
+export {
+    animationManager,
+    WebCutBaseAnimation,
+} from './animations';
 
 // constants
 export { aspectRatioMap } from './constants';
-export { animationPresets } from './constants/animation';
 
 export {
     getProject,
@@ -216,9 +217,9 @@ export {
     type WebCutProjectHistoryData,
     type WebCutColors,
     type WebCutAnimationType,
-    type WebCutAnimationProps,
-    type WebCutAnimationPreset,
     type WebCutAnimationKeyframe,
+    type WebCutAnimationKeyframeConfig,
+    type WebCutAnimationParams,
     type WebCutAnimationData,
     type WebCutTransitionData,
     type WebCutFilterData,

@@ -662,6 +662,7 @@ export class BlindsTransition extends WebGLTransition {
 }
 
 // 溶解转场效果
+// @ts-ignore
 export class DissolveTransition extends WebGLTransition {
   name = 'dissolve';
   defaultDuration = 1000000; // 1秒

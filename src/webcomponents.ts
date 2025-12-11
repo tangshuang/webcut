@@ -3,6 +3,7 @@ import WebCutProvider from './views/provider/index.vue';
 import WebCutLangSwitch from './views/lang-switch/index.vue';
 import WebCutThemeSwitch from './views/theme-switch/index.vue';
 import WebCutLoading from './views/loading/index.vue';
+import WebCutToast from './views/toast/index.vue';
 // 播放器
 import WebCutPlayer from './views/player/index.vue';
 import WebCutPlayerScreen from './views/player/screen.vue';
@@ -73,3 +74,4 @@ customElements.define('webcut-manager-main-segment', defineCustomElement(WebCutM
 customElements.define('webcut-manager-tool-bar', defineCustomElement(WebCutManagerToolBar, { shadowRoot: false }));
 customElements.define('webcut-manager-container', defineCustomElement(WebCutManagerContainer, { shadowRoot: false }));
 customElements.define('webcut-loading', defineCustomElement(WebCutLoading, { shadowRoot: false }));
+customElements.define('webcut-toast', defineCustomElement(WebCutToast, { shadowRoot: false }));

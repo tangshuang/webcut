@@ -129,7 +129,9 @@ export interface WebCutMaterial {
   updatedAt: number;
 };
 
-// 转场效果配置
+// -----------------------------------------------------------
+
+// 转场效果
 export interface WebCutTransitionData {
     id: string;
     /** 转场效果名（在transitionManager中注册的名称） */
@@ -143,6 +145,9 @@ export interface WebCutTransitionData {
     sourceKeys?: string[];
 }
 
+// -----------------------------------------------------------
+
+// 滤镜
 export interface WebCutFilterData {
     id: string;
     /** 滤镜名称（在filterManager中注册的名称） */
@@ -150,6 +155,8 @@ export interface WebCutFilterData {
     /** 滤镜参数 */
     params?: Record<string, any>;
 }
+
+// -----------------------------------------------------------
 
 // 动画类型定义
 export enum WebCutAnimationType {
@@ -161,62 +168,57 @@ export enum WebCutAnimationType {
     Motion = 'motion',
 };
 
-// 动画可控制的属性
-export interface WebCutAnimationProps {
+/**
+ * 动画关键帧数据（用于存储和实际渲染）
+ */
+export type WebCutAnimationKeyframe = Partial<Record<`${number}%` | 'from' | 'to', {
     x?: number;
     y?: number;
     w?: number;
     h?: number;
     angle?: number;
     opacity?: number;
-}
+}>>;
 
-// 关键帧定义，key 为百分比或 from/to
-export type WebCutAnimationKeyframe = Partial<Record<`${number}%` | 'from' | 'to', WebCutAnimationProps>>;
+/**
+ * 动画关键帧配置
+ */
+export type WebCutAnimationKeyframeConfig = Partial<Record<`${number}%` | 'from' | 'to', {
+    /** 相对于素材当前位置的x偏移量 */
+    offsetX?: number;
+    /** 相对于素材当前位置的y偏移量 */
+    offsetY?: number;
+    /** 相对于当前w,h的缩放比例 */
+    scale?: number;
+    /** 相对于当前angle的旋转角度 */
+    rotate?: number;
+    /** 透明度 */
+    opacity?: number;
+}>>;
 
-// 动画配置
-export interface WebCutAnimationData {
-    /** 动画类型 */
-    type: WebCutAnimationType;
-    /** 动画名称，preset id */
-    key: string;
-
+/**
+ * 动画参数类型
+ */
+export interface WebCutAnimationParams {
     /** 动画持续时间（微秒） */
     duration: number;
     /** 动画延迟时间（微秒） */
-    delay?: number;
+    delay: number;
     /** 动画重复次数，0为无限循环 */
-    iterCount?: number;
+    iterCount: number;
 }
 
-/**
- * 预设动画效果
- */
-export interface WebCutAnimationPreset {
-    /** 预设ID */
-    key: string;
-    /** 预设名称（用于展示） */
+// 动画配置
+export interface WebCutAnimationData {
+    /** 动画名称，preset id */
     name: string;
-    /** 适用的动画类型 */
+    /** 动画类型 */
     type: WebCutAnimationType;
-    /** 动画帧定义 */
-    defaultKeyframe: Partial<Record<`${number}%` | 'from' | 'to', {
-        /** 相对于素材当前位置的x偏移量 */
-        offsetX?: number;
-        /** 相对于素材当前位置的y偏移量 */
-        offsetY?: number;
-        /** 相对于当前w,h的缩放比例 */
-        scale?: number;
-        /** 相对于当前angle的旋转角度 */
-        rotate?: number;
-        /** 透明度 */
-        opacity?: number;
-    }>>;
-    /** 默认持续时间（微秒） */
-    defaultDuration: number;
-    /** 默认重复次数 */
-    defaultIterCount?: number;
+    /** 动画参数 */
+    params: WebCutAnimationParams;
 }
+
+// -----------------------------------------------------------
 
 /**
  * 素材元数据
