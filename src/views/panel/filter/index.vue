@@ -116,6 +116,10 @@ function updateFilters(filters: Array<WebCutFilterData>) {
     syncSourceMeta(currentSource.value, { filters });
     syncSourceTickInterceptor(currentSource.value.key);
 }
+
+function readFilterTitle(name: string) {
+    return t(filterDefaults[name]?.title || name);
+}
 </script>
 
 <template>
@@ -135,7 +139,7 @@ function updateFilters(filters: Array<WebCutFilterData>) {
                     <effect-icon :name="filter.name" class="webcut-filter-item-icon-bg-box">
                         <div class="webcut-filter-item-icon"></div>
                     </effect-icon>
-                    <div class="webcut-filter-item-name">{{ t(filter.name) }}</div>
+                    <div class="webcut-filter-item-name">{{ readFilterTitle(filter.name) }}</div>
                 </div>
             </div>
         </section>
@@ -148,7 +152,7 @@ function updateFilters(filters: Array<WebCutFilterData>) {
             <!-- 滤镜选择下拉框 -->
             <n-form-item :label="t('选择滤镜')">
                 <n-select v-model:value="selectedFilter" :options="currentFilters.map(f => ({
-                    label: t(f.name),
+                    label: readFilterTitle(f.name),
                     value: f.name
                 }))" placeholder="{{ t('请选择要编辑的滤镜') }}" style="width: 100%" />
             </n-form-item>
@@ -157,8 +161,7 @@ function updateFilters(filters: Array<WebCutFilterData>) {
             <n-form-item v-if="selectedFilter" :label="t('强度')">
                 <n-slider v-model:value="selectedFilterParams.amount" :min="0" :max="200" :step="1"
                     @update:value="updateFilterParams('amount', $event)" />
-                <span class="webcut-filter-form-value" style="margin-left: 4px;">{{ selectedFilterParams.amount
-                    }}%</span>
+                <span class="webcut-filter-form-value" style="margin-left: 4px;">{{ selectedFilterParams.amount}}%</span>
             </n-form-item>
         </div>
     </n-form>

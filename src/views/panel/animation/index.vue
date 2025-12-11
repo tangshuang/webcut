@@ -160,7 +160,7 @@ function fixedPercent(dur: number) {
 }
 
 function readAnimationTitle(name: string) {
-    return animationDefaults[name]?.title || name;
+    return t(animationDefaults[name]?.title || name);
 }
 </script>
 

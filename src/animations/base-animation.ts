@@ -7,7 +7,7 @@ import { autoFitRect } from '../libs';
  */
 export abstract class WebCutBaseAnimation {
     abstract name: string;
-    abstract title?: string;
+    abstract title: string;
     abstract type: WebCutAnimationType;
     abstract defaultKeyframe: WebCutAnimationKeyframeConfig;
     abstract defaultParams: WebCutAnimationParams;

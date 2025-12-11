@@ -425,7 +425,11 @@ export function useWebCutPlayer() {
     // 优化后的版本：转场由独立的 TransitionLayer 处理，此处只保留滤镜和静音处理
     // 转场不再在 clip 的 tickInterceptor 中处理，而是作为独立的 Sprite 层渲染
     function syncSourceTickInterceptor(sourceKey: string) {
-        const clip: MP4Clip | ImgClip | AudioClip = sources.value.get(sourceKey)?.clip!;
+        const source = sources.value.get(sourceKey);
+        if (!source) {
+            return;
+        }
+        const clip: MP4Clip | ImgClip | AudioClip = source.clip!;
         if (!clip) {
             return;
         }
@@ -466,7 +470,7 @@ export function useWebCutPlayer() {
                 }
             }
 
-            // 处理音频静音
+            // 处理音频静音和音量调节
             if (result.audio && Array.isArray(result.audio)) {
                 // 找到对应的rail，判断是否需要静音
                 let isMuted = false;
@@ -483,6 +487,22 @@ export function useWebCutPlayer() {
                         ...result,
                         audio: [],
                     };
+                }
+                else if (source.type === 'audio' || source.type === 'video') {
+                    const videoVolume = source.meta[source.type]?.volume;
+                    if (typeof videoVolume === 'number' && videoVolume !== 1) {
+                        const processedAudio = result.audio.map(channel => {
+                            const newChannel = new Float32Array(channel.length);
+                            for (let i = 0; i < channel.length; i++) {
+                                newChannel[i] = channel[i] * videoVolume;
+                            }
+                            return newChannel;
+                        });
+                        result = {
+                            ...result,
+                            audio: processedAudio,
+                        };
+                    }
                 }
             }
 
@@ -1135,8 +1155,10 @@ export function useWebCutPlayer() {
         opacity?: number,
         filters?: WebCutFilterData[],
         animation?: WebCutAnimationData,
+        audio?: { volume?: number },
+        video?: { volume?: number },
     }) {
-        const { rect, opacity, filters, animation } = data;
+        const { rect, opacity, filters, animation, audio, video } = data;
         if (rect) {
             Object.assign(source.sprite.rect, rect);
             source.meta.rect = source.meta.rect || {};
@@ -1145,6 +1167,14 @@ export function useWebCutPlayer() {
         if (opacity !== undefined) {
             source.sprite.opacity = opacity;
             source.meta.opacity = opacity;
+        }
+        if (audio !== undefined) {
+            source.meta.audio = source.meta.audio || {};
+            Object.assign(source.meta.audio, audio);
+        }
+        if (video !== undefined) {
+            source.meta.video = source.meta.video || {};
+            Object.assign(source.meta.video, video);
         }
 
         let shouldSyncTickInterceptor = false;

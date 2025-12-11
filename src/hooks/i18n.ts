@@ -11,7 +11,6 @@ import deDE from '../locales/de-DE';
 import esES from '../locales/es-ES';
 import zhHK from '../locales/zh-HK';
 import zhTW from '../locales/zh-TW';
-import zhCN from '../locales/zh-CN';
 import { useWebCutContext } from '.';
 
 // 语言包映射
@@ -28,8 +27,6 @@ const langPkgs: Record<string, Record<string, string>> = {
     'es': esES,
     'zh-HK': zhHK,
     'zh-TW': zhTW,
-    'zh-CN': zhCN,
-    'zh': zhCN,
 };
 
 /**

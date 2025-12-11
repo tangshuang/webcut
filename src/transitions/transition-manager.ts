@@ -38,14 +38,17 @@ export class TransitionManager {
     const names = this.getTransitionNames();
     const defaults: Record<string, {
       name: string;
+      title: string;
       defaultDuration: number;
       defaultConfig: WebCutTransitionConfig;
     }> = {};
     names.forEach((name) => {
+      const trans = this.getTransition(name);
       defaults[name] = {
         name,
-        defaultDuration: this.getTransition(name)?.defaultDuration || 0,
-        defaultConfig: this.getTransition(name)?.defaultConfig || {},
+        title: trans?.title || name,
+        defaultDuration: trans?.defaultDuration || 0,
+        defaultConfig: trans?.defaultConfig || {},
       };
     });
     return defaults;

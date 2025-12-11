@@ -119,6 +119,7 @@ const vertexShaderSource = `
 // 淡入淡出转场效果
 export class FadeTransition extends WebGLTransition {
   name = 'fade';
+  title = '淡入淡出';
   defaultDuration = 1000000; // 1秒
   defaultConfig: WebCutTransitionConfig = {};
 
@@ -222,6 +223,7 @@ export class FadeTransition extends WebGLTransition {
 // 滑动转场效果
 export class SlideTransition extends WebGLTransition {
   name = 'slide';
+  title = '滑动';
   defaultDuration = 1000000; // 1秒
   defaultConfig: WebCutTransitionConfig = {
     direction: 'left' // left, right, up, down
@@ -360,6 +362,7 @@ export class SlideTransition extends WebGLTransition {
 // 缩放转场效果
 export class ZoomTransition extends WebGLTransition {
   name = 'zoom';
+  title = '缩放';
   defaultDuration = 1000000; // 1秒
   defaultConfig: WebCutTransitionConfig = {
     direction: 'in' // in, out
@@ -515,6 +518,7 @@ export class ZoomTransition extends WebGLTransition {
 // 百叶窗转场效果
 export class BlindsTransition extends WebGLTransition {
   name = 'blinds';
+  title = '百叶窗';
   defaultDuration = 1000000; // 1秒
   defaultConfig: WebCutTransitionConfig = {
     count: 10, // 百叶窗数量
@@ -665,6 +669,7 @@ export class BlindsTransition extends WebGLTransition {
 // @ts-ignore
 export class DissolveTransition extends WebGLTransition {
   name = 'dissolve';
+  title = '溶解';
   defaultDuration = 1000000; // 1秒
   defaultConfig: WebCutTransitionConfig = {
     seed: 12345 // 随机种子

@@ -14,6 +14,7 @@ export abstract class WebCutBaseTransition {
    * 转场名称
    */
   abstract name: string;
+  abstract title: string;
   /**
    * 默认持续时间（微秒）
    */

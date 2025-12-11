@@ -13,6 +13,7 @@ export abstract class WebCutBaseFilter {
    * 滤镜名称
    */
   abstract name: string;
+  abstract title: string;
   abstract defaultParams: WebCutFilterParams;
 
   /**

@@ -38,12 +38,15 @@ export class FilterManager {
         const names = this.getFilterNames();
         const defaults: Record<string, {
             name: string;
+            title: string;
             defaultParams: WebCutFilterParams;
         }> = {};
         names.forEach((name) => {
+            const filter = this.getFilter(name);
             defaults[name] = {
                 name,
-                defaultParams: this.getFilter(name)?.defaultParams || {},
+                title: filter?.title || name,
+                defaultParams: filter?.defaultParams || {},
             };
         });
         return defaults;

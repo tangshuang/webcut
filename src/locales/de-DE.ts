@@ -115,11 +115,6 @@ export default {
   '请选择要编辑的滤镜': 'Bitte wählen Sie einen Filter zum Bearbeiten aus',
   '强度': 'Intensität',
   '请选择一个滤镜以调节参数': 'Bitte wählen Sie einen Filter, um Parameter anzupassen',
-  'grayscale': 'Graustufen',
-  'blur': 'Unschärfe',
-  'brightness': 'Helligkeit',
-  'contrast': 'Kontrast',
-  'saturate': 'Sättigung',
   '灰度': 'Graustufen',
   '模糊': 'Unschärfe',
   '亮度': 'Helligkeit',
@@ -136,12 +131,6 @@ export default {
   '当前有动画，调整可能不能直接看到效果，请播放片段查看': 'Die aktuelle Animation zeigt möglicherweise keine direkten Effekte, bitte spielen Sie das Segment ab, um es zu überprüfen',
   '滤镜': 'Filter',
   '恢复正在编辑的数据': 'Wiederherstellen der bearbeiteten Daten',
-  // Transition effects
-  'fade': 'Fade',
-  'slide': 'Rutschen',
-  'zoom': 'Zoom',
-  'blinds': 'Jalousien',
-  'dissolve': 'Auflösen',
   '转场': 'Übergang',
   '转场效果': 'Übergangseffekte',
   '点击应用': 'Klicken Sie an, um anzuwenden',
@@ -154,4 +143,15 @@ export default {
   '请先选择一个片段': 'Bitte wählen Sie zuerst ein Segment aus',
   '轨道不存在': 'Spur existiert nicht',
   '默认': 'Standard',
+
+  // 转场效果
+  '淡入淡出': 'Überblenden',
+  '滑动': 'Gleiten',
+  '百叶窗': 'Jalousien',
+  '溶解': 'Auflösung',
+
+  // Video/Audio Panel
+  '请先选择视频片段': 'Bitte wählen Sie zuerst ein Videosegment',
+  '请先选择音频片段': 'Bitte wählen Sie zuerst ein Audiosegment',
+  '重置': 'Zurücksetzen',
 };

@@ -79,6 +79,9 @@ const handleTransitionClick = async (transitionName: string) => {
     await applyTransition(rail, transition);
 };
 
+function readTransitionTitle(transitionName: string) {
+    return t(transitionDefaults[transitionName]?.title || transitionName);
+}
 </script>
 
 <template>
@@ -106,7 +109,7 @@ const handleTransitionClick = async (transitionName: string) => {
                             </n-button>
                         </div>
                         <div class="webcut-material-title">
-                            {{ t(transition.name) }}
+                            {{ readTransitionTitle(transition.name) }}
                         </div>
                     </div>
                     <div v-if="transitionPresets.length === 0" class="webcut-empty-materials">

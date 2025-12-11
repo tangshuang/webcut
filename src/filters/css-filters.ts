@@ -6,6 +6,7 @@ import { WebCutBaseFilter, type WebCutFilterParams } from './base-filter';
  */
 export class WebCutCSSFilter extends WebCutBaseFilter {
   name = 'css-filter';
+  title = 'CSS滤镜';
   defaultParams: WebCutFilterParams = {};
 
   private canvas: OffscreenCanvas;
@@ -71,6 +72,7 @@ export class WebCutCSSFilter extends WebCutBaseFilter {
  */
 export class WebCutGrayscaleFilter extends WebCutBaseFilter {
   name = 'grayscale';
+  title = '灰度';
   defaultParams: WebCutFilterParams = {
     amount: 100,
   };
@@ -90,6 +92,7 @@ export class WebCutGrayscaleFilter extends WebCutBaseFilter {
  */
 export class WebCutBlurFilter extends WebCutBaseFilter {
   name = 'blur';
+  title = '模糊';
   defaultParams: WebCutFilterParams = {
     amount: 100,
   };
@@ -109,6 +112,7 @@ export class WebCutBlurFilter extends WebCutBaseFilter {
  */
 export class WebCutBrightnessFilter extends WebCutBaseFilter {
   name = 'brightness';
+  title = '亮度';
   defaultParams: WebCutFilterParams = {
     amount: 100,
   };
@@ -128,6 +132,7 @@ export class WebCutBrightnessFilter extends WebCutBaseFilter {
  */
 export class WebCutContrastFilter extends WebCutBaseFilter {
   name = 'contrast';
+  title = '对比度';
   defaultParams: WebCutFilterParams = {
     amount: 100,
   };
@@ -147,6 +152,7 @@ export class WebCutContrastFilter extends WebCutBaseFilter {
  */
 export class WebCutSaturateFilter extends WebCutBaseFilter {
   name = 'saturate';
+  title = '饱和度';
   defaultParams: WebCutFilterParams = {
     amount: 100,
   };

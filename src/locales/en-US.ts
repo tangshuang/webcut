@@ -118,11 +118,6 @@ export default {
     '请选择要编辑的滤镜': 'Please select a filter to edit',
     '强度': 'Intensity',
     '请选择一个滤镜以调节参数': 'Please select a filter to adjust parameters',
-    'grayscale': 'Grayscale',
-    'blur': 'Blur',
-    'brightness': 'Brightness',
-    'contrast': 'Contrast',
-    'saturate': 'Saturate',
     '灰度': 'Grayscale',
     '模糊': 'Blur',
     '亮度': 'Brightness',
@@ -139,7 +134,6 @@ export default {
   '当前有动画，调整可能不能直接看到效果，请播放片段查看': 'Current animation may not show direct effect, please play the segment to check',
   '滤镜': 'Filter',
   '恢复正在编辑的数据': 'Restore editing data',
-  // Additional translations
   '仅支持视频和图片': 'Only support video and image',
   '删除转场': 'Delete Transition',
   '已经存在视频转场，请先删除': 'Video transition already exists, please delete first',
@@ -149,10 +143,15 @@ export default {
   '请先选择一个片段': 'Please select a segment first',
   '轨道不存在': 'Track does not exist',
   '默认': 'Default',
-  // Transition effects
-  'fade': 'Fade',
-  'slide': 'Slide',
-  'zoom': 'Zoom',
-  'blinds': 'Blinds',
-  'dissolve': 'Dissolve',
+
+  // 转场效果
+  '淡入淡出': 'Fade',
+  '滑动': 'Slide',
+  '百叶窗': 'Blinds',
+  '溶解': 'Dissolve',
+
+  // Video/Audio Panel
+  '请先选择视频片段': 'Please select a video segment first',
+  '请先选择音频片段': 'Please select an audio segment first',
+  '重置': 'Reset',
 };

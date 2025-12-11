@@ -5,6 +5,8 @@ import ScrollBox from '../../components/scroll-box/index.vue';
 import BasicSetting from './basic/index.vue';
 import AnimationSetting from './animation/index.vue';
 import FilterSetting from './filter/index.vue';
+import VideoSetting from './video/index.vue';
+import AudioSetting from './audio/index.vue';
 import { ref, watch } from 'vue';
 import { useT } from '../../hooks/i18n';
 
@@ -24,6 +26,12 @@ watch(currentSegment, () => {
         <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" :class="{'webcut-panel-tab--active': tab === 'basic'}" @click="tab = 'basic'">
           {{ t('基础') }}
         </div>
+        <div class="webcut-panel-tab" v-if="currentRail?.type === 'video' && currentSegment" :class="{'webcut-panel-tab--active': tab === 'video'}" @click="tab = 'video'">
+          {{ t('视频') }}
+        </div>
+        <div class="webcut-panel-tab" v-if="currentRail?.type === 'audio' && currentSegment" :class="{'webcut-panel-tab--active': tab === 'audio'}" @click="tab = 'audio'">
+          {{ t('音频') }}
+        </div>
         <div class="webcut-panel-tab" v-if="currentRail?.type === 'text' && currentSegment" :class="{'webcut-panel-tab--active': tab === 'text'}" @click="tab = 'text'">
           {{ t('文本') }}
         </div>
@@ -41,6 +49,8 @@ watch(currentSegment, () => {
         <TextSetting v-if="tab === 'text' && ['text'].includes(currentRail?.type!) && currentSegment" />
         <FilterSetting v-if="tab === 'filter' && ['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" />
         <AnimationSetting v-if="tab === 'animation' && ['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" />
+        <VideoSetting v-if="tab === 'video' && ['video'].includes(currentRail?.type!) && currentSegment" />
+        <AudioSetting v-if="tab === 'audio' && ['audio'].includes(currentRail?.type!) && currentSegment" />
       </ScrollBox>
     </div>
   </div>
