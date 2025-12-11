@@ -21,7 +21,7 @@ const { duration, cursorTime } = useWebCutContext();
 }
 .webcut-time-clock-text {
     display: inline-block;
-    width: 66px;
+    font-variant-numeric: tabular-nums;
 }
 .webcut-time-clock-separator {
     margin: 0 4px;
