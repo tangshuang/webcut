@@ -10,6 +10,7 @@ import { transitionManager } from '../../transitions';
 import { WebCutTransitionData } from '../../types';
 import { clone, createRandomString } from 'ts-fns';
 import { useWebCutTransition } from '../../hooks/transition';
+import TransitionIcon from '../../components/sprite-image/transition-icon.vue';
 
 const transitionDefaults = transitionManager.getTransitionDefaults();
 const t = useT();
@@ -99,7 +100,7 @@ function readTransitionTitle(transitionName: string) {
                     <div v-for="transition in transitionPresets" :key="transition.name" class="webcut-material-item">
                         <div class="webcut-material-preview">
                             <!-- 转场效果预览图标 -->
-                            <div class="webcut-transition-preview-icon"></div>
+                            <TransitionIcon class="webcut-transition-preview-icon" :name="transition.name"></TransitionIcon>
                             <!-- 添加按钮 -->
                             <n-button class="webcut-add-button" size="tiny" type="primary" circle
                                 @click.stop="handleTransitionClick(transition.name)">
