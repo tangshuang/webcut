@@ -4,7 +4,12 @@ import WebCutLangSwitch from './views/lang-switch/index.vue';
 import WebCutThemeSwitch from './views/theme-switch/index.vue';
 import WebCutLoading from './views/loading/index.vue';
 import WebCutToast from './views/toast/index.vue';
+import WebCutThemeBox from './views/theme-box/index.vue';
+// 导出
 import WebCutExportButton from './views/export-button/index.vue';
+import WebCutExport from './modules/advanced-export/index.vue';
+import WebCutExportPanel from './modules/advanced-export/export-panel.vue';
+import WebCutExportModal from './modules/advanced-export/export-modal.vue';
 // 播放器
 import WebCutPlayer from './views/player/index.vue';
 import WebCutPlayerScreen from './views/player/screen.vue';
@@ -87,6 +92,10 @@ export {
     WebCutThemeSwitch,
     WebCutExportButton,
     WebCutLangSwitch,
+    WebCutThemeBox,
+    WebCutExport,
+    WebCutExportPanel,
+    WebCutExportModal,
 
     AdjustableBox,
     AudioShape,
@@ -233,3 +242,7 @@ export {
     type WebCutFilterData,
 } from './types';
 
+export {
+    type WebCutExportAudioParams,
+    type WebCutExportVideoParams,
+} from './modules/advanced-export/types';

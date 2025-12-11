@@ -19,6 +19,7 @@ import {
 import { computed, inject, provide } from 'vue';
 import { useWebCutLocale } from '../../hooks/i18n';
 import { createToastContext } from '../../hooks/toast';
+import ThemeBox from '../theme-box/index.vue';
 
 export interface WebCutProviderProps {
     data?: Partial<WebCutContext>;
@@ -126,24 +127,9 @@ provideToastContext();
                         <n-message-provider>
                             <n-element>
                                 <n-notification-provider placement="bottom-right">
-                                    <div class="webcut-container" :style="{
-                                        '--webcut-background-color': isDarkMode ? themeColors.backgroundColorDark : themeColors.backgroundColor,
-                                        '--webcut-grey-color': isDarkMode ? themeColors.greyColorDark : themeColors.greyColor,
-                                        '--webcut-grey-deep-color': isDarkMode ? themeColors.greyDeepColorDark : themeColors.greyDeepColor,
-                                        '--webcut-rail-bg-color': isDarkMode ? themeColors.railBgColorDark : themeColors.railBgColor,
-                                        '--webcut-rail-hover-bg-color': isDarkMode ? themeColors.railHoverBgColorDark : themeColors.railHoverBgColor,
-                                        '--webcut-theme-opacity-color': themeColors.primaryColor[0] === '#' ? themeColors.primaryColor.slice(0, 7) + '80' : themeColors.primaryColor,
-                                        '--webcut-line-color': isDarkMode ? themeColors.lineColorDark : themeColors.lineColor,
-                                        '--webcut-thumb-color': isDarkMode ? themeColors.thumbColorDark : themeColors.thumbColor,
-                                        '--webcut-manager-top-bar-color': isDarkMode ? themeColors.managerTopBarColorDark : themeColors.managerTopBarColor,
-                                        '--webcut-close-icon-color': isDarkMode ? themeColors.closeIconColorDark : themeColors.closeIconColor,
-                                        '--webcut-font-size-large': '20px',
-                                        '--webcut-font-size-normal': '14px',
-                                        '--webcut-font-size-small': '12px',
-                                        '--webcut-font-size-tiny': '10px',
-                                    }">
+                                    <theme-box class="webcut-container">
                                         <slot></slot>
-                                    </div>
+                                    </theme-box>
                                 </n-notification-provider>
                             </n-element>
                         </n-message-provider>

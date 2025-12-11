@@ -1,0 +1,23 @@
+<script setup lang="ts">
+import { NModal, NButton } from 'naive-ui';
+import ExportPanel from './export-panel.vue';
+import WebCutThemeBox from '../../views/theme-box/index.vue';
+import { useT } from '../../hooks/i18n';
+
+const t = useT();
+const show = defineModel<boolean>('show');
+</script>
+
+<template>
+    <n-modal v-model:show="show" style="width: 360px; max-width: 90vw;" :mask-closable="false">
+        <WebCutThemeBox>
+            <ExportPanel>
+                <template #buttons="{ isExporting }">
+                    <n-button :disabled="isExporting" secondary @click="show = false">
+                        {{ t('取消') }}
+                    </n-button>
+                </template>
+            </ExportPanel>
+        </WebCutThemeBox>
+    </n-modal>
+</template>

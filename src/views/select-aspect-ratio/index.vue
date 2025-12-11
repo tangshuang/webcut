@@ -11,13 +11,14 @@ import {
 } from '@vicons/fluent';
 import { useWebCutContext } from '../../hooks';
 import { aspectRatioMap } from '../../constants';
+import { calcAspectRatio } from '../../libs';
 
 const props = defineProps<{
   /** 是否展示比例文字 */
   displayAspect?: boolean;
 }>();
 
-const { width, height, updateByAspectRatio, calcByAspectRatio } = useWebCutContext();
+const { width, height, updateByAspectRatio } = useWebCutContext();
 
 // 长宽比状态
 const aspectRatio = ref('4:3');
@@ -62,7 +63,7 @@ const AspectRatioOptions = computed(() => [
 ]);
 
 watch([width, height], ([width, height]) => {
-  const closestRatio = calcByAspectRatio(width, height);
+  const closestRatio = calcAspectRatio(width, height, aspectRatioMap);
   aspectRatio.value = closestRatio;
 }, { immediate: true });
 

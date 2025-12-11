@@ -2,8 +2,8 @@
 import { computed } from 'vue';
 import { useWebCutDarkMode } from '../../hooks';
 import { useWebCutToast } from '../../hooks/toast';
-import { CheckmarkOutline, Information, Warning } from '@vicons/carbon';
-import { NIcon } from 'naive-ui';
+import { CheckmarkOutline, Information, Warning, Reset } from '@vicons/carbon';
+import { NIcon, NSpin } from 'naive-ui';
 
 const { state } = useWebCutToast();
 
@@ -13,6 +13,7 @@ const iconMap = {
     success: CheckmarkOutline,
     error: Warning,
     info: Information,
+    loading: Reset,
 };
 
 const icon = computed(() => iconMap[state.type || 'info']);
@@ -26,7 +27,8 @@ const icon = computed(() => iconMap[state.type || 'info']);
                 class="webcut-toast"
                 :class="[`webcut-toast--${state.type || 'info'}`, { 'webcut-toast--dark': isDarkMode }]"
             >
-                <n-icon :component="icon" class="webcut-toast__icon" />
+                <n-icon :component="icon" class="webcut-toast__icon" v-if="state.type !== 'loading'"/>
+                <n-spin class="webcut-toast__icon" size="large" v-if="state.type === 'loading'" />
                 <span class="webcut-toast__message">{{ state.message }}</span>
             </div>
         </Transition>

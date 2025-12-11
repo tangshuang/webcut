@@ -198,31 +198,11 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
     });
 
     async function updateByAspectRatio(aspectRatio: keyof typeof aspectRatioMap) {
-        const { w, h } = aspectRatioMap[aspectRatio];
+        const size = aspectRatioMap[aspectRatio];
         // 更新宽度和高度
-        width.value = w;
-        height.value = h;
+        width.value = size.width;
+        height.value = size.height;
         await updateProjectState(id.value, { aspectRatio });
-    }
-
-    /**
-     * 根据宽度和高度计算最接近的长宽比
-     * @param width
-     * @param height
-     * @returns
-     */
-    function calcByAspectRatio(width: number, height: number) {
-        // 监听宽度和高度变化，更新长宽比
-        // 通过长宽比进行计算，找到最接近的比例
-        const ratios = Object.keys(aspectRatioMap);
-        const values = ratios.map(item => item.split(':').map(v => +v)).map(([w, h]) => w/h);
-        const target = width / height;
-        const closestIndex = ratios.reduce((acc, _, i) => {
-            const diff = Math.abs(target - values[i]);
-            return diff < Math.abs(target - values[acc]) ? i : acc;
-        }, 0);
-        const closestRatio = ratios[closestIndex];
-        return closestRatio;
     }
 
     return {
@@ -240,7 +220,6 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         currentTransition,
         currentSource,
         updateByAspectRatio,
-        calcByAspectRatio,
     };
 }
 

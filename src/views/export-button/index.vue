@@ -10,10 +10,14 @@ const t = useT();
 </script>
 
 <template>
-    <n-button v-bind="$attrs" type="primary" size="tiny" @click="download()" :disabled="sprites.length === 0" class="webcut-editor-right-side-top-bar-export-button">
+    <n-button v-bind="$attrs" type="primary" size="tiny" @click="download()" :disabled="sprites.length === 0" class="webcut-export-button">
         <template #icon>
             <n-icon><Export /></n-icon>
         </template>
         <slot>{{ t('导出') }}</slot>
     </n-button>
 </template>
+
+<style scoped lang="less">
+@import "../../styles/export-button.less";
+</style>

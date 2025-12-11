@@ -1,6 +1,6 @@
 import { provide, inject, reactive, readonly } from 'vue';
 
-export type ToastType = 'success' | 'error' | 'info';
+export type ToastType = 'success' | 'error' | 'info' | 'loading';
 
 export interface ToastOptions {
     type?: ToastType;
@@ -117,6 +117,13 @@ export function createToastContext() {
         show(message, { type: 'info', duration });
     };
 
+    /**
+     * Show loading toast
+     */
+    const loading = (message: string) => {
+        show(message, { type: 'loading', duration: 0 });
+    };
+
     return {
         state: readonly(state),
         show,
@@ -124,6 +131,7 @@ export function createToastContext() {
         success,
         error,
         info,
+        loading,
         // Provide function to re-provide in nested components if needed
         provide: () => provide(TOAST_INJECTION_KEY, { state: readonly(state), show, hide, success, error, info }),
     };

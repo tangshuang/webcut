@@ -16,6 +16,7 @@ import ExportButton from '../export-button/index.vue';
 import { WebCutColors } from '../../types';
 import { useWebCutLocale } from '../../hooks/i18n';
 import WebCutToast from '../toast/index.vue';
+import AdvancedExport from '../../modules/advanced-export/index.vue';
 
 const darkMode = defineModel<boolean | null | undefined>('darkMode', { default: null });
 const language = defineModel<string | null | undefined>('language', { default: null });
@@ -74,6 +75,7 @@ function handleResized() {
                                             <span style="margin: auto;"></span>
                                             <LangSwitch></LangSwitch>
                                             <ExportButton></ExportButton>
+                                            <AdvancedExport></AdvancedExport>
                                         </div>
                                         <div class="webcut-editor-right-side-main">
                                             <Panel></Panel>
@@ -181,9 +183,5 @@ function handleResized() {
 .webcut-editor-left-side {
     height: 100%;
     overflow: hidden;
-}
-.webcut-editor-right-side-top-bar-export-button {
-    height: 18px;
-    font-size: var(--webcut-font-size-tiny);
 }
 </style>

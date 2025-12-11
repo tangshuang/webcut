@@ -6,6 +6,7 @@ import { blobToFile, downloadBlob } from "./file";
 // @ts-ignore
 import toWav from 'audiobuffer-to-wav';
 import { PerformanceMark, mark } from './performance';
+import { aspectRatioMap } from "../constants";
 
 /**
  * 将文本渲染为 {@link ImageBitmap}，用来创建 {@link ImgClip}
@@ -788,6 +789,35 @@ export async function downloadOffscreen(clips: Array<MP4Clip | ImgClip | AudioCl
     await downloadBlob(blob, filename);
 }
 
+export async function saveAsFile(source: Blob | ReadableStream, meta: { type: string, name: string }) {
+    // 检查是否支持showSaveFilePicker
+    if (typeof window.showSaveFilePicker === 'function') {
+        try {
+            // 使用showSaveFilePicker获取文件句柄
+            const fileHandle = await window.showSaveFilePicker({
+                suggestedName: meta.name,
+                types: [{ description: '视频文件', accept: { [meta.type]: [`.${meta.type.split('/')[1]}`] } as Record<string, `.${string}`[]> }]
+            });
+
+            // 创建可写流
+            const writable = await fileHandle.createWritable();
+
+            // 获取可读流并直接管道到可写流
+            const readable = source instanceof Blob ? source.stream() : source;
+            await readable.pipeTo(writable, { preventClose: true });
+            await writable.close();
+            return;
+        }
+        catch (e) {}
+    }
+
+    if (source instanceof Blob) {
+        await downloadBlob(source, meta.name);
+    }
+
+    throw new Error('下载文件失败');
+}
+
 /**
  * 导出为wav音频
  * @param clips
@@ -1109,4 +1139,97 @@ export async function createImageFromVideoFrame(videoFrame: VideoFrame, options:
     const blob: Blob = await new Promise(resolve => canvas.toBlob(resolve, mimeType, quality));
     mark(PerformanceMark.GenImageFromVideoFrameEnd);
     return blob;
+}
+
+
+/**
+ * 根据宽度和高度计算最接近的长宽比
+ * @param width
+ * @param height
+ * @param aspectRatioMap 长宽比映射表，其实只是从中读取key来进行匹配，并不会用到值
+ * @returns
+ */
+export function calcAspectRatio(width: number, height: number, map: typeof aspectRatioMap): keyof typeof aspectRatioMap {
+    // 监听宽度和高度变化，更新长宽比
+    // 通过长宽比进行计算，找到最接近的比例
+    const ratios = Object.keys(map);
+    const values = ratios.map(item => item.split(':').map(v => +v)).map(([w, h]) => w/h);
+    const target = width / height;
+    const closestIndex = ratios.reduce((acc, _, i) => {
+        const diff = Math.abs(target - values[i]);
+        return diff < Math.abs(target - values[acc]) ? i : acc;
+    }, 0);
+    const closestRatio = ratios[closestIndex];
+    return closestRatio as any;
+}
+
+/**
+ * 重采样音频 Blob 到指定采样率
+ * @param sourceBlob 原始音频 Blob
+ * @param targetSampleRate 目标采样率，44100 或 48000
+ * @returns 重采样后的音频 Blob
+ */
+export async function resampleAudioWithOfflineContext(
+  sourceBlob: Blob,
+  targetSampleRate: number
+): Promise<Blob> {
+  const audioContext = new AudioContext();
+  const arrayBuffer = await sourceBlob.arrayBuffer();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+  // 创建离线音频上下文，使用目标采样率
+  const offlineContext = new OfflineAudioContext(
+    audioBuffer.numberOfChannels,
+    Math.ceil(audioBuffer.length * targetSampleRate / audioBuffer.sampleRate),
+    targetSampleRate
+  );
+
+  const source = offlineContext.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(offlineContext.destination);
+  source.start();
+
+  const resampledBuffer = await offlineContext.startRendering();
+
+  // 将重采样后的缓冲区转换为 Blob
+  return audioBufferToBlob(resampledBuffer);
+}
+
+export function audioBufferToBlob(buffer: AudioBuffer): Blob {
+  const length = buffer.length * buffer.numberOfChannels * 2;
+  const arrayBuffer = new ArrayBuffer(44 + length);
+  const view = new DataView(arrayBuffer);
+
+  // WAV 文件头
+  const writeString = (offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + length, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, buffer.numberOfChannels, true);
+  view.setUint32(24, buffer.sampleRate, true);
+  view.setUint32(28, buffer.sampleRate * 2 * buffer.numberOfChannels, true);
+  view.setUint16(32, buffer.numberOfChannels * 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, length, true);
+
+  // 写入 PCM 数据
+  let offset = 44;
+  for (let i = 0; i < buffer.length; i++) {
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+      view.setInt16(offset, sample * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
 }

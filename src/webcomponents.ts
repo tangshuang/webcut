@@ -4,7 +4,12 @@ import WebCutLangSwitch from './views/lang-switch/index.vue';
 import WebCutThemeSwitch from './views/theme-switch/index.vue';
 import WebCutLoading from './views/loading/index.vue';
 import WebCutToast from './views/toast/index.vue';
+import WebCutThemeBox from './views/theme-box/index.vue';
+// 导出
 import WebCutExportButton from './views/export-button/index.vue';
+import WebCutExport from './modules/advanced-export/index.vue';
+import WebCutExportPanel from './modules/advanced-export/export-panel.vue';
+import WebCutExportModal from './modules/advanced-export/export-modal.vue';
 // 播放器
 import WebCutPlayer from './views/player/index.vue';
 import WebCutPlayerScreen from './views/player/screen.vue';
@@ -83,3 +88,8 @@ customElements.define('webcut-manager-tool-bar', defineCustomElement(WebCutManag
 customElements.define('webcut-manager-container', defineCustomElement(WebCutManagerContainer, { shadowRoot: false }));
 customElements.define('webcut-loading', defineCustomElement(WebCutLoading, { shadowRoot: false }));
 customElements.define('webcut-toast', defineCustomElement(WebCutToast, { shadowRoot: false }));
+customElements.define('webcut-theme-box', defineCustomElement(WebCutThemeBox, { shadowRoot: false }));
+customElements.define('webcut-export', defineCustomElement(WebCutExport, { shadowRoot: false }));
+customElements.define('webcut-export-panel', defineCustomElement(WebCutExportPanel, { shadowRoot: false }));
+customElements.define('webcut-export-modal', defineCustomElement(WebCutExportModal, { shadowRoot: false }));
+
