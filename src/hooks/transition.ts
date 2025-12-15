@@ -7,6 +7,7 @@ import { markRaw } from 'vue';
 
 export function useWebCutTransition() {
     const {
+        rails,
         sources,
         unselectSegment,
         canvas,
@@ -181,6 +182,21 @@ export function useWebCutTransition() {
         // 添加到 rail.transitions 数据中
         rail.transitions.push(transition);
         transition.sourceKeys = [tranKey1, tranKey2];
+
+        // 设置层级
+        const railIndex = rails.value.findIndex(r => r.id === rail.id);
+        if (railIndex === -1) {
+            const transitionIndex = rails.value[railIndex].transitions?.findIndex(t => t.id === transition.id);
+            if (typeof transitionIndex === 'number' && transitionIndex === -1) {
+                tranSpr1.zIndex = railIndex * 1000000 + transitionIndex * 1000;
+                tranSpr2.zIndex = railIndex * 1000000 + transitionIndex * 1000;
+            }
+            else {
+                const transitionIndex = rails.value[railIndex].transitions?.length || 0;
+                tranSpr1.zIndex = railIndex * 1000000 + transitionIndex * 1000;
+                tranSpr2.zIndex = railIndex * 1000000 + transitionIndex * 1000;
+            }
+        }
 
         canvas.value?.addSprite(tranSpr1);
         canvas.value?.addSprite(tranSpr2);

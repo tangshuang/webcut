@@ -62,6 +62,11 @@ export type WebCutContext = {
         segmentId?: string;
         transitionId?: string;
     };
+    editTextState: null | {
+        isActive: boolean;
+        sourceKey: string;
+        text: string;
+    };
 
     canUndo: boolean;
     canRedo: boolean;

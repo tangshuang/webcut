@@ -8,14 +8,15 @@ import { ref, watch } from 'vue';
 import { clone, throttle } from 'ts-fns';
 import { useT } from '../../../hooks/i18n';
 import { useWebCutHistory } from '../../../hooks/history';
-const { currentSource, currentSegment, height } = useWebCutContext();
+
+const { currentSource, currentSegment, height, editTextState } = useWebCutContext();
 const { updateText } = useWebCutPlayer();
 const { push: pushHistory } = useWebCutHistory();
 const t = useT();
 
-const text = ref('');
-const cssData = ref<any>({});
-const marginBottom = ref();
+const text: any = ref('');
+const cssData: any = ref({});
+const marginBottom: any = ref();
 
 const AlignIcons: any = {
     left: TextAlignLeft,
@@ -47,7 +48,7 @@ watch(currentSource, () => {
     });
 }, { immediate: true });
 
-watch(text, (text) => {
+watch(text, (newText) => {
     if (isSyncing) {
         return;
     }
@@ -55,7 +56,7 @@ watch(text, (text) => {
         return;
     }
     const { sourceKey } = currentSegment.value;
-    throttleUpdateText(sourceKey, { text });
+    throttleUpdateText(sourceKey, { text: newText });
 });
 
 watch(cssData, (css) => {
@@ -85,6 +86,24 @@ watch(marginBottom, () => {
     throttledPushHistory();
 });
 
+watch(() => editTextState.value?.text, (newText) => {
+    if (isSyncing) {
+        return;
+    }
+    if (newText === text.value) {
+        return;
+    }
+    if (typeof newText !== 'string') {
+        return;
+    }
+    // 禁止在本組件內執行updateText
+    isSyncing = true;
+    text.value = newText;
+    nextTick(() => {
+        isSyncing = false;
+    });
+});
+
 async function handleSetVerticalMiddle() {
     if (!currentSource.value) {
         return;
@@ -111,12 +130,21 @@ async function handleSetVerticalBottom() {
     // 保存到历史记录
     await pushHistory();
 }
+
+function handleActiveTextEdit() {
+    editTextState.value = {
+        isActive: true,
+        text: text.value,
+        sourceKey: currentSource.value!.key,
+    };
+}
 </script>
 
 <template>
-    <n-form size="small" label-placement="left" :label-width="90" label-align="right" class="webcut-panel-form">
-        <n-form-item :label="t('文本')">
+    <n-form size="small" label-placement="left" :label-width="90" label-align="right" class="webcut-form webcut-panel-form">
+        <n-form-item :label="t('文本')" class="n-form-item--flex-column">
             <n-input type="textarea" v-model:value="text"></n-input>
+            <div style="opacity: 0.6;"><small>{{ t('在画布中双击文本，可以进行') }}<span @click="handleActiveTextEdit" style="color: var(--primary-color); cursor: pointer;">{{ t('可视化编辑') }}</span></small></div>
         </n-form-item>
         <n-form-item :label="t('颜色')">
             <n-color-picker v-model:value="cssData.color" default-value="rgba(255,255,255,1)" :modes="['rgb']"></n-color-picker>
@@ -162,3 +190,7 @@ async function handleSetVerticalBottom() {
         </n-form-item>
     </n-form>
 </template>
+
+<style lang="less" scoped>
+@import "../../../styles/form.less";
+</style>

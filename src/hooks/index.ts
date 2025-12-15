@@ -44,6 +44,7 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         rails: [],
         selected: [],
         current: null,
+        editTextState: null,
         canUndo: false,
         canRedo: false,
         canRecover: false,
@@ -263,7 +264,6 @@ export function useWebCutPlayer() {
             }
         }
     });
-
 
     function init() {
         if (!viewport.value) {
@@ -763,7 +763,8 @@ export function useWebCutPlayer() {
                 rail.segments.push(segment);
 
                 const audioRails = latestRails.filter(item => item.type === 'audio');
-                const otherRails = latestRails.filter(item => item.type !== 'audio');
+                const textRails = latestRails.filter(item => item.type === 'text');
+                const otherRails = latestRails.filter(item => item.type !== 'audio' && item.type !== 'text');
                 // 对rails进行重排，audio类型放在main的下方，其他类型放在main的上方
                 // const otherRails = latestRails.filter(item => item.type !== 'audio' && !item.main);
                 // const mainRail = latestRails.find(item => item.main);
@@ -772,7 +773,7 @@ export function useWebCutPlayer() {
                 //     finalRails.push(mainRail);
                 // }
                 // finalRails.push(...otherRails);
-                rails.value = [...audioRails, ...otherRails];
+                rails.value = [...audioRails, ...otherRails, ...textRails];
                 railId = rail.id;
             }
 
@@ -789,6 +790,31 @@ export function useWebCutPlayer() {
                 segmentId: segment.id,
                 railId,
                 meta: sourceMeta,
+            });
+
+            // 对所有segments, transitions上的sprite进行重新排序
+            rails.value.forEach((rail, railIndex) => {
+                rail.segments.forEach((seg, index) => {
+                    const { sourceKey } = seg;
+                    const source = sources.value.get(sourceKey);
+                    const spr = source?.sprite;
+                    if (spr) {
+                        spr.zIndex = railIndex * 1000000 + index;
+                    }
+                });
+                rail.transitions.forEach((tran, index) => {
+                    const { sourceKeys } = tran;
+                    if (!sourceKeys || sourceKeys.length === 0) {
+                        return;
+                    }
+                    sourceKeys.forEach((key) => {
+                        const source = sources.value.get(key);
+                        const spr = source?.sprite;
+                        if (spr) {
+                            spr.zIndex = railIndex * 1000000 + index * 1000;
+                        }
+                    });
+                });
             });
 
             // 将rect固定到meta上，后续animation中需要用到

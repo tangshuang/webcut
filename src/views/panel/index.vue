@@ -10,12 +10,20 @@ import AudioSetting from './audio/index.vue';
 import { ref, watch } from 'vue';
 import { useT } from '../../hooks/i18n';
 
-const { currentRail, currentSegment } = useWebCutContext();
+const { currentRail, currentSegment, editTextState } = useWebCutContext();
 const tab = ref('basic');
 const t = useT();
 
-watch(currentSegment, () => {
-    tab.value = currentRail.value?.type === 'audio' ? 'audio' : 'basic';
+watch([currentSegment, editTextState], () => {
+    if (editTextState.value?.isActive) {
+      tab.value = 'text';
+    }
+    else if (currentRail.value?.type === 'text') {
+      tab.value = 'text';
+    }
+    else {
+      tab.value = currentRail.value?.type === 'audio' ? 'audio' : 'basic';
+    }
 });
 </script>
 

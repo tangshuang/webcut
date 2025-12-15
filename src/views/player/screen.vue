@@ -10,13 +10,14 @@ const props = defineProps<{
     maxHeight?: number;
 }>();
 
-const { viewport, width, height, player } = useWebCutContext();
+const { viewport, width, height, player, editTextState } = useWebCutContext();
 const { init, destroy } = useWebCutPlayer();
 const canvasSizeRef = inject('videoCanvasSizeRef', null);
 
 const box = ref();
 const canvasMaxWidth = ref(0);
 const canvasMaxHeight = ref(0);
+const canvasScale = ref(1);
 
 watch(viewport, (el) => {
     if (el) {
@@ -46,6 +47,7 @@ function fitBoxSize() {
         canvasMaxWidth.value = canvasWidth * scale;
         canvasMaxHeight.value = canvasHeight * scale;
     }
+    canvasScale.value = scale;
 
     if (canvasSizeRef) {
         nextTick(() => {
@@ -77,26 +79,34 @@ const exports = {
     off: evt.off.bind(evt),
     once: evt.once.bind(evt),
     emit: evt.emit.bind(evt),
+    box,
+    viewport,
+    canvasScale,
+    canvasSize: canvasSizeRef,
 };
 player.value = exports;
 </script>
 
 <template>
-    <div class="webcut-box" ref="box">
-        <div class="webcut-viewport" ref="viewport" :style="{
+    <div class="webcut-screen-box" ref="box" :class="{ 'webcut-screen-box--text-edit-active': editTextState?.isActive }">
+        <div class="webcut-screen-viewport" ref="viewport" :style="{
             width: width + 'px',
             height: height + 'px',
             maxWidth: canvasMaxWidth ? canvasMaxWidth + 'px' : undefined,
             maxHeight: canvasMaxHeight ? canvasMaxHeight + 'px' : undefined,
         }"></div>
+        <slot></slot>
     </div>
 </template>
 
 <style scoped>
-.webcut-box {
+.webcut-screen-box {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+}
+.webcut-screen-box--text-edit-active :deep(.sprite-rect) {
+    display: none;
 }
 </style>
