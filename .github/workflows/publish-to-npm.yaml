@@ -18,6 +18,7 @@ jobs:
         with:
           node-version: 24.x
           registry-url: https://registry.npmjs.org
+          always-auth: true
       - run: npm install -g pnpm
       - run: pnpm install --verbose
       - run: |
