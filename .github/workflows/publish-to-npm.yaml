@@ -31,6 +31,6 @@ jobs:
           tags: true
       - run: npx can-npm-publish
       - run: pnpm run build
-      - run: npm publish --provenance --access public
+      - run: npm publish --provenance
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
