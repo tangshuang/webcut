@@ -192,27 +192,21 @@ function onDoubleClickTextOnCanvas(e: MouseEvent) {
     // 要考虑旋转角度的问题，angle的单位是rad
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    // 旋转后的矩形四个角的坐标
-    const x1 = rectX;
-    const y1 = rectY;
-    const x2 = rectX + rectW;
-    const y2 = rectY;
-    const x3 = rectX;
-    const y3 = rectY + rectH;
-    const x4 = rectX + rectW;
-    const y4 = rectY + rectH;
+    // 计算矩形中心点
+    const centerX = rectX + rectW / 2;
+    const centerY = rectY + rectH / 2;
     // 点击点是否在矩形内
     const isInRect = (x: number, y: number) => {
-        const x1Rot = x1 * cos - y1 * sin;
-        const y1Rot = x1 * sin + y1 * cos;
-        const x2Rot = x2 * cos - y2 * sin;
-        const y2Rot = x2 * sin + y2 * cos;
-        const x3Rot = x3 * cos - y3 * sin;
-        const y3Rot = x3 * sin + y3 * cos;
-        const x4Rot = x4 * cos - y4 * sin;
-        const y4Rot = x4 * sin + y4 * cos;
-        return (x1Rot <= x && x <= x4Rot && y1Rot <= y && y <= y4Rot) ||
-            (x2Rot <= x && x <= x3Rot && y2Rot <= y && y <= y3Rot);
+        // 将点击点平移，使矩形中心与原点重合
+        const translatedX = x - centerX;
+        const translatedY = y - centerY;
+        // 对平移后的点进行反向旋转（与矩形旋转方向相反）
+        const rotatedX = translatedX * cos + translatedY * sin;
+        const rotatedY = translatedY * cos - translatedX * sin;
+        // 检查旋转后的点是否在原始轴对齐的矩形内
+        const halfW = rectW / 2;
+        const halfH = rectH / 2;
+        return (Math.abs(rotatedX) <= halfW && Math.abs(rotatedY) <= halfH);
     };
 
     if (!isInRect(clickX, clickY)) {
