@@ -4,13 +4,12 @@ import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed } from 'vue';
 import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../hooks/i18n';
-
-const t = useT();
 import { useWebCutLocalFile } from '../../../hooks/local-file';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutHistory } from '../../../hooks/history';
 import { downloadBlob } from '../../../libs/file';
+import { useWebCutTransition } from '../../../hooks/transition';
 
 const props = defineProps<{
     segment: WebCutSegment;
@@ -20,10 +19,12 @@ const props = defineProps<{
     segments: WebCutSegment[]
 }>();
 
+const t = useT();
 const { fileUrl } = useWebCutLocalFile();
 const { sources } = useWebCutContext();
 const { deleteSegment } = useWebCutManager();
 const { push: pushHistory } = useWebCutHistory();
+const { syncTransitions } = useWebCutTransition();
 
 const source = computed(() => {
     const key = props.segment.sourceKey;
@@ -45,6 +46,7 @@ const contextmenus = computed(() => [
 async function handleSelectContextMenu(key: string) {
     if (key === 'delete') {
         deleteSegment({ segment: props.segment, rail: props.rail });
+        syncTransitions(props.rail);
         await pushHistory();
     } else if (key === 'export') {
         try {

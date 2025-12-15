@@ -1,5 +1,5 @@
 import { inject, toRefs, markRaw, reactive, provide, watch, ref, watchEffect, computed, type ComputedRef, ModelRef, WritableComputedRef } from 'vue';
-import { WebCutAnimationData, WebCutAnimationKeyframe, WebCutAnimationType, WebCutColors, WebCutContext, WebCutAnimationPreset, WebCutSource } from '../types';
+import { WebCutAnimationData, WebCutColors, WebCutContext, WebCutSource, WebCutFilterData } from '../types';
 import { AVCanvas } from '@webav/av-canvas';
 import {
   AudioClip,
@@ -9,14 +9,15 @@ import {
 } from '@webav/av-cliper';
 import { base64ToFile, downloadBlob } from '../libs/file';
 import { assignNotEmpty } from '../libs/object';
-import { isEmpty, createRandomString, clone, assign, each } from 'ts-fns';
+import { isEmpty, createRandomString, clone, assign } from 'ts-fns';
 import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
 import { WebCutHighlightOfText, WebCutMaterialMeta } from '../types';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
 import { aspectRatioMap } from '../constants';
-import { animationPresets } from '../constants/animation';
+import { filterManager } from '../modules/filters';
+import { animationManager } from '../modules/animations';
 
 let context: WebCutContext | null | undefined = null;
 export function useWebCutContext(providedContext?: () => Partial<WebCutContext> | undefined | null) {
@@ -43,6 +44,7 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         rails: [],
         selected: [],
         current: null,
+        editTextState: null,
         canUndo: false,
         canRedo: false,
         canRecover: false,
@@ -109,15 +111,15 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         const index = selected.value.findIndex(i => i.segmentId === segmentId && i.railId === railId);
         if (index === -1) {
             selected.value.push({ segmentId, railId });
-            current.value = segmentId;
+            current.value = { segmentId, railId };
             return;
         }
-        if (current.value && current.value !== segmentId) {
-            current.value = segmentId;
+        if (current.value && (current.value.segmentId !== segmentId || current.value.railId !== railId)) {
+            current.value = { segmentId, railId };
             return;
         }
         selected.value.splice(index, 1);
-        if (current.value === segmentId) {
+        if (current.value && current.value.segmentId === segmentId && current.value.railId === railId) {
             current.value = null;
         }
     }
@@ -126,7 +128,7 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         if (!selected.value.some(i => i.segmentId === segmentId && i.railId === railId)) {
             selected.value.push({ segmentId, railId });
         }
-        current.value = segmentId;
+        current.value = { segmentId, railId };
     }
 
     function unselectSegment(segmentId: string, railId: string) {
@@ -135,7 +137,7 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
             return;
         }
         selected.value.splice(index, 1);
-        if (current.value === segmentId) {
+        if (current.value && current.value.segmentId === segmentId && current.value.railId === railId) {
             current.value = null;
         }
     }
@@ -144,12 +146,8 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         if (!current.value) {
             return null;
         }
-        const currentItem = selected.value.find(i => i.segmentId === current.value);
-        if (!currentItem) {
-            return null;
-        }
-        const railId = currentItem.railId;
-        const rail = rails.value.find(rail => rail.id === railId);
+        const currentValue = current.value;
+        const rail = rails.value.find(rail => rail.id === currentValue.railId);
         if (!rail) {
             return null;
         }
@@ -157,19 +155,35 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
     });
 
     const currentSegment = computed(() => {
-        if (!current.value) {
+        if (!current.value || !current.value.segmentId) {
             return null;
         }
-        const currentItem = selected.value.find(i => i.segmentId === current.value);
-        if (!currentItem) {
+        const currentValue = current.value;
+        const rail = rails.value.find(rail => rail.id === currentValue.railId);
+        if (!rail) {
             return null;
         }
-        const segmentId = currentItem.segmentId;
-        const segment = currentRail.value?.segments.find(spr => spr.id === segmentId);
+        const segment = rail.segments.find(spr => spr.id === currentValue.segmentId);
         if (!segment) {
             return null;
         }
         return segment;
+    });
+
+    const currentTransition = computed(() => {
+        if (!current.value || !current.value.transitionId) {
+            return null;
+        }
+        const currentValue = current.value;
+        const rail = rails.value.find(rail => rail.id === currentValue.railId);
+        if (!rail) {
+            return null;
+        }
+        const transition = rail.transitions.find(t => t.id === currentValue.transitionId);
+        if (!transition) {
+            return null;
+        }
+        return transition;
     });
 
     const currentSource = computed(() => {
@@ -185,31 +199,11 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
     });
 
     async function updateByAspectRatio(aspectRatio: keyof typeof aspectRatioMap) {
-        const { w, h } = aspectRatioMap[aspectRatio];
+        const size = aspectRatioMap[aspectRatio];
         // 更新宽度和高度
-        width.value = w;
-        height.value = h;
+        width.value = size.width;
+        height.value = size.height;
         await updateProjectState(id.value, { aspectRatio });
-    }
-
-    /**
-     * 根据宽度和高度计算最接近的长宽比
-     * @param width
-     * @param height
-     * @returns
-     */
-    function calcByAspectRatio(width: number, height: number) {
-        // 监听宽度和高度变化，更新长宽比
-        // 通过长宽比进行计算，找到最接近的比例
-        const ratios = Object.keys(aspectRatioMap);
-        const values = ratios.map(item => item.split(':').map(v => +v)).map(([w, h]) => w/h);
-        const target = width / height;
-        const closestIndex = ratios.reduce((acc, _, i) => {
-            const diff = Math.abs(target - values[i]);
-            return diff < Math.abs(target - values[acc]) ? i : acc;
-        }, 0);
-        const closestRatio = ratios[closestIndex];
-        return closestRatio;
     }
 
     return {
@@ -224,9 +218,9 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         unselectSegment,
         currentRail,
         currentSegment,
+        currentTransition,
         currentSource,
         updateByAspectRatio,
-        calcByAspectRatio,
     };
 }
 
@@ -319,19 +313,30 @@ export function useWebCutPlayer() {
 
             if (!spr) {
                 activeSpriteUnsubscribe = null;
-                if (currentSource.value) {
+                if (currentSource.value?.segmentId) {
                     const { railId, segmentId } = currentSource.value;
                     unselectSegment(segmentId, railId);
                 }
                 return;
             }
 
+            const sourceItem = [...sources.value.values()].find(item => item.sprite === spr);
+
             activeSpriteUnsubscribe = spr.on('propsChange', (props) => {
                 player.value?.emit('change', props);
+                // 如果是文本，禁止缩放（注意，是可以移动的，但是不允许缩放）
+                if (sourceItem?.type === 'text' && sourceItem.meta.rect && (typeof props.rect?.w === 'number' || typeof props.rect?.h === 'number')) {
+                    if (typeof sourceItem.meta.rect.w === 'number') {
+                        spr.rect.w = sourceItem.meta.rect.w;
+                    }
+                    if (typeof sourceItem.meta.rect.h === 'number') {
+                        spr.rect.h = sourceItem.meta.rect.h;
+                    }
+                    return false;
+                }
             });
 
-            const sourceItem = [...sources.value.values()].find(item => item.sprite === spr);
-            if (sourceItem) {
+            if (sourceItem?.segmentId) {
                 const { railId, segmentId } = sourceItem;
                 selectSegment(segmentId, railId);
             }
@@ -407,41 +412,55 @@ export function useWebCutPlayer() {
     }
 
     // 提取tickInterceptor逻辑为独立函数，供外部使用
-    function syncTickInterceptor(clip: MP4Clip | ImgClip | AudioClip, sourceKey: string) {
-        const tickInterceptor = async <T extends Record<string, any>>(_: number, tickRet: T): Promise<T> => {
+    // 优化后的版本：转场由独立的 TransitionLayer 处理，此处只保留滤镜和静音处理
+    // 转场不再在 clip 的 tickInterceptor 中处理，而是作为独立的 Sprite 层渲染
+    function syncSourceTickInterceptor(sourceKey: string) {
+        const source = sources.value.get(sourceKey);
+        if (!source) {
+            return;
+        }
+        const clip: MP4Clip | ImgClip | AudioClip = source.clip!;
+        if (!clip) {
+            return;
+        }
+
+        const tickInterceptor = async <T extends Record<string, any>>(_time: number, tickRet: T): Promise<T> => {
             let result = tickRet;
 
-            // 处理视频滤镜
             if (result.video instanceof VideoFrame) {
                 const originalFrame = result.video;
                 try {
                     // 通过source.key找到对应的source，获取最新的meta
                     const sourceInfo = sources.value.get(sourceKey);
+
+                    // 处理视频滤镜（转场已移至独立的 TransitionLayer）
                     const filters = sourceInfo?.meta.filters || [];
+                    let processedFrame: VideoFrame;
                     if (filters.length > 0) {
-                        const { filterManager } = await import('../filters');
                         // 处理滤镜配置，分离滤镜名称和参数
                         const filterKeys: string[] = [];
                         const filterConfigs: Record<string, any>[] = [];
-                        for (const filterConfig of filters) {
-                            if (typeof filterConfig === 'string') {
-                                filterKeys.push(filterConfig);
+                        for (const filterData of filters) {
+                            if (typeof filterData === 'string') {
+                                filterKeys.push(filterData);
                                 filterConfigs.push({});
                             } else {
-                                filterKeys.push(filterConfig.key);
-                                filterConfigs.push(filterConfig.params || {});
+                                filterKeys.push(filterData.name);
+                                filterConfigs.push(filterData.params || {});
                             }
                         }
-                        (result as any).video = await filterManager.applyFilters(originalFrame, filterKeys, filterConfigs);
+                        processedFrame = await filterManager.applyFilters(originalFrame, filterKeys, filterConfigs);
                     } else {
-                        (result as any).video = originalFrame.clone();
+                        processedFrame = originalFrame.clone();
                     }
+
+                    (result as any).video = processedFrame;
                 } finally {
                     originalFrame.close();
                 }
             }
 
-            // 处理音频静音
+            // 处理音频静音和音量调节
             if (result.audio && Array.isArray(result.audio)) {
                 // 找到对应的rail，判断是否需要静音
                 let isMuted = false;
@@ -459,12 +478,29 @@ export function useWebCutPlayer() {
                         audio: [],
                     };
                 }
+                else if (source.type === 'audio' || source.type === 'video') {
+                    const videoVolume = source.meta[source.type]?.volume;
+                    if (typeof videoVolume === 'number' && videoVolume !== 1) {
+                        const processedAudio = result.audio.map(channel => {
+                            const newChannel = new Float32Array(channel.length);
+                            for (let i = 0; i < channel.length; i++) {
+                                newChannel[i] = channel[i] * videoVolume;
+                            }
+                            return newChannel;
+                        });
+                        result = {
+                            ...result,
+                            audio: processedAudio,
+                        };
+                    }
+                }
             }
 
             return result;
         };
         clip.tickInterceptor = tickInterceptor;
 
+        // 通过前后移动来更新预览帧
         const currentTime = cursorTime.value;
         canvas.value?.previewFrame(currentTime + 1);
         canvas.value?.previewFrame(currentTime - 1);
@@ -548,12 +584,24 @@ export function useWebCutPlayer() {
                 if (source instanceof File) {
                     file = source;
                     fileId = await writeFile(source);
-                    clip = new ImgClip(source.stream());
+                    const type = source.type;
+                    if (type === 'image/gif') {
+                        clip = new ImgClip({ type: 'image/gif', stream: source.stream() });
+                    }
+                    else {
+                        clip = new ImgClip(source.stream());
+                    }
                 }
                 else if (source.startsWith('data:')) {
-                    file = base64ToFile(source, 'image.png', 'image/png');
+                    const ext = source.split(';')[0].split('/')[1];
+                    file = base64ToFile(source, `image.${ext}`, `image/${ext}`);
                     fileId = await writeFile(file);
-                    clip = new ImgClip(file.stream());
+                    if (ext === 'gif') {
+                        clip = new ImgClip({ type: 'image/gif', stream: file.stream() });
+                    }
+                    else {
+                        clip = new ImgClip(file.stream());
+                    }
                 }
                 else if (source.startsWith('file:')) {
                     fileId = source.replace('file:', '');
@@ -561,12 +609,24 @@ export function useWebCutPlayer() {
                     if (!file) {
                         throw new Error('File not found');
                     }
-                    clip = new ImgClip(file.stream());
+                    const type = file.type || 'image/png';
+                    if (type === 'image/gif') {
+                        clip = new ImgClip({ type: 'image/gif', stream: file.stream() });
+                    }
+                    else {
+                        clip = new ImgClip(file.stream());
+                    }
                 }
                 else {
                     const res = await fetch(source);
                     url = source;
-                    clip = new ImgClip(res.body!);
+                    const type = res.headers.get('content-type') || 'image/png';
+                    if (type === 'image/gif') {
+                        clip = new ImgClip({ type: 'image/gif', stream: res.body! });
+                    }
+                    else {
+                        clip = new ImgClip(res.body!);
+                    }
                 }
             }
             else if (type === 'text') {
@@ -649,21 +709,12 @@ export function useWebCutPlayer() {
                 spr.interactable = meta.interactable;
             }
 
-            // 将rect固定到meta上，后续animation中需要用到
-            segMeta.rect = Object.assign(clone(meta.rect || {}), {
-                x: spr.rect.x,
-                y: spr.rect.y,
-                w: spr.rect.w,
-                h: spr.rect.h,
-                angle: spr.rect.angle,
-            });
-
             sprites.value.push(markRaw(spr));
 
             const key = meta.id || createRandomString(16);
 
-            // 添加滤镜tickInterceptor
-            syncTickInterceptor(clip!, key);
+            // 添加tickInterceptor，实现各种功能，如滤镜、转场、静音等
+            syncSourceTickInterceptor(key);
 
             const { withRailId, withSegmentId } = meta;
             const segment = {
@@ -691,6 +742,7 @@ export function useWebCutPlayer() {
                         id: withRailId || createRandomString(16),
                         type,
                         segments: [],
+                        transitions: [],
                     };
                     if (type === 'video') {
                         rail.main = true;
@@ -704,13 +756,15 @@ export function useWebCutPlayer() {
                         id: withRailId || createRandomString(16),
                         type,
                         segments: [],
+                        transitions: [],
                     };
                     latestRails.push(rail);
                 }
                 rail.segments.push(segment);
 
                 const audioRails = latestRails.filter(item => item.type === 'audio');
-                const otherRails = latestRails.filter(item => item.type !== 'audio');
+                const textRails = latestRails.filter(item => item.type === 'text');
+                const otherRails = latestRails.filter(item => item.type !== 'audio' && item.type !== 'text');
                 // 对rails进行重排，audio类型放在main的下方，其他类型放在main的上方
                 // const otherRails = latestRails.filter(item => item.type !== 'audio' && !item.main);
                 // const mainRail = latestRails.find(item => item.main);
@@ -719,7 +773,7 @@ export function useWebCutPlayer() {
                 //     finalRails.push(mainRail);
                 // }
                 // finalRails.push(...otherRails);
-                rails.value = [...audioRails, ...otherRails];
+                rails.value = [...audioRails, ...otherRails, ...textRails];
                 railId = rail.id;
             }
 
@@ -738,6 +792,21 @@ export function useWebCutPlayer() {
                 meta: sourceMeta,
             });
 
+            resort();
+
+            // 将rect固定到meta上，后续animation中需要用到
+            setTimeout(async () => {
+                // 必须等ready才有值，否则没有值，记录的值是错误的
+                await spr.ready;
+                sourceMeta.rect = Object.assign(clone(meta.rect || {}), {
+                    x: spr.rect.x,
+                    y: spr.rect.y,
+                    w: spr.rect.w,
+                    h: spr.rect.h,
+                    angle: spr.rect.angle,
+                });
+            });
+
             if (type === 'video') {
                 mark(PerformanceMark.VideoSpriteAddStart);
             }
@@ -748,7 +817,7 @@ export function useWebCutPlayer() {
 
             // 应用动画（如果有的话），注意，它必须在sprite和source都存在的情况下才能执行
             if (meta.animation) {
-                applyAnimation(key, meta.animation);
+                await applyAnimation(key, meta.animation);
             }
 
             // TODO 监听spr，当属性发生变化时，更新sourceMeta
@@ -761,6 +830,35 @@ export function useWebCutPlayer() {
         } finally {
             loading.value = false;
         }
+    }
+
+    // 对所有segments, transitions上的sprite进行重新排序
+    function resort() {
+        rails.value.forEach((rail, railIndex) => {
+            rail.segments.forEach((seg, index) => {
+                const { sourceKey } = seg;
+                const source = sources.value.get(sourceKey);
+                const spr = source?.sprite;
+                if (spr) {
+                    spr.zIndex = railIndex * 1000000 + index;
+                    source.meta.zIndex = spr.zIndex;
+                }
+            });
+            rail.transitions.forEach((tran, index) => {
+                const { sourceKeys } = tran;
+                if (!sourceKeys || sourceKeys.length === 0) {
+                    return;
+                }
+                sourceKeys.forEach((key) => {
+                    const source = sources.value.get(key);
+                    const spr = source?.sprite;
+                    if (spr) {
+                        spr.zIndex = railIndex * 1000000 + index * 1000;
+                        source.meta.zIndex = spr.zIndex;
+                    }
+                });
+            });
+        });
     }
 
     function remove(key: string) {
@@ -966,9 +1064,9 @@ export function useWebCutPlayer() {
     /**
      * 应用动画到指定的 sprite
      * @param sprite 目标 sprite
-     * @param animation 动画配置
+     * @param data 动画配置
      */
-    function applyAnimation(sourceKey: string, animation: Pick<WebCutAnimationData, 'type' | 'key'> & Partial<Pick<WebCutAnimationData, 'duration' | 'delay' | 'iterCount'>> | null) {
+    async function applyAnimation(sourceKey: string, data: WebCutAnimationData | null) {
         if (!sourceKey) {
             return;
         }
@@ -983,147 +1081,55 @@ export function useWebCutPlayer() {
             return;
         }
 
+        const initState = {
+            x: typeof meta.rect?.x === 'number' ? meta.rect.x : sprite.rect.x,
+            y: typeof meta.rect?.y === 'number' ? meta.rect.y : sprite.rect.y,
+            w: typeof meta.rect?.w === 'number' ? meta.rect.w : sprite.rect.w,
+            h: typeof meta.rect?.h === 'number' ? meta.rect.h : sprite.rect.h,
+            angle: typeof meta.rect?.angle === 'number' ? meta.rect.angle : sprite.rect.angle,
+            opacity: typeof meta.opacity === 'number' ? meta.opacity : 1,
+        };
+
         // 如果没有动画，清除现有动画并重置
-        if (!animation || animation.duration === 0) {
-            sprite.setAnimation({}, { duration: 0 });
+        if (!data) {
+            animationManager.clearAnimation({
+                sprite,
+                initState,
+            });
             meta.animation = null;
-            Object.assign(sprite.rect, meta.rect);
-            sprite.opacity = meta.opacity || 1;
             return;
         }
-
-        let { type, duration = 0, delay = 0, iterCount, key } = animation;
-
-        // 从预设中获取keyframe
-        const preset = animationPresets.find(p => p.key === key);
-        if (!preset) {
-            return;
-        }
-
-        const {
-            defaultKeyframe = {},
-            defaultDuration,
-            defaultIterCount,
-        } = preset || {};
 
         const rail = rails.value.find(r => r.id === railId);
         if (!rail) {
             return;
         }
+
         const segment = rail.segments.find(s => s.id === segmentId);
         if (!segment) {
             return;
         }
 
-        const sgementDuration = segment.end - segment.start;
-        // 动画时长不能超过segment时长
-        duration = Math.min(duration || defaultDuration || 0, sgementDuration);
-
-        // 以当前meta.rect为基准，计算关键帧的绝对位置
-        const { x: currentX, y: currentY, w: currentW, h: currentH, angle: currentAngle } = {
-            x: sprite.rect.x,
-            y: sprite.rect.y,
-            w: sprite.rect.w,
-            h: sprite.rect.h,
-            angle: sprite.rect.angle,
-            ...meta.rect,
-        };
-        const currentOpacity = meta.opacity || 1;
-        const canvasWidth = width.value;
-        const canvasHeight = height.value;
-        const keyframe: WebCutAnimationKeyframe = {};
-        each(defaultKeyframe, (props: WebCutAnimationPreset['defaultKeyframe'][keyof WebCutAnimationPreset['defaultKeyframe']], key) => {
-            const { offsetX, offsetY, scale, rotate, opacity } = props || {};
-            const data = keyframe[key] = {
-                x: currentX,
-                y: currentY,
-                w: currentW,
-                h: currentH,
-                angle: currentAngle,
-                opacity: currentOpacity,
-            };
-            if (offsetX) {
-                if (Number.isFinite(offsetX)) {
-                    data.x = currentX! + offsetX;
-                }
-                // 正无穷，也就是画面移动到最右边隐藏起来
-                else if (offsetX > 0) {
-                    data.x = canvasWidth;
-                }
-                // 负无穷，也就是画面移动到最左边隐藏起来
-                else if (offsetX < 0) {
-                    data.x = -currentW!;
-                }
-            }
-            if (offsetY) {
-                if (Number.isFinite(offsetY)) {
-                    data.y = currentY! + offsetY;
-                }
-                // 正无穷，也就是画面移动到最下边隐藏起来
-                else if (offsetY > 0) {
-                    data.y = canvasHeight;
-                }
-                // 负无穷，也就是画面移动到最上边隐藏起来
-                else if (offsetY < 0) {
-                    data.y = -currentH!;
-                }
-            }
-            if (typeof scale === 'number' && scale >= 0) {
-                // @ts-ignore
-                data.w = currentW * scale;
-                // @ts-ignore
-                data.h = currentH * scale;
-                // 缩放时，需要将画面居中
-                const info = autoFitRect({ width: width.value, height: height.value }, { width: data.w!, height: data.h! });
-                data.x = info.x;
-                data.y = info.y;
-                // TODO 缩放时，是否要处理 offsetX, offsetY ？
-            }
-            if (typeof rotate === 'number' && rotate !== 0) {
-                // rotate为deg，我们需要转为rad
-                // @ts-ignore
-                data.angle = rotate * Math.PI / 180;
-            }
-            if (typeof opacity === 'number' && opacity >= 0 && opacity < 1) {
-                // @ts-ignore
-                data.opacity = opacity;
-            }
+        const { type, name, params } = data;
+        const finalParams = animationManager.applyAnimation({
+            sprite,
+            animationName: name,
+            params,
+            canvasSize: { width: width.value, height: height.value },
+            maxDuration: segment.end - segment.start,
+            initState,
         });
 
-        // 出场入场只能执行1次
-        if (type === WebCutAnimationType.Enter || type === WebCutAnimationType.Exit) {
-            iterCount = 1;
+        if (finalParams) {
+            meta.animation = {
+                type,
+                name,
+                params: finalParams,
+            };
         }
-        else if (type === WebCutAnimationType.Motion && !iterCount) {
-            iterCount = defaultIterCount || Math.ceil(sgementDuration / duration);
-        }
-
-        // 对于出场，要让动画在segment结束时结束，通过延迟执行来实现
-        if (type === WebCutAnimationType.Exit) {
-            delay = sgementDuration - duration;
-        }
-
-        // 重置原始信息
-        Object.assign(sprite.rect, meta.rect);
-        sprite.opacity = meta.opacity || 1;
-
-        // 设置动画信息
-        const info = {
-            duration,
-            delay,
-            iterCount,
-        };
-        sprite.setAnimation(keyframe, info);
-        meta.animation = {
-            type,
-            key,
-            duration,
-            delay,
-            iterCount,
-        };
 
         // 将动画参数返回给外部使用
-        return info;
+        return finalParams;
     }
 
     function moveTo(time: number) {
@@ -1170,12 +1176,15 @@ export function useWebCutPlayer() {
         player.value?.fitBoxSize?.();
     }
 
-    function syncSourceMeta(source: WebCutSource, data: {
+    async function syncSourceMeta(source: WebCutSource, data: {
         rect?: any,
         opacity?: number,
-        filters?: Array<{ key: string; params?: Record<string, any> }>,
+        filters?: WebCutFilterData[],
+        animation?: WebCutAnimationData,
+        audio?: { volume?: number },
+        video?: { volume?: number },
     }) {
-        const { rect, opacity, filters } = data;
+        const { rect, opacity, filters, animation, audio, video } = data;
         if (rect) {
             Object.assign(source.sprite.rect, rect);
             source.meta.rect = source.meta.rect || {};
@@ -1185,18 +1194,36 @@ export function useWebCutPlayer() {
             source.sprite.opacity = opacity;
             source.meta.opacity = opacity;
         }
+        if (audio !== undefined) {
+            source.meta.audio = source.meta.audio || {};
+            Object.assign(source.meta.audio, audio);
+        }
+        if (video !== undefined) {
+            source.meta.video = source.meta.video || {};
+            Object.assign(source.meta.video, video);
+        }
+
+        let shouldSyncTickInterceptor = false;
         if (filters !== undefined) {
             source.meta.filters = filters;
-            // 重新赋值tickInterceptor以立即生效
-            syncTickInterceptor(source.clip, source.key);
-            // 调用previewFrame立即显示效果
-            canvas.value?.previewFrame(cursorTime.value);
+            shouldSyncTickInterceptor = true;
+        }
+        if (animation !== undefined) {
+            source.meta.animation = animation;
+            shouldSyncTickInterceptor = true;
         }
         // 属性修改之后，需要重新计算动画
         if (source.meta.animation) {
-            applyAnimation(source.key, source.meta.animation);
+            await applyAnimation(source.key, source.meta.animation);
+            shouldSyncTickInterceptor = true;
+        }
+        if (shouldSyncTickInterceptor) {
+            // 重新赋值tickInterceptor以立即生效
+            syncSourceTickInterceptor(source.key);
         }
     }
+
+
 
     return {
         init,
@@ -1209,6 +1236,7 @@ export function useWebCutPlayer() {
         push,
         remove,
         clear,
+        resort,
         destroy,
         initTextMaterial,
         updateText,
@@ -1216,9 +1244,9 @@ export function useWebCutPlayer() {
         readSources,
         download,
         resize,
-        applyAnimation, // 导出 applyAnimation 函数
+        applyAnimation,
         syncSourceMeta,
-        syncTickInterceptor,
+        syncSourceTickInterceptor,
     };
 }
 

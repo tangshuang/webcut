@@ -25,7 +25,7 @@ export interface FilterParams {
 }
 
 // 定义完整滤镜配置
-export interface FilterConfig {
+export interface WebCutFilterParams {
   type: FilterType;
   params: FilterParams;
 }
@@ -51,7 +51,7 @@ export class VideoFrameFilter {
    * @param filterConfig 滤镜配置
    * @returns 处理后的视频帧
    */
-  static async applyCSSFilter(frame: VideoFrame, filterConfig: FilterConfig): Promise<VideoFrame> {
+  static async applyCSSFilter(frame: VideoFrame, filterConfig: WebCutFilterParams): Promise<VideoFrame> {
     const {
       type,
       params: { intensity = 0.5, radius = 2, angle = 0, value = 1.0 }
@@ -242,7 +242,7 @@ export class VideoFrameFilter {
 export class WebAVFilterManager {
   private canvas: AVCanvas | null = null;
   private sprites: Map<string, { sprite: VisibleSprite; clip: IClip }> = new Map();
-  private currentFilter: Map<string, FilterConfig | GLSLFilterConfig> = new Map();
+  private currentFilter: Map<string, WebCutFilterParams | GLSLFilterConfig> = new Map();
 
   /**
    * 初始化 AVCanvas
@@ -316,7 +316,7 @@ export class WebAVFilterManager {
    * @param spriteId Sprite 唯一标识符
    * @param filterConfig 滤镜配置
    */
-  applyFilter(spriteId: string, filterConfig: FilterConfig): void {
+  applyFilter(spriteId: string, filterConfig: WebCutFilterParams): void {
     const spriteData = this.sprites.get(spriteId);
     if (!spriteData) {
       throw new Error(`Sprite with id "${spriteId}" not found`);
@@ -448,7 +448,7 @@ export class WebAVFilterManager {
    * 获取指定 Sprite 的当前滤镜配置
    * @param spriteId Sprite 唯一标识符
    */
-  getCurrentFilter(spriteId: string): FilterConfig | GLSLFilterConfig | undefined {
+  getCurrentFilter(spriteId: string): WebCutFilterParams | GLSLFilterConfig | undefined {
     return this.currentFilter.get(spriteId);
   }
 

@@ -18,6 +18,7 @@ dist-ssr
 .vscode
 /performance
 /scripts
+/third-parts
 
 # Editor directories and files
 .vscode/*

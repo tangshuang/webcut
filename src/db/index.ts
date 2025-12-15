@@ -146,10 +146,26 @@ export async function removeFileFromProject(projectId: string, fileId: string) {
     return projectData;
 }
 
-export async function writeFile(file: File) {
-    const fileId = await getFileMd5(file);
+export async function writeFile(f: File) {
+    const fileId = await getFileMd5(f);
     const opfsFilePath = `/webcut/file/${fileId}`;
-    await queue.push(() => write(opfsFilePath, file.stream(), { overwrite: true }));
+
+
+    if (await file(opfsFilePath).exists()) {
+        return fileId;
+    }
+
+    await queue.push(() => write(opfsFilePath, f.stream(), { overwrite: true }));
+
+    // 用一个文件来保存扩展信息
+    const ext = f.name.includes('.') ? f.name.split('.').pop() : '';
+    const type = f.type;
+    const size = f.size;
+    const name = f.name;
+    const time = Date.now();
+    const opfsFileMetaPath = `/webcut/file_meta/${fileId}`;
+    await queue.push(() => write(opfsFileMetaPath, JSON.stringify({ ext, type, size, time, name }), { overwrite: true }));
+
     return fileId;
 }
 
@@ -158,7 +174,36 @@ export async function readFile(fileId: string) {
     const fileCtx = file(opfsFilePath);
     if (await fileCtx.exists()) {
         const outfile = await fileCtx.getOriginFile();
+        if (!outfile) {
+            return null;
+        }
+
+        // 读取扩展信息
+        const fileMeta = await readFileMeta(fileId);
+        if (fileMeta) {
+            const { type, time, name } = fileMeta;
+            return new File([outfile], name, { type, lastModified: time });
+        }
+
+        // 使用indexedDB中存的文件元数据
+        const fileData = await getFile(fileId);
+        if (fileData) {
+            const { name, type, time } = fileData;
+            return new File([outfile], name, { type, lastModified: time });
+        }
+
         return outfile;
+    }
+    return null;
+}
+
+export async function readFileMeta(fileId: string) {
+    const fileMetaCtx = await file(`/webcut/file_meta/${fileId}`);
+    if (await fileMetaCtx.exists()) {
+        const fileMeta = await fileMetaCtx.getOriginFile();
+        const fileMetaJson = await fileMeta!.text();
+        const fileMetaObj = JSON.parse(fileMetaJson);
+        return fileMetaObj;
     }
     return null;
 }
@@ -176,7 +221,7 @@ export async function addFile(file: File) {
     return fileId;
 }
 
-export async function getFile(fileId: string): Promise<File> {
+export async function getFile(fileId: string): Promise<{ id: string, name: string, type: string, size: number, time: number }> {
     const fileData = await filesStorage.get(fileId);
     if (!fileData) {
         throw new Error('文件不存在');

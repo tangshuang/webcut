@@ -18,6 +18,8 @@ import {
 } from 'naive-ui';
 import { computed, inject, provide } from 'vue';
 import { useWebCutLocale } from '../../hooks/i18n';
+import { createToastContext } from '../../hooks/toast';
+import ThemeBox from '../theme-box/index.vue';
 
 export interface WebCutProviderProps {
     data?: Partial<WebCutContext>;
@@ -105,12 +107,14 @@ const dateLngPkg = computed(() => {
     }
 });
 
+const { provide: provideToastContext } = createToastContext();
 const isInProvider = inject('WEBCUT_IN_PROVIDER', false);
 provide('WEBCUT_IN_PROVIDER', true);
 provideContext();
 provideThemeColors();
 provideDarkMode();
 provideLanguage();
+provideToastContext();
 </script>
 
 <template>
@@ -123,22 +127,9 @@ provideLanguage();
                         <n-message-provider>
                             <n-element>
                                 <n-notification-provider placement="bottom-right">
-                                    <div class="webcut-container" :style="{
-                                        '--webcut-background-color': isDarkMode ? themeColors.backgroundColorDark : themeColors.backgroundColor,
-                                        '--webcut-grey-color': isDarkMode ? themeColors.greyColorDark : themeColors.greyColor,
-                                        '--webcut-grey-deep-color': isDarkMode ? themeColors.greyDeepColorDark : themeColors.greyDeepColor,
-                                        '--webcut-rail-bg-color': isDarkMode ? themeColors.railBgColorDark : themeColors.railBgColor,
-                                        '--webcut-rail-hover-bg-color': isDarkMode ? themeColors.railHoverBgColorDark : themeColors.railHoverBgColor,
-                                        '--webcut-line-color': isDarkMode ? themeColors.lineColorDark : themeColors.lineColor,
-                                        '--webcut-thumb-color': isDarkMode ? themeColors.thumbColorDark : themeColors.thumbColor,
-                                        '--webcut-manager-top-bar-color': isDarkMode ? themeColors.managerTopBarColorDark : themeColors.managerTopBarColor,
-                                        '--webcut-close-icon-color': isDarkMode ? themeColors.closeIconColorDark : themeColors.closeIconColor,
-                                        '--webcut-font-size-normal': '12px',
-                                        '--webcut-font-size-small': '10px',
-                                        '--webcut-font-size-tiny': '8px',
-                                    }">
+                                    <theme-box class="webcut-container">
                                         <slot></slot>
-                                    </div>
+                                    </theme-box>
                                 </n-notification-provider>
                             </n-element>
                         </n-message-provider>
@@ -185,7 +176,7 @@ provideLanguage();
   padding: 0 2px;
 }
 .webcut-root :deep(.n-form-item .n-form-item-feedback) {
-  font-size: .8em;
+  font-size: var(--webcut-font-size-tiny);
   margin-bottom: 16px;
 }
 .webcut-root :deep(.n-form-item .n-input-group) {
@@ -235,7 +226,7 @@ provideLanguage();
   flex: 1;
 }
 .webcut-root :deep(.n-form-item-message) {
-  font-size: .8em;
+  font-size: var(--webcut-font-size-tiny);
   opacity: .8;
 }
 .webcut-root :deep(.n-form-item .n-input__input) {
@@ -295,10 +286,10 @@ provideLanguage();
 .webcut-root :deep(.webcut-panel-form),
 .webcut-root :deep(.webcut-panel-form .n-base-selection-input__content),
 .webcut-root :deep(.webcut-panel-form .n-collapse-item__header-main),
-.webcut-root :deep(.n-radio-button .n-radio__label),
 .webcut-root :deep(.n-alert-body__content) {
     font-size: var(--webcut-font-size-normal) !important;
 }
+.webcut-root :deep(.n-radio-button .n-radio__label),
 .webcut-root :deep(.n-form-item--small-size .n-button),
 .webcut-root :deep(.n-form-item--small-size .n-input__textarea-el) {
     font-size: var(--webcut-font-size-small);

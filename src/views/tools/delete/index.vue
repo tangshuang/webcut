@@ -6,17 +6,16 @@ import { useWebCutManager } from '../../../hooks/manager';
 import { useWebCutHistory } from '../../../hooks/history';
 import { useT } from '../../../hooks/i18n';
 
-const { rails, selected, current, sources } = useWebCutContext();
+const { rails, current, sources } = useWebCutContext();
 const { deleteSegment } = useWebCutManager();
 const { push: pushHistory } = useWebCutHistory();
 const t = useT();
 
 async function handleDelete() {
-    if (!current.value) {
+    if (!current.value || !current.value.segmentId) {
         return;
     }
-    const selectedItem = selected.value.find(item => item.segmentId === current.value)!;
-    const { railId, segmentId } = selectedItem;
+    const { segmentId, railId } = current.value;
     const rail = rails.value.find(item => item.id === railId);
     if (!rail) {
         return;
@@ -38,7 +37,7 @@ async function handleDelete() {
 <template>
     <n-popover :delay="200" class="webcut-tooltip">
         <template #trigger>
-            <n-button quaternary size="small" :focusable="false" @click="handleDelete" class="webcut-tool-button" :disabled="!current">
+            <n-button quaternary size="small" :focusable="false" @click="handleDelete" class="webcut-tool-button" :disabled="!current || !current.segmentId">
                 <template #icon>
                     <n-icon :component="Delete" size="16px"></n-icon>
                 </template>

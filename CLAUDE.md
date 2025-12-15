@@ -29,21 +29,14 @@ pnpm run build:webcomponents_bundle
 # Start development server
 pnpm dev
 
-# Run tests
-pnpm test
-
-# Run tests with coverage
-pnpm test:coverage
-
-# Lint and fix code
-pnpm lint
-
 # Type checking
 pnpm typecheck
 
 # Serve documentation locally
 pnpm docs
 ```
+
+**Note**: Test infrastructure (Vitest) is included in devDependencies but test files and configuration are not yet present.
 
 ### Release
 ```bash
@@ -142,6 +135,21 @@ Text is converted to images for rendering:
 - Animation types: Enter, Exit, Motion
 - Uses keyframe-based system with duration, delay, and iteration count
 
+### Filter System (`src/filters/`)
+
+- Plugin-based filter architecture with `FilterManager` and `WebCutBaseFilter`
+- Built-in CSS filters: grayscale, blur, brightness, contrast, saturate
+- Filters are applied via `tickInterceptor` during video frame processing
+- Custom filters can be created by extending `WebCutBaseFilter` and registering with `filterManager`
+
+### Transition System (`src/transitions/`)
+
+- Plugin-based transition architecture with `TransitionManager` and `BaseTransition`
+- Built-in transitions: fade, zoom, slide, rotate, dissolve, wipe, circle, blur
+- Transitions are stored per-rail in `rail.transitions[]` with start/end times
+- Applied during playback by processing frames between adjacent segments
+- Custom transitions can be created by extending `BaseTransition` and registering with `transitionManager`
+
 ### History System (`src/hooks/history.ts`)
 
 - Undo/redo functionality with state persistence to IndexedDB
@@ -169,9 +177,9 @@ Locales in `src/locales/` (zh-HK, zh-TW, en-US, ja-JP, de-DE, es-ES, fr-FR). The
 
 - **Rail Auto-assignment**: When pushing materials without specifying a rail, the system automatically finds or creates an appropriate rail, avoiding overlapping segments.
 
-## Testing
+## Code Language
 
-The project uses Vitest for testing. No specific test files were found in the current codebase, but the infrastructure is in place (vitest.config.ts).
+Some code comments are written in Chinese. The project is developed with a Chinese-speaking team, so Chinese comments are common in the codebase.
 
 ## Documentation
 

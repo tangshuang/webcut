@@ -6,6 +6,7 @@ import ToolBar from './tool-bar/index.vue';
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useWebCutPlayer } from '../../hooks';
 import { useWebCutManager } from '../../hooks/manager';
+import TransitionSegment from './segments/transition.vue';
 
 const { resize } = useWebCutPlayer();
 const { resizeManagerMaxHeight } = useWebCutManager();
@@ -44,6 +45,9 @@ defineExpose({
             </template>
             <template #mainSegment="{ rail, segment, railIndex, segmentIndex, segments }">
                 <MainSegment :rail="rail" :segment="segment" :railIndex="railIndex" :segmentIndex="segmentIndex" :segments="segments"></MainSegment>
+            </template>
+            <template #mainTransition="{ transition, rail }">
+                <TransitionSegment :transition="transition" :rail="rail"></TransitionSegment>
             </template>
         </ManagerContainer>
     </div>

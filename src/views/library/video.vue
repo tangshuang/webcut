@@ -108,17 +108,17 @@ async function handleAdd(material: any) {
 </script>
 
 <template>
-  <div class="webcut-material-panel">
-    <aside class="webcut-material-panel-aside">
-      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'this' }" @click="actionType = 'this'">{{ t('当前') }}</div>
-      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'import' }" @click="actionType = 'import'">{{ t('导入') }}</div>
-      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'all' }" @click="actionType = 'all'">{{ t('全部') }}</div>
+  <div class="webcut-library-panel">
+    <aside class="webcut-library-panel-aside">
+      <div class="webcut-library-panel-aside-btn" :class="{ 'webcut-library-panel-aside-btn--active': actionType === 'this' }" @click="actionType = 'this'">{{ t('当前') }}</div>
+      <div class="webcut-library-panel-aside-btn" :class="{ 'webcut-library-panel-aside-btn--active': actionType === 'import' }" @click="actionType = 'import'">{{ t('导入') }}</div>
+      <div class="webcut-library-panel-aside-btn" :class="{ 'webcut-library-panel-aside-btn--active': actionType === 'all' }" @click="actionType = 'all'">{{ t('全部') }}</div>
     </aside>
 
     <!-- 右侧素材列表 -->
-    <main class="webcut-material-panel-main">
+    <main class="webcut-library-panel-main">
       <div class="webcut-meterial-panel-upload" v-if="actionType === 'import'">
-        <n-upload multiple :show-file-list="false" accept=".mp4" @change="handleFileChange">
+        <n-upload multiple :show-file-list="false" accept="video/*,.mkv" @change="handleFileChange">
           <n-upload-dragger>
             <div>
               <n-icon :component="Upload" size="large"></n-icon>
@@ -183,22 +183,22 @@ async function handleAdd(material: any) {
 </template>
 
 <style scoped lang="less">
-.webcut-material-panel {
+.webcut-library-panel {
   display: flex;
   height: 100%;
   margin: 0 4px;
 }
 
-.webcut-material-panel-aside {
+.webcut-library-panel-aside {
   width: 60px;
   min-width: 60px;
 }
 
-.webcut-material-panel-aside-btn {
+.webcut-library-panel-aside-btn {
   background: var(--webcut-grey-deep-color);
   margin: 2px;
   border-radius: 4px;
-  font-size: .7em;
+  font-size: var(--webcut-font-size-tiny);
   padding: 2px 4px;
   cursor: pointer;
   white-space: nowrap;
@@ -208,7 +208,7 @@ async function handleAdd(material: any) {
   }
 }
 
-.webcut-material-panel-main {
+.webcut-library-panel-main {
   flex: 1;
   margin-left: 8px;
 }
@@ -251,7 +251,7 @@ async function handleAdd(material: any) {
 }
 
 .webcut-material-title {
-  font-size: .6em;
+  font-size: var(--webcut-font-size-tiny);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -282,7 +282,7 @@ async function handleAdd(material: any) {
 .webcut-empty-materials {
   margin-top: 12px;
   margin-left: 24px;
-  font-size: .8em;
+  font-size: var(--webcut-font-size-tiny);
   opacity: .6;
 }
 

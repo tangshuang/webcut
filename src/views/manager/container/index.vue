@@ -13,8 +13,9 @@ import { WebCutRail, WebCutSegment } from '../../../types';
 import { Video } from '@vicons/carbon';
 import { NIcon } from 'naive-ui';
 import { useT } from '../../../hooks/i18n';
-import { useWebCutContext } from '../../../hooks';
+import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { useWebCutHistory } from '../../../hooks/history';
+import { useWebCutTransition } from '../../../hooks/transition';
 
 export type WebCutManagerProps = {
     topBarColor?: string;
@@ -40,16 +41,18 @@ const emit = defineEmits(['sort', 'resize']);
 const maxHeight = defineModel<number>('maxHeight', { default: 264 });
 const props = defineProps<WebCutManagerProps>();
 
-const { rails, manager, selected, current, toggleSegment, unselectSegment, selectSegment } = useWebCutContext();
+const { rails, manager, selected, current, sources, toggleSegment, unselectSegment, selectSegment } = useWebCutContext();
+const { resort } = useWebCutPlayer();
 const slots = useSlots();
 const { scroll1, scroll2, totalPx, timeToPx, pxToTime, pxOf1Frame, resetSegmentTime } = useWebCutManager();
 const t = useT();
 const { push: pushHistory } = useWebCutHistory();
+const { syncTransitions } = useWebCutTransition();
 
 const container = ref();
 
 const showDragable = ref(true);
-const dataList = ref<any[]>([]);
+const dataList = ref<WebCutRail[]>([]);
 const moveState = ref<any>({});
 const dragState = ref<any>({});
 const highlightedRailId = ref<string | null>(null);
@@ -152,6 +155,7 @@ function handleMoveRelease(segment: WebCutSegment, rail: WebCutRail) {
     segment.end = pxToTime(end);
     moveState.value = {};
     resetSegmentTime(segment);
+    syncTransitions(rail);
     pushHistory();
     emit('resize', { segment, rail });
 }
@@ -337,6 +341,12 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
                 selectSegment(segment.id, targetRail.id);
             }
 
+            // 更新source中的railId值
+            const source = sources.value.get(segment.sourceKey);
+            if (source) {
+                source.railId = targetRail.id;
+            }
+
             // // 如果原轨道没有segment了，就从rails中移除该轨道
             // if (rail.segments.length === 0) {
             //     const railIndex = rails.value.findIndex(r => r.id === rail.id);
@@ -356,6 +366,9 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
     highlightedRailId.value = null;
 
     resetSegmentTime(segment);
+    syncTransitions(rail);
+    syncTransitions(targetRail);
+    resort();
     pushHistory();
     emit('resize', { segment, rail: targetRail });
 }
@@ -375,6 +388,11 @@ function canMoveSegment(_e: any, segment: WebCutSegment, _rail: WebCutRail) {
 
 function handleClickSegment(item: WebCutSegment, rail: WebCutRail) {
     toggleSegment(item.id, rail.id);
+}
+
+function handleClickTransition(transition: any, rail: WebCutRail) {
+    // 当点击transition时，更新current对象，设置transitionId和railId
+    current.value = { railId: rail.id, transitionId: transition.id };
 }
 
 const exposes = {
@@ -432,7 +450,7 @@ manager.value = exposes;
                             class="webcute__manager__main__rail-segment"
                             :class="{
                                 'webcute__manager__main__rail-segment--selected': selected.some(i => i.segmentId === item.id && i.railId === rail.id),
-                                'webcute__manager__main__rail-segment--current': current === item.id,
+                                'webcute__manager__main__rail-segment--current': current?.segmentId === item.id && current?.railId === rail.id,
                             }"
                             :style="{
                                 '--segment-left': moveState.segment === item ? moveState.start + 'px' : (dragState.segment === item ? dragState.start + 'px' : timeToPx(item.start) + 'px'),
@@ -457,6 +475,24 @@ manager.value = exposes;
                         >
                             <slot name="mainSegment" :segment="item" :rail="rail" :segmentIndex="segmentIndex" :railIndex="railIndex" :segments="rail.segments"></slot>
                         </AdjustableBox>
+
+                        <!-- 转场效果片段 -->
+                        <div
+                            v-for="(transition,transitionIndex) in rail.transitions"
+                            :key="transition.id"
+                            class="webcute__manager__main__rail-segment webcute__manager__main__rail-transition"
+                            :class="{
+                                'webcute__manager__main__rail-segment--current': current?.transitionId === transition.id && current?.railId === rail.id,
+                            }"
+                            :style="{
+                                '--segment-left': timeToPx(transition.start) + 'px',
+                                '--segment-width': timeToPx(transition.end - transition.start) + 'px'
+                            }"
+                            @click="handleClickTransition(transition, rail)"
+                        >
+                            <slot name="mainTransition" :transition="transition" :rail="rail" :railIndex="railIndex" :transitionIndex="transitionIndex"></slot>
+                        </div>
+
                         <slot name="mainRailEnd" :rail="rail" :railIndex="railIndex"></slot>
                     </div>
                     <div class="webcute__manager__main__rail webcute__manager__main__rail--empty" v-if="!props.disableEmptyRail && rails.length === 0">
@@ -618,5 +654,11 @@ manager.value = exposes;
     justify-content: flex-start;
     padding: 0 1em;
     margin-left: 4px;
+}
+.webcute__manager__main__rail-transition {
+    background-color: var(--webcut-theme-opacity-color);
+    z-index: 999;
+    padding: 0;
+    border: 0;
 }
 </style>

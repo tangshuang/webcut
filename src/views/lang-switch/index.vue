@@ -78,10 +78,10 @@ function handleSelectLanguage(key: string) {
 
 <style scoped>
 .webcut-lang-switch {
-  font-size: 0.7em;
+  font-size: var(--webcut-font-size-tiny);
 }
 :global(.webcut-lang-switch-dropdown) {
-  font-size: 12px;
+  font-size: var(--webcut-font-size-tiny);
 }
 </style>
 

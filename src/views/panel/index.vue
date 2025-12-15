@@ -5,15 +5,25 @@ import ScrollBox from '../../components/scroll-box/index.vue';
 import BasicSetting from './basic/index.vue';
 import AnimationSetting from './animation/index.vue';
 import FilterSetting from './filter/index.vue';
+import VideoSetting from './video/index.vue';
+import AudioSetting from './audio/index.vue';
 import { ref, watch } from 'vue';
 import { useT } from '../../hooks/i18n';
 
-const { currentRail, currentSegment } = useWebCutContext();
+const { currentRail, currentSegment, editTextState } = useWebCutContext();
 const tab = ref('basic');
 const t = useT();
 
-watch(currentSegment, () => {
-    tab.value = 'basic';
+watch([currentSegment, editTextState], () => {
+    if (editTextState.value?.isActive) {
+      tab.value = 'text';
+    }
+    else if (currentRail.value?.type === 'text') {
+      tab.value = 'text';
+    }
+    else {
+      tab.value = currentRail.value?.type === 'audio' ? 'audio' : 'basic';
+    }
 });
 </script>
 
@@ -21,26 +31,34 @@ watch(currentSegment, () => {
   <div class="webcut-panel">
     <div class="webcut-panel-header" v-if="currentRail">
       <div class="webcut-panel-tabs">
-        <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!)" :class="{'webcut-panel-tab--active': tab === 'basic'}" @click="tab = 'basic'">
+        <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" :class="{'webcut-panel-tab--active': tab === 'basic'}" @click="tab = 'basic'">
           {{ t('基础') }}
         </div>
-        <div class="webcut-panel-tab" v-if="currentRail?.type === 'text'" :class="{'webcut-panel-tab--active': tab === 'text'}" @click="tab = 'text'">
+        <div class="webcut-panel-tab" v-if="currentRail?.type === 'video' && currentSegment" :class="{'webcut-panel-tab--active': tab === 'video'}" @click="tab = 'video'">
+          {{ t('视频') }}
+        </div>
+        <div class="webcut-panel-tab" v-if="currentRail?.type === 'audio' && currentSegment" :class="{'webcut-panel-tab--active': tab === 'audio'}" @click="tab = 'audio'">
+          {{ t('音频') }}
+        </div>
+        <div class="webcut-panel-tab" v-if="currentRail?.type === 'text' && currentSegment" :class="{'webcut-panel-tab--active': tab === 'text'}" @click="tab = 'text'">
           {{ t('文本') }}
         </div>
-        <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!)" :class="{'webcut-panel-tab--active': tab === 'animation'}" @click="tab = 'animation'">
+        <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" :class="{'webcut-panel-tab--active': tab === 'animation'}" @click="tab = 'animation'">
           {{ t('动画') }}
         </div>
-        <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!)" :class="{'webcut-panel-tab--active': tab === 'filter'}" @click="tab = 'filter'">
+        <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" :class="{'webcut-panel-tab--active': tab === 'filter'}" @click="tab = 'filter'">
           {{ t('滤镜') }}
         </div>
       </div>
     </div>
     <div class="webcut-panel-content" v-if="currentRail">
       <ScrollBox>
-        <BasicSetting v-if="tab === 'basic' && ['text', 'image', 'video'].includes(currentRail?.type!)" />
-        <TextSetting v-if="tab === 'text' && ['text'].includes(currentRail?.type!)" />
-        <FilterSetting v-if="tab === 'filter' && ['text', 'image', 'video'].includes(currentRail?.type!)" />
-        <AnimationSetting v-if="tab === 'animation' && ['text', 'image', 'video'].includes(currentRail?.type!)" />
+        <BasicSetting v-if="tab === 'basic' && ['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" />
+        <TextSetting v-if="tab === 'text' && ['text'].includes(currentRail?.type!) && currentSegment" />
+        <FilterSetting v-if="tab === 'filter' && ['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" />
+        <AnimationSetting v-if="tab === 'animation' && ['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" />
+        <VideoSetting v-if="tab === 'video' && ['video'].includes(currentRail?.type!) && currentSegment" />
+        <AudioSetting v-if="tab === 'audio' && ['audio'].includes(currentRail?.type!) && currentSegment" />
       </ScrollBox>
     </div>
   </div>
@@ -49,7 +67,7 @@ watch(currentSegment, () => {
 <style scoped>
 .webcut-panel {
   height: 100%;
-  font-size: 0.8em;
+  font-size: var(--webcut-font-size-tiny);
   display: flex;
   flex-direction: column;
 }

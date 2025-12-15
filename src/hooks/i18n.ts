@@ -15,45 +15,39 @@ import { useWebCutContext } from '.';
 
 // 语言包映射
 const langPkgs: Record<string, Record<string, string>> = {
-  'en-US': enUS,
-  'en': enUS,
-  'fr-FR': frFR,
-  'fr': frFR,
-  'ja-JP': jaJP,
-  'ja': jaJP,
-  'de-DE': deDE,
-  'de': deDE,
-  'es-ES': esES,
-  'es': esES,
-  'zh-HK': zhHK,
-  'zh-TW': zhTW,
+    'en-US': enUS,
+    'en': enUS,
+    'fr-FR': frFR,
+    'fr': frFR,
+    'ja-JP': jaJP,
+    'ja': jaJP,
+    'de-DE': deDE,
+    'de': deDE,
+    'es-ES': esES,
+    'es': esES,
+    'zh-HK': zhHK,
+    'zh-TW': zhTW,
 };
 
 /**
  * 获取语言包
  */
 function getLangPkg(lang?: string): Record<string, string> | null {
-  const language = lang || navigator.language || 'zh-CN';
+    const language = lang || navigator.language || 'zh-CN';
 
-  // 如果是简体中文，返回 null，表示使用 key 作为显示内容
-// 香港繁体和台湾繁体返回对应的语言包
-if (language === 'zh-CN' || (language === 'zh' && !language.startsWith('zh-HK') && !language.startsWith('zh-TW'))) {
-  return null;
-}
+    // 尝试精确匹配
+    if (langPkgs[language]) {
+        return langPkgs[language];
+    }
 
-  // 尝试精确匹配
-  if (langPkgs[language]) {
-    return langPkgs[language];
-  }
+    // 尝试匹配语言前缀（如 en-US -> en）
+    const langPrefix = language.split('-')[0];
+    if (langPkgs[langPrefix]) {
+        return langPkgs[langPrefix];
+    }
 
-  // 尝试匹配语言前缀（如 en-US -> en）
-  const langPrefix = language.split('-')[0];
-  if (langPkgs[langPrefix]) {
-    return langPkgs[langPrefix];
-  }
-
-  // 不支持的语言，返回 null，使用 key 作为显示内容
-  return null;
+    // 不支持的语言，返回 null，使用 key 作为显示内容
+    return null;
 }
 
 export function useWebCutLocale(language?: ModelRef<string | null | undefined>) {
@@ -116,28 +110,28 @@ export function useWebCutLocale(language?: ModelRef<string | null | undefined>) 
  * @returns 翻译后的文本
  */
 export function useT() {
-  const { locale } = useWebCutLocale();
-  return (key: string, args?: any): string => {
-    if (!key) {
-      return '';
-    }
+    const { locale } = useWebCutLocale();
+    return (key: string, args?: any): string => {
+        if (!key) {
+            return '';
+        }
 
-    const lngPkg = getLangPkg(locale.value);
+        const lngPkg = getLangPkg(locale.value);
 
-    const parse = (result: string) => {
-      // 简单的插值替换
-      if (args && typeof args === 'object') {
-        Object.keys(args).forEach(argKey => {
-          result = result.replace(new RegExp(`\\{${argKey}\\}`, 'g'), String(args[argKey]));
-        });
-      }
-      return result;
+        const parse = (result: string) => {
+            // 简单的插值替换
+            if (args && typeof args === 'object') {
+                Object.keys(args).forEach(argKey => {
+                    result = result.replace(new RegExp(`\\{${argKey}\\}`, 'g'), String(args[argKey]));
+                });
+            }
+            return result;
+        };
+
+        // 获取翻译文本，如果没有找到则返回原始key（中文原文）
+        let result = typeof lngPkg?.[key] === 'string' ? lngPkg[key] : key;
+        result = parse(result);
+        return result;
     };
-
-    // 获取翻译文本，如果没有找到则返回原始key（中文原文）
-    let result = lngPkg?.[key] || key;
-    result = parse(result);
-    return result;
-  };
 }
 

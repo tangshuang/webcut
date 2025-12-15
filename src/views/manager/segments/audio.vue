@@ -11,6 +11,7 @@ import AudioShape from '../../../components/audio-shape/index.vue';
 import { useScrollBox } from '../../../components/scroll-box';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutHistory } from '../../../hooks/history';
+import { useWebCutTransition } from '../../../hooks/transition';
 import { watch } from 'vue';
 
 const t = useT();
@@ -26,6 +27,7 @@ const { sources } = useWebCutContext();
 const { timeToPx, deleteSegment } = useWebCutManager();
 const scrollBox = useScrollBox();
 const { push: pushHistory } = useWebCutHistory();
+const { syncTransitions } = useWebCutTransition();
 
 const source = computed(() => {
     const key = props.segment.sourceKey;
@@ -87,6 +89,7 @@ const contextmenus = computed(() => [
 async function handleSelectContextMenu(key: string) {
     if (key === 'delete') {
         deleteSegment({ segment: props.segment, rail: props.rail });
+        syncTransitions(props.rail);
         await pushHistory();
     } else if (key === 'export') {
         try {

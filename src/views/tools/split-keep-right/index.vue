@@ -7,17 +7,16 @@ import { useWebCutManager } from '../../../hooks/manager';
 import { useT } from '../../../hooks/i18n';
 import { computed } from 'vue';
 
-const { rails, selected, current, cursorTime } = useWebCutContext();
+const { rails, current, cursorTime } = useWebCutContext();
 const { splitSegment } = useWebCutManager();
 const { push: pushHistory } = useWebCutHistory();
 const t = useT();
 
 const currentSelected = computed(() => {
-    if (!current.value) {
+    if (!current.value || !current.value.segmentId) {
         return;
     }
-    const selectedItem = selected.value.find(item => item.segmentId === current.value)!;
-    const { railId, segmentId } = selectedItem;
+    const { railId, segmentId } = current.value;
     const rail = rails.value.find(item => item.id === railId);
     if (!rail) {
         return;
@@ -57,7 +56,7 @@ async function handleSplit() {
 <template>
     <n-popover :delay="200" class="webcut-tooltip">
         <template #trigger>
-            <n-button quaternary size="small" :focusable="false" @click="handleSplit" class="webcut-tool-button" :disabled="!current || !canSplit">
+            <n-button quaternary size="small" :focusable="false" @click="handleSplit" class="webcut-tool-button" :disabled="!current || !current.segmentId || !canSplit">
                 <template #icon>
                     <n-icon :component="PanelRight16Filled" size="16px"></n-icon>
                 </template>

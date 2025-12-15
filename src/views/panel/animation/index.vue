@@ -19,14 +19,16 @@ import { useWebCutHistory } from '../../../hooks/history';
 import { useT } from '../../../hooks/i18n';
 import { fixNum, throttle } from 'ts-fns';
 import { WebCutAnimationType, WebCutAnimationData } from '../../../types';
-import { animationPresets } from '../../../constants/animation';
 import { ScanObject20Filled } from '@vicons/fluent';
 import EffectIcon from '../../../components/effect-icon/index.vue';
+import { animationManager } from '../../../modules/animations';
 
 const { currentSource, currentSegment, cursorTime } = useWebCutContext();
 const { applyAnimation } = useWebCutPlayer();
 const { push: pushHistory } = useWebCutHistory();
 const t = useT();
+const animationDefaults = animationManager.getAnimationDefaults();
+const animationPresets = Object.values(animationDefaults);
 
 // 节流保存历史记录
 const throttledPushHistory = throttle(pushHistory, 500);
@@ -42,7 +44,7 @@ const currentPresetOptions = computed(() => {
         : selectedAnimationType.value === WebCutAnimationType.Exit ? animationPresets.filter(p => p.type === WebCutAnimationType.Exit)
         : animationPresets.filter(p => p.type === WebCutAnimationType.Motion);
     return [
-        { key: '', name: t('无') },
+        { name: '', title: t('无') },
         ...presets
     ];
 });
@@ -85,47 +87,48 @@ watch(() => [currentSegment.value?.start, currentSegment.value?.end], () => {
     onUpdateAnimation();
 });
 
-function onUpdateAnimation() {
+async function onUpdateAnimation() {
     if (!usedAnimation.value) {
         return;
     }
-    applyAnimation(currentSegment.value?.sourceKey!, usedAnimation.value);
+    await applyAnimation(currentSegment.value?.sourceKey!, usedAnimation.value);
     throttledPushHistory();
 }
 
-function handleToggleAnimation(presetKey: string) {
+async function handleToggleAnimation(animationName: string) {
     // 删除动画
-    if (!presetKey) {
+    if (!animationName) {
         usedAnimation.value = null;
-        applyAnimation(currentSegment.value?.sourceKey!, null);
+        await applyAnimation(currentSegment.value?.sourceKey!, null);
         pushHistory();
         return;
     }
 
     const type = selectedAnimationType.value;
-    const preset = animationPresets.find(p => p.key === presetKey);
+    const preset = animationPresets.find(p => p.name === animationName);
     if (!preset) {
         return;
     }
 
-    const newAnim = {
+    const info = await applyAnimation(currentSegment.value?.sourceKey!, {
         type,
-        key: presetKey,
-    };
-    const info = applyAnimation(currentSegment.value?.sourceKey!, newAnim)!;
+        name: animationName,
+        params: usedAnimation.value?.params || preset.defaultParams,
+    });
+    if (!info) {
+        return;
+    }
+
     isSyncing = true;
     usedAnimation.value = {
-        ...newAnim,
-        ...info,
+        type,
+        name: animationName,
+        params: info,
     };
     pushHistory();
     nextTick(() => {
         isSyncing = false;
     });
-}
-
-function readPresetName(key: string) {
-    return t(animationPresets.find(preset => preset.key === key)?.name || '');
 }
 
 function handleCaptureTimeAsEnterEnd() {
@@ -135,7 +138,7 @@ function handleCaptureTimeAsEnterEnd() {
     if (!(cursorTime.value > (currentSegment.value?.start || 0) && cursorTime.value < (currentSegment.value?.end || 0))) {
         return;
     }
-    usedAnimation.value.duration = cursorTime.value - (currentSegment.value?.start || 0);
+    usedAnimation.value.params.duration = cursorTime.value - (currentSegment.value?.start || 0);
 }
 
 function handleCaptureTimeAsExitStart() {
@@ -145,8 +148,8 @@ function handleCaptureTimeAsExitStart() {
     if (!(cursorTime.value > (currentSegment.value?.start || 0) && cursorTime.value < (currentSegment.value?.end || 0))) {
         return;
     }
-    usedAnimation.value.delay = cursorTime.value - (currentSegment.value?.start || 0);
-    usedAnimation.value.duration = (currentSegment.value?.end || 0) - cursorTime.value;
+    usedAnimation.value.params.delay = cursorTime.value - (currentSegment.value?.start || 0);
+    usedAnimation.value.params.duration = (currentSegment.value?.end || 0) - cursorTime.value;
 }
 
 function calcPercent(dur: number) {
@@ -154,6 +157,10 @@ function calcPercent(dur: number) {
 }
 function fixedPercent(dur: number) {
     return fixNum(calcPercent(dur), 2);
+}
+
+function readAnimationTitle(name: string) {
+    return t(animationDefaults[name]?.title || name);
 }
 </script>
 
@@ -182,34 +189,34 @@ function fixedPercent(dur: number) {
                     v-for="anim in currentPresetOptions"
                     class="webcut-animation-item"
                     :class="{
-                        'webcut-animation-item--selected': usedAnimation?.key === anim.key || (!usedAnimation?.type && anim.key === ''),
+                        'webcut-animation-item--selected': usedAnimation?.name === anim.name || (!usedAnimation?.type && anim.name === ''),
                     }"
-                    :key="anim.key"
-                    @click="handleToggleAnimation(anim.key)"
+                    :key="anim.name"
+                    @click="handleToggleAnimation(anim.name)"
                 >
-                    <div class="webcut-animation-item-icon webcut-animation-item-icon-none" v-if="!anim.key">
+                    <div class="webcut-animation-item-icon webcut-animation-item-icon-none" v-if="!anim.name">
                         <n-icon :component="SubtractAlt" />
                     </div>
-                    <effect-icon v-else :name="anim.key" class="webcut-animation-item-icon-bg-box">
+                    <effect-icon v-else :name="anim.name" class="webcut-animation-item-icon-bg-box">
                         <div class="webcut-animation-item-icon"></div>
                     </effect-icon>
-                    <div class="webcut-animation-item-name">{{ t(anim.name) }}</div>
+                    <div class="webcut-animation-item-name">{{ t(anim.title || anim.name) }}</div>
                 </div>
             </div>
             <div class="webcut-animation-form-section" v-if="usedAnimation?.type === selectedAnimationType">
                 <n-divider style="margin: 12px 0;" />
                 <n-form size="small" label-placement="left" :label-width="60" label-align="right" v-if="usedAnimation?.type === WebCutAnimationType.Enter">
-                    <div class="webcut-animation-form-header">{{ readPresetName(usedAnimation?.key) }}</div>
+                    <div class="webcut-animation-form-header">{{ readAnimationTitle(usedAnimation?.name) }}</div>
                     <n-form-item :label="t('结束位置')">
                         <n-input-group>
                             <n-slider
-                                :value="calcPercent(usedAnimation.duration)"
+                                :value="calcPercent(usedAnimation.params.duration)"
                                 :min="0"
                                 :max="100"
                                 :tooltip="false"
-                                @update:value="(value) => usedAnimation!.duration = Math.round(value / 100 * segmentDuration)"
+                                @update:value="(value) => usedAnimation!.params.duration = Math.round(value / 100 * segmentDuration)"
                             />
-                            <n-input-group-label>{{ fixedPercent(usedAnimation.duration) }}%</n-input-group-label>
+                            <n-input-group-label>{{ fixedPercent(usedAnimation.params.duration) }}%</n-input-group-label>
                             <n-popover>
                                 <template #trigger>
                                     <n-button secondary :disabled="!(cursorTime > currentSegment!.start && cursorTime < currentSegment!.end)" @click="handleCaptureTimeAsEnterEnd">
@@ -222,20 +229,20 @@ function fixedPercent(dur: number) {
                     </n-form-item>
                 </n-form>
                 <n-form size="small" label-placement="left" :label-width="60" label-align="right" v-if="usedAnimation?.type === WebCutAnimationType.Exit">
-                    <div class="webcut-animation-form-header">{{ readPresetName(usedAnimation?.key) }}</div>
+                    <div class="webcut-animation-form-header">{{ readAnimationTitle(usedAnimation?.name) }}</div>
                     <n-form-item :label="t('开始位置')">
                         <n-input-group>
                             <n-slider
-                                :value="calcPercent(usedAnimation.delay || 0)"
+                                :value="calcPercent(usedAnimation.params.delay || 0)"
                                 :min="0"
                                 :max="100"
                                 :tooltip="false"
                                 @update:value="(value) => {
-                                    usedAnimation!.delay = Math.round(value / 100 * segmentDuration);
-                                    usedAnimation!.duration = (value ? segmentDuration - value : 0);
+                                    usedAnimation!.params.delay = Math.round(value / 100 * segmentDuration);
+                                    usedAnimation!.params.duration = (value ? segmentDuration - value : 0);
                                 }"
                             />
-                            <n-input-group-label>{{ fixedPercent(usedAnimation.delay || 0) }}%</n-input-group-label>
+                            <n-input-group-label>{{ fixedPercent(usedAnimation.params.delay || 0) }}%</n-input-group-label>
                             <n-popover>
                                 <template #trigger>
                                     <n-button secondary :disabled="!(cursorTime > currentSegment!.start && cursorTime < currentSegment!.end)" @click="handleCaptureTimeAsExitStart">
@@ -271,6 +278,7 @@ function fixedPercent(dur: number) {
     align-items: center;
     justify-content: center;
     gap: 4px;
+    font-size: var(--webcut-font-size-small) !important;
 }
 .webcut-animation-type-radio-group :deep(.n-radio-button--checked) {
     background-color: var(--webcut-grey-color);
@@ -314,7 +322,7 @@ function fixedPercent(dur: number) {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    font-size: var(--webcut-font-size-large);
     color: var(--text-color-3);
 }
 .webcut-animation-item-icon-none {

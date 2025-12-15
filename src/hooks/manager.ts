@@ -5,12 +5,22 @@ import { WebCutSegment, WebCutRail } from '../types';
 
 export function useWebCutManager() {
     const {
-        cursorTime, fps, scale, canvas, duration, scroll1, scroll2, status, ruler, manager, sources, updateDuration,
-        // rails,
+        cursorTime,
+        fps,
+        scale,
+        canvas,
+        duration,
+        scroll1,
+        scroll2,
+        status,
+        ruler,
+        manager,
+        sources,
+        updateDuration,
         unselectSegment,
         loading,
     } = useWebCutContext();
-    const { pause, push, syncTickInterceptor } = useWebCutPlayer();
+    const { pause, push, syncSourceTickInterceptor } = useWebCutPlayer();
 
     // 同步两边scroll的滚动情况
     watchEffect(() => {
@@ -146,9 +156,8 @@ export function useWebCutManager() {
             if (!source) {
                 continue;
             }
-            const clip = source.clip;
             // 使用复用的syncTickInterceptor函数
-            syncTickInterceptor(clip, sourceKey);
+            syncSourceTickInterceptor(sourceKey);
 
             // 调用previewFrame立即显示效果
             canvas.value?.previewFrame(cursorTime.value);

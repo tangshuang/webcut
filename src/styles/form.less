@@ -1,0 +1,144 @@
+
+/** override naiveui */
+
+.webcut-form :deep(.n-form),
+.webcut-form.n-form {
+  width: 100%;
+}
+.webcut-form.n-form  :deep(.audio-player-wrapper),
+.webcut-form :deep(.n-form .audio-player-wrapper) {
+  justify-content: flex-start !important;
+}
+.webcut-form :deep(.n-form-item .n-input-number) {
+  width: 100%;
+}
+.webcut-form :deep(.n-form-item .n-slider) {
+  padding: 0 2px;
+}
+.webcut-form :deep(.n-form-item .n-form-item-feedback) {
+  font-size: var(--webcut-font-size-tiny);
+  margin-bottom: 16px;
+}
+.webcut-form :deep(.n-form-item .n-input-group) {
+  align-items: center;
+}
+.webcut-form :deep(.n-form-item .n-slider + .n-input-number) {
+  width: 260px;
+  margin-left: 16px !important;
+}
+.webcut-form :deep(.n-form-item.n-form-item--left-labelled .n-form-item-label) {
+  word-break: break-all;
+  white-space: wrap;
+  max-width: 140px;
+  align-items: center;
+}
+.webcut-form :deep(.n-form-item--flex-column .n-form-item-blank) {
+  flex-direction: column !important;
+  align-items: flex-start;
+  gap: 8px;
+}
+.webcut-form :deep(.n-form-item--flex-start .n-form-item-blank) {
+  align-items: flex-start;
+  gap: 8px;
+}
+.webcut-form :deep(.n-form-item--flex-column.n-form-item--flex-start .n-form-item-blank) {
+  justify-content: flex-start;
+  gap: 8px;
+}
+.webcut-form :deep(.n-form-item--between-space .n-form-item-blank) {
+  justify-content: space-between;
+}
+.webcut-form :deep(.n-form-item--flex-column.n-form-item--flex-end .n-form-item-blank) {
+  align-items: flex-end;
+  gap: 8px;
+}
+.webcut-form :deep(.n-form-item--flex-column.n-form-item--flex-end .n-input-group) {
+  justify-content: flex-end;
+}
+.webcut-form :deep(.n-form-item--flex-end .n-form-item-blank) {
+  justify-content: flex-end;
+  gap: 8px;
+}
+.webcut-form :deep(.n-form-item--flex-row .n-form-item-blank) {
+  gap: 4px;
+}
+.webcut-form :deep(.n-form-item--flex-row .n-form-item-blank > .n-input-number) {
+  flex: 1;
+}
+.webcut-form :deep(.n-form-item-message) {
+  font-size: var(--webcut-font-size-tiny);
+  opacity: .8;
+}
+.webcut-form :deep(.n-form-item .n-input__input) {
+  min-width: 60px;
+  flex-grow: 1;
+}
+.webcut-form :deep(.n-form-item-row) {
+  display: flex;
+}
+.webcut-form :deep(.n-form-item--inline) {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.webcut-form :deep(.n-form-item--inline > :first-child) {
+  margin-right: auto;
+}
+.webcut-form :deep(.n-form-item--inline-between-space) {
+  justify-content: space-between;
+}
+.webcut-form :deep(.n-form-item-actions--top-right) {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.webcut-form.n-form :deep(> .n-button + .n-button),
+.webcut-form :deep(.n-form > .n-button + .n-button) {
+  margin-left: 8px;
+}
+.webcut-form :deep(.n-form-gap > .n-button + .n-button) {
+  margin-left: 0;
+}
+.webcut-form :deep(.n-form-item + .n-divider) {
+    margin-top: 0;
+}
+.webcut-form--small :deep(.n-divider .n-divider__title),
+.webcut-form :deep(.n-form-item--small-size + .n-divider .n-divider__title) {
+    font-size: var(--webcut-font-size-normal) !important;
+}
+.webcut-form :deep(.n-form-item--small-size),
+.webcut-form :deep(.n-form-item--small-size .n-form-item-label__text) {
+  font-size: var(--webcut-font-size-small) !important;
+  --n-label-font-size: var(--webcut-font-size-small) !important;
+}
+.webcut-form :deep(.n-form-item-label__text) {
+  word-break: keep-all;
+}
+.webcut-form--lang-zh :deep(.n-form-item-label__text),
+.webcut-form--lang-ja :deep(.n-form-item-label__text),
+.webcut-form--lang-kr :deep(.n-form-item-label__text) {
+  word-break: break-all;
+}
+.webcut-form :deep(.n-color-picker-trigger__value) {
+    opacity: 0;
+}
+
+.webcut-form :deep(.webcut-panel-form),
+.webcut-form :deep(.webcut-panel-form .n-base-selection-input__content),
+.webcut-form :deep(.webcut-panel-form .n-collapse-item__header-main),
+.webcut-form :deep(.n-alert-body__content) {
+    font-size: var(--webcut-font-size-normal) !important;
+}
+.webcut-form :deep(.n-radio-button .n-radio__label),
+.webcut-form :deep(.n-form-item--small-size .n-button),
+.webcut-form :deep(.n-form-item--small-size .n-input__textarea-el) {
+    font-size: var(--webcut-font-size-small);
+}
+.webcut-form :deep(.n-form-item--small-size .n-form-item-feedback) {
+  font-size: var(--webcut-font-size-tiny);
+}

@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { NTabs, NTabPane, NIcon } from 'naive-ui';
-import { VideoClip16Filled, MusicNote220Filled, Image24Filled, TextField24Regular } from '@vicons/fluent';
+import {
+  VideoClip16Filled,
+  MusicNote220Filled,
+  Image24Filled,
+  TextField24Regular,
+  VideoSwitch24Filled
+} from '@vicons/fluent';
 import { WebCutMaterialType } from '../../types';
 import { useT } from '../../hooks/i18n';
 
@@ -10,9 +16,10 @@ import VideoPanel from './video.vue';
 import AudioPanel from './audio.vue';
 import ImagePanel from './image.vue';
 import TextPanel from './text.vue';
+import TransitionPanel from './transition.vue';
 
 // 当前激活的 tab
-const activeTab = ref<WebCutMaterialType>('video');
+const activeTab = ref<string>('video');
 const t = useT();
 
 // 处理 tab 切换
@@ -60,6 +67,15 @@ const handleTabChange = (key: string) => {
         </template>
         <TextPanel />
       </n-tab-pane>
+      <n-tab-pane name="transition">
+        <template #tab>
+            <div class="webcut-library-tab">
+                <n-icon :component="VideoSwitch24Filled"></n-icon>
+                <span>{{ t('转场') }}</span>
+            </div>
+        </template>
+        <TransitionPanel />
+      </n-tab-pane>
     </n-tabs>
   </div>
 </template>
@@ -89,11 +105,11 @@ const handleTabChange = (key: string) => {
     justify-content: center;
 
     span {
-        font-size: .6em;
+        font-size: var(--webcut-font-size-tiny);
     }
 
     :deep(.n-icon) {
-        font-size: 18px;
+        font-size: var(--webcut-font-size-large);
     }
 }
 </style>

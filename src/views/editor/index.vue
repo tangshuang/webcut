@@ -15,6 +15,9 @@ import Panel from '../panel/index.vue';
 import ExportButton from '../export-button/index.vue';
 import { WebCutColors } from '../../types';
 import { useWebCutLocale } from '../../hooks/i18n';
+import WebCutToast from '../toast/index.vue';
+import AdvancedExport from '../../modules/advanced-export/index.vue';
+import WebCutTextEditPanel from '../panel/text/contenteditable.vue';
 
 const darkMode = defineModel<boolean | null | undefined>('darkMode', { default: null });
 const language = defineModel<string | null | undefined>('language', { default: null });
@@ -54,7 +57,9 @@ function handleResized() {
                             <n-split :default-size="0.75" :min="0.6" :max="0.75" @update:size="resize">
                                 <template #1>
                                     <div class="webcut-editor-video-player-container">
-                                        <WebCutPlayerScreen class="webcut-editor-video-player"></WebCutPlayerScreen>
+                                        <WebCutPlayerScreen class="webcut-editor-video-player">
+                                            <WebCutTextEditPanel></WebCutTextEditPanel>
+                                        </WebCutPlayerScreen>
                                     </div>
                                     <div class="webcut-editor-video-player-buttons">
                                         <div class="webcut-editor-video-player-buttons-left">
@@ -73,6 +78,7 @@ function handleResized() {
                                             <span style="margin: auto;"></span>
                                             <LangSwitch></LangSwitch>
                                             <ExportButton></ExportButton>
+                                            <AdvancedExport></AdvancedExport>
                                         </div>
                                         <div class="webcut-editor-right-side-main">
                                             <Panel></Panel>
@@ -100,6 +106,7 @@ function handleResized() {
             </n-split>
         </div>
         <slot name="footer"></slot>
+        <WebCutToast></WebCutToast>
     </WebCutProvider>
 </template>
 
@@ -179,9 +186,5 @@ function handleResized() {
 .webcut-editor-left-side {
     height: 100%;
     overflow: hidden;
-}
-.webcut-editor-right-side-top-bar-export-button {
-    height: 18px;
-    font-size: .7em;
 }
 </style>

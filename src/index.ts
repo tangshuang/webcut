@@ -3,6 +3,13 @@ import WebCutProvider from './views/provider/index.vue';
 import WebCutLangSwitch from './views/lang-switch/index.vue';
 import WebCutThemeSwitch from './views/theme-switch/index.vue';
 import WebCutLoading from './views/loading/index.vue';
+import WebCutToast from './views/toast/index.vue';
+import WebCutThemeBox from './views/theme-box/index.vue';
+// 导出
+import WebCutExportButton from './views/export-button/index.vue';
+import WebCutExport from './modules/advanced-export/index.vue';
+import WebCutExportPanel from './modules/advanced-export/export-panel.vue';
+import WebCutExportModal from './modules/advanced-export/export-modal.vue';
 // 播放器
 import WebCutPlayer from './views/player/index.vue';
 import WebCutPlayerScreen from './views/player/screen.vue';
@@ -31,9 +38,12 @@ import WebCutFlipHorizontalTool from './views/tools/flip-h/index.vue';
 import WebCutConcatTool from './views/tools/concat/index.vue';
 // 面板 - 编辑器右侧
 import WebCutPanel from './views/panel/index.vue'; // 集成所有面板
-import WebCutTextPanel from './views/panel/text/index.vue';
 import WebCutBasicPanel from './views/panel/basic/index.vue';
-import WebCutExportButton from './views/export-button/index.vue';
+import WebCutTextPanel from './views/panel/text/index.vue';
+import WebCutAudioPanel from './views/panel/audio/index.vue';
+import WebCutVideoPanel from './views/panel/video/index.vue';
+import WebCutFilterPanel from './views/panel/filter/index.vue';
+import WebCutAnimationPanel from './views/panel/animation/index.vue';
 // 素材库 - 编辑器左侧
 import WebCutLibrary from './views/library/index.vue';
 // 编辑器 - 高度集成，包含播放器、素材库、管理器、面板等
@@ -75,9 +85,17 @@ export {
     WebCutPanel,
     WebCutTextPanel,
     WebCutBasicPanel,
+    WebCutAudioPanel,
+    WebCutVideoPanel,
+    WebCutFilterPanel,
+    WebCutAnimationPanel,
     WebCutThemeSwitch,
     WebCutExportButton,
     WebCutLangSwitch,
+    WebCutThemeBox,
+    WebCutExport,
+    WebCutExportPanel,
+    WebCutExportModal,
 
     AdjustableBox,
     AudioShape,
@@ -86,6 +104,7 @@ export {
     DraggableHandler,
     RotateInput,
     WebCutLoading,
+    WebCutToast,
 };
 
 export {
@@ -112,6 +131,18 @@ export {
 export {
     useWebCutLocale,
 } from './hooks/i18n';
+export {
+    useWebCutToast,
+    type ToastType,
+    type ToastOptions,
+    type ToastState,
+} from './hooks/toast';
+export {
+    useWebCutHistory,
+} from './hooks/history';
+export {
+    useWebCutTransition,
+} from './hooks/transition';
 
 export {
     renderTxt2ImgBitmap,
@@ -149,6 +180,26 @@ export {
     blobToFile,
 } from './libs/file';
 
+// transitions
+export {
+    transitionManager,
+    WebCutBaseTransition,
+} from './modules/transitions';
+
+// filters
+export {
+    filterManager,
+    WebCutBaseFilter,
+} from './modules/filters';
+
+export {
+    animationManager,
+    WebCutBaseAnimation,
+} from './modules/animations';
+
+// constants
+export { aspectRatioMap } from './constants';
+
 export {
     getProject,
     createNewProject,
@@ -182,4 +233,16 @@ export {
     type WebCutProjectHistoryState,
     type WebCutProjectHistoryData,
     type WebCutColors,
+    type WebCutAnimationType,
+    type WebCutAnimationKeyframe,
+    type WebCutAnimationKeyframeConfig,
+    type WebCutAnimationParams,
+    type WebCutAnimationData,
+    type WebCutTransitionData,
+    type WebCutFilterData,
 } from './types';
+
+export {
+    type WebCutExportAudioParams,
+    type WebCutExportVideoParams,
+} from './modules/advanced-export/types';

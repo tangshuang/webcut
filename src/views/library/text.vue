@@ -21,14 +21,14 @@ async function handleAdd() {
 </script>
 
 <template>
-  <div class="webcut-material-panel">
-    <aside class="webcut-material-panel-aside">
-      <div class="webcut-material-panel-aside-btn" :class="{ 'webcut-material-panel-aside-btn--active': actionType === 'create' }" @click="actionType = 'create'">{{ t('新建文本') }}</div>
-      <div class="webcut-material-panel-aside-btn" style="opacity: .4;">{{ t('花字库') }}</div>
+  <div class="webcut-library-panel">
+    <aside class="webcut-library-panel-aside">
+      <div class="webcut-library-panel-aside-btn" :class="{ 'webcut-library-panel-aside-btn--active': actionType === 'create' }" @click="actionType = 'create'">{{ t('新建文本') }}</div>
+      <div class="webcut-library-panel-aside-btn" style="opacity: .4;">{{ t('花字库') }}</div>
     </aside>
 
     <!-- 右侧素材列表 -->
-    <main class="webcut-material-panel-main">
+    <main class="webcut-library-panel-main">
       <div class="webcut-material-list" v-if="actionType === 'create'">
         <div class="webcut-material-item">
           <div class="webcut-material-preview">
@@ -48,22 +48,22 @@ async function handleAdd() {
 </template>
 
 <style scoped lang="less">
-.webcut-material-panel {
+.webcut-library-panel {
   display: flex;
   height: 100%;
   margin: 0 4px;
 }
 
-.webcut-material-panel-aside {
+.webcut-library-panel-aside {
   width: 60px;
   min-width: 60px;
 }
 
-.webcut-material-panel-aside-btn {
+.webcut-library-panel-aside-btn {
   background: var(--webcut-grey-deep-color);
   margin: 2px;
   border-radius: 4px;
-  font-size: .7em;
+  font-size: var(--webcut-font-size-tiny);
   padding: 2px 4px;
   cursor: pointer;
 
@@ -72,7 +72,7 @@ async function handleAdd() {
   }
 }
 
-.webcut-material-panel-main {
+.webcut-library-panel-main {
   flex: 1;
   margin-left: 8px;
 }
@@ -107,7 +107,7 @@ async function handleAdd() {
 }
 
 .webcut-material-title {
-  font-size: .6em;
+  font-size: var(--webcut-font-size-tiny);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

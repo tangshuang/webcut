@@ -65,6 +65,7 @@ const props = defineProps<{
     align-items: center;
     justify-content: space-between;
     gap: 2px;
+    box-sizing: content-box;
 }
 .webcut-manager-tools-bar-right {
     flex: 1;
@@ -78,7 +79,7 @@ const props = defineProps<{
     border-bottom: 1px solid var(--webcut-line-color);
 }
 .webcut-divider-icon {
-    font-size: 16px;
+    font-size: var(--webcut-font-size-large);
     opacity: .1;
 }
 </style>

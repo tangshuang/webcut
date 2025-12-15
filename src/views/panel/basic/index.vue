@@ -35,12 +35,23 @@ function syncCanvasToForm(e: any) {
 
     isSyncing = true;
     const { x, y, w, h, angle } = rect;
-    Object.keys({ x, y, w, h, angle }).forEach((key) => {
+    Object.keys({ x, y, angle }).forEach((key) => {
         if (typeof rect[key] !== 'number') {
             return;
         }
         formData.value[key] = rect[key];
     });
+
+    // 文本不允许通过缩放调整大小
+    if (currentSource.value?.type !== 'text') {
+        Object.keys({ w, h }).forEach((key) => {
+            if (typeof rect[key] !== 'number') {
+                return;
+            }
+            formData.value[key] = rect[key];
+        });
+    }
+
     // Sync opacity from sprite
     if (currentSource.value) {
         formData.value.opacity = currentSource.value.sprite.opacity;
@@ -144,7 +155,7 @@ async function handlePutCenter(type: 'x' | 'y') {
 </script>
 
 <template>
-    <n-form size="small" label-placement="left" :label-width="48" label-align="right" class="webcut-panel-form">
+    <n-form size="small" label-placement="left" :label-width="60" label-align="right" class="webcut-panel-form">
         <n-alert class="webcut-message" v-if="currentSource?.meta.animation" type="warning">{{ t('当前有动画，调整可能不能直接看到效果，请播放片段查看') }}</n-alert>
         <n-form-item :label="t('位置')" class="n-form-item--flex-column" :feedback="t('视频尺寸为{width}x{height}。', { width, height })">
             <n-input-group>
@@ -158,7 +169,7 @@ async function handlePutCenter(type: 'x' | 'y') {
                 <n-button secondary @click="handlePutCenter('y')">{{t('居中')}}</n-button>
             </n-input-group>
         </n-form-item>
-        <n-form-item :label="t('尺寸')" class="n-form-item--flex-column" :feedback="currentSource?.type === 'text' ? t('调整文本尺寸可能会改变文本展示效果，建议调整字体大小') : undefined">
+        <n-form-item :label="t('尺寸')" class="n-form-item--flex-column" v-if="currentSource?.type !== 'text'">
             <n-input-group>
                 <n-input-group-label>W</n-input-group-label>
                 <n-input-number v-model:value="formData.w"></n-input-number>

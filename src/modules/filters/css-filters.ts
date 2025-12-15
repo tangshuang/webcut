@@ -1,11 +1,14 @@
-import { BaseFilter, type FilterConfig } from './base-filter';
+import { WebCutBaseFilter, type WebCutFilterParams } from './base-filter';
 
 /**
  * CSS滤镜类
  * 使用CSS filter属性对VideoFrame进行处理
  */
-export class CSSFilter extends BaseFilter {
+export class WebCutCSSFilter extends WebCutBaseFilter {
   name = 'css-filter';
+  title = 'CSS滤镜';
+  defaultParams: WebCutFilterParams = {};
+
   private canvas: OffscreenCanvas;
   private ctx: OffscreenCanvasRenderingContext2D;
 
@@ -21,7 +24,7 @@ export class CSSFilter extends BaseFilter {
    * @param config 滤镜配置，包含filter属性
    * @returns 处理后的VideoFrame
    */
-  async apply(frame: VideoFrame, config: FilterConfig): Promise<VideoFrame> {
+  async apply(frame: VideoFrame, config: WebCutFilterParams): Promise<VideoFrame> {
     const { filter = '' } = config;
 
     // 如果没有滤镜，直接返回原始帧的副本
@@ -67,11 +70,15 @@ export class CSSFilter extends BaseFilter {
 /**
  * 灰度滤镜
  */
-export class GrayscaleFilter extends BaseFilter {
+export class WebCutGrayscaleFilter extends WebCutBaseFilter {
   name = 'grayscale';
+  title = '灰度';
+  defaultParams: WebCutFilterParams = {
+    amount: 100,
+  };
 
-  async apply(frame: VideoFrame, config: FilterConfig): Promise<VideoFrame> {
-    const cssFilter = new CSSFilter();
+  async apply(frame: VideoFrame, config: WebCutFilterParams): Promise<VideoFrame> {
+    const cssFilter = new WebCutCSSFilter();
     const result = await cssFilter.apply(frame, {
       filter: `grayscale(${config.amount || 0}%)`
     });
@@ -83,11 +90,15 @@ export class GrayscaleFilter extends BaseFilter {
 /**
  * 模糊滤镜
  */
-export class BlurFilter extends BaseFilter {
+export class WebCutBlurFilter extends WebCutBaseFilter {
   name = 'blur';
+  title = '模糊';
+  defaultParams: WebCutFilterParams = {
+    amount: 100,
+  };
 
-  async apply(frame: VideoFrame, config: FilterConfig): Promise<VideoFrame> {
-    const cssFilter = new CSSFilter();
+  async apply(frame: VideoFrame, config: WebCutFilterParams): Promise<VideoFrame> {
+    const cssFilter = new WebCutCSSFilter();
     const result = await cssFilter.apply(frame, {
       filter: `blur(${config.amount / 100 * 5}px)`
     });
@@ -99,11 +110,15 @@ export class BlurFilter extends BaseFilter {
 /**
  * 亮度滤镜
  */
-export class BrightnessFilter extends BaseFilter {
+export class WebCutBrightnessFilter extends WebCutBaseFilter {
   name = 'brightness';
+  title = '亮度';
+  defaultParams: WebCutFilterParams = {
+    amount: 100,
+  };
 
-  async apply(frame: VideoFrame, config: FilterConfig): Promise<VideoFrame> {
-    const cssFilter = new CSSFilter();
+  async apply(frame: VideoFrame, config: WebCutFilterParams): Promise<VideoFrame> {
+    const cssFilter = new WebCutCSSFilter();
     const result = await cssFilter.apply(frame, {
       filter: `brightness(${config.amount || 0}%)`
     });
@@ -115,11 +130,15 @@ export class BrightnessFilter extends BaseFilter {
 /**
  * 对比度滤镜
  */
-export class ContrastFilter extends BaseFilter {
+export class WebCutContrastFilter extends WebCutBaseFilter {
   name = 'contrast';
+  title = '对比度';
+  defaultParams: WebCutFilterParams = {
+    amount: 100,
+  };
 
-  async apply(frame: VideoFrame, config: FilterConfig): Promise<VideoFrame> {
-    const cssFilter = new CSSFilter();
+  async apply(frame: VideoFrame, config: WebCutFilterParams): Promise<VideoFrame> {
+    const cssFilter = new WebCutCSSFilter();
     const result = await cssFilter.apply(frame, {
       filter: `contrast(${config.amount || 0}%)`
     });
@@ -131,11 +150,15 @@ export class ContrastFilter extends BaseFilter {
 /**
  * 饱和度滤镜
  */
-export class SaturateFilter extends BaseFilter {
+export class WebCutSaturateFilter extends WebCutBaseFilter {
   name = 'saturate';
+  title = '饱和度';
+  defaultParams: WebCutFilterParams = {
+    amount: 100,
+  };
 
-  async apply(frame: VideoFrame, config: FilterConfig): Promise<VideoFrame> {
-    const cssFilter = new CSSFilter();
+  async apply(frame: VideoFrame, config: WebCutFilterParams): Promise<VideoFrame> {
+    const cssFilter = new WebCutCSSFilter();
     const result = await cssFilter.apply(frame, {
       filter: `saturate(${config.amount || 200}%)`
     });

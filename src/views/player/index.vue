@@ -20,7 +20,7 @@ provide('videoCanvasSizeRef', canvasSizeRef);
         '--webcut-width': canvasSizeRef.width ? canvasSizeRef.width + 'px' : '100%',
         '--webcut-height': canvasSizeRef.height ? canvasSizeRef.height + 'px' : '100%',
     }">
-        <Screen :max-height="props.maxHeight" :max-width="props.maxWidth"></Screen>
+        <Screen :max-height="props.maxHeight" :max-width="props.maxWidth"><slot></slot></Screen>
         <Button :display-skip-buttons="props.displaySkipButtons"></Button>
     </div>
 </template>

@@ -12,6 +12,7 @@ import { mp4ClipToFramesData, createImageFromVideoFrame, exportBlobOffscreen } f
 import AudioShape from '../../../components/audio-shape/index.vue';
 import { useScrollBox } from '../../../components/scroll-box';
 import { PerformanceMark, mark, measure } from '../../../libs/performance';
+import { useWebCutTransition } from '../../../hooks/transition';
 
 const t = useT();
 
@@ -31,6 +32,7 @@ const { sources, scale } = useWebCutContext();
 const { timeToPx, deleteSegment } = useWebCutManager();
 const { push: pushHistory } = useWebCutHistory();
 const scrollBox = useScrollBox();
+const { syncTransitions } = useWebCutTransition();
 
 const thumbnails = ref<{ url: string; left: number }[]>([]);
 // 在轨道中渲染后每张图片的真实宽度
@@ -229,6 +231,7 @@ const contextmenus = computed(() => [
 async function handleSelectContextMenu(key: string) {
     if (key === 'delete') {
         deleteSegment({ segment: props.segment, rail: props.rail });
+        syncTransitions(props.rail);
         await pushHistory();
     } else if (key === 'export') {
         try {
