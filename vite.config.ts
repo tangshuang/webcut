@@ -59,7 +59,7 @@ export default defineConfig(({ mode }) => ({
       external: buildType.endsWith('_bundle') ? [] : allDependencies,
       output: {
         inlineDynamicImports: false,
-        manualChunks: (id) => {
+        manualChunks: buildType.startsWith('webcomponents') ? undefined : (id) => {
           if (id.includes('ffmpeg.wasm/ffmpeg-core.js')) {
             return 'ffmpeg.wasm-core';
           }
