@@ -524,7 +524,7 @@ export function useWebCutPlayer() {
                     clip = new MP4Clip(source.stream(), options);
                 }
                 else if (source.startsWith('data:')) {
-                    file = base64ToFile(source, 'video.mp4', 'video/mp4');
+                    file = base64ToFile(source, 'video.mp4');
                     fileId = await writeFile(file);
                     clip = new MP4Clip(file.stream(), options);
                 }
@@ -557,7 +557,7 @@ export function useWebCutPlayer() {
                     clip = new AudioClip(source.stream(), options);
                 }
                 else if (source.startsWith('data:')) {
-                    file = base64ToFile(source, 'audio.mp3', 'audio/mpeg');
+                    file = base64ToFile(source, 'audio.mp3');
                     fileId = await writeFile(file);
                     clip = new AudioClip(file.stream(), options);
                 }
@@ -594,7 +594,7 @@ export function useWebCutPlayer() {
                 }
                 else if (source.startsWith('data:')) {
                     const ext = source.split(';')[0].split('/')[1];
-                    file = base64ToFile(source, `image.${ext}`, `image/${ext}`);
+                    file = base64ToFile(source, `image.${ext}`);
                     fileId = await writeFile(file);
                     if (ext === 'gif') {
                         clip = new ImgClip({ type: 'image/gif', stream: file.stream() });

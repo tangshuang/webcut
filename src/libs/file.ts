@@ -8,18 +8,26 @@ import BFM from 'browser-md5-file';
  * @param mimeType 文件类型
  * @returns File 对象
  */
-export function base64ToFile(base64: string, filename: string, mimeType: string): File {
-  const arr = base64.split(',');
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-
-  return new File([u8arr], filename, { type: mimeType });
+export function base64ToFile(base64: string, filename: string): File {
+    const blob = base64ToBlob(base64);
+    return new File([blob], filename, { type: blob.type });
 }
+
+export function base64ToBlob(base64DataURL: string): Blob {
+    const base64 = base64DataURL.split(';base64,').pop();
+    const mimetype = base64DataURL.match(/^data:(.*?);/)?.[1];
+    let bstr = atob(base64!);
+    let n = bstr.length;
+    let u8arr = new Uint8Array(n);
+
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {
+      type: mimetype,
+    });
+}
+
 
 /**
  * 将 Blob 对象转换为 base64 数据 URL

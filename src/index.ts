@@ -179,6 +179,15 @@ export {
     getFileMd5,
     blobToFile,
 } from './libs/file';
+export {
+    loadFFmpeg,
+    isFFmpegLoaded,
+    execFFmpeg,
+    runFFmpeg,
+    transcodeToMP4ByFFmpeg,
+    sliceByFFmpeg,
+    extractAudioFromVideo,
+} from './libs/ffmpeg';
 
 // transitions
 export {

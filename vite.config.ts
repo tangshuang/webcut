@@ -57,6 +57,21 @@ export default defineConfig(({ mode }) => ({
     },
     rollupOptions: {
       external: buildType.endsWith('_bundle') ? [] : allDependencies,
+      output: {
+        inlineDynamicImports: false,
+        manualChunks: (id) => {
+          if (id.includes('ffmpeg.wasm/ffmpeg-core.js')) {
+            return 'ffmpeg.wasm-core';
+          }
+          else if (id.includes('ffmpeg.wasm/ffmpeg.worker.js')) {
+            return 'ffmpeg.wasm-worker';
+          }
+          else if (id.includes('ffmpeg.wasm/ffmpeg-core.wasm')) {
+            return 'ffmpeg.wasm-wasm';
+          }
+          return null;
+        },
+      },
     },
   },
 }));

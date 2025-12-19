@@ -318,7 +318,7 @@ export async function measureVideoSize(source: File | string) {
         url = URL.createObjectURL(source);
     }
     else if (source.startsWith('data:')) {
-        const file = base64ToFile(source, 'video.mp4', 'video/mp4');
+        const file = base64ToFile(source, 'video.mp4');
         url = URL.createObjectURL(file);
     }
     else {
@@ -372,7 +372,7 @@ export async function measureVideoDuration(source: File | string) {
         url = URL.createObjectURL(source);
     }
     else if (source.startsWith('data:')) {
-        const file = base64ToFile(source, 'video.mp4', 'video/mp4');
+        const file = base64ToFile(source, 'video.mp4');
         url = URL.createObjectURL(file);
     }
     else {
@@ -406,7 +406,7 @@ export async function measureAudioDuration(source: File | string) {
         url = URL.createObjectURL(source);
     }
     else if (source.startsWith('data:')) {
-        const file = base64ToFile(source, 'audio.mp3', 'audio/mpeg');
+        const file = base64ToFile(source, 'audio.mp3');
         url = URL.createObjectURL(file);
     }
     else {
