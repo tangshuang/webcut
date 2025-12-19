@@ -52,6 +52,9 @@ const actionType = ref<'import' | 'this' | 'all'>('this');
 const isTranscoding = ref(false);
 const transcodingProgress = ref(0);
 
+// 上传中的文件列表
+const uploadingFiles = ref<Set<string>>(new Set());
+
 // 右键菜单相关状态
 const showDropdown = ref(false);
 const x = ref(0);
@@ -86,59 +89,9 @@ function arrayBufferToFile(buffer: ArrayBuffer, originalFile: File): File {
 }
 
 async function handleFileChange(e: any) {
-  const file = e.file.file;
-
-  try {
-    // 检查是否为MP4格式
-    if (isMP4Format(file)) {
-      // 如果是MP4格式，直接添加
-      await addNewFile(file);
-    } else {
-      // 如果不是MP4格式，进行转码
-      isTranscoding.value = true;
-      transcodingProgress.value = 0;
-
-      // 加载FFmpeg
-      const ffmpeg = await loadFFmpeg((event: ProgressEvent | LogEvent) => {
-        // 区分是进度事件还是日志事件
-        if (event && 'progress' in event && typeof event.progress === 'number') {
-          // 进度事件
-          transcodingProgress.value = (event as ProgressEvent).progress * 0.5; // 加载进度占50%
-        } else if (event && 'message' in event) {
-          // 日志事件
-          console.log('FFmpeg加载日志:', (event as LogEvent).message);
-        }
-      });
-
-      // 转码为MP4
-      const transcodedBuffer = await transcodeToMP4ByFFmpeg(file, ffmpeg, (event: ProgressEvent | LogEvent) => {
-        // 区分是进度事件还是日志事件
-        if (event && 'progress' in event && typeof event.progress === 'number') {
-          // 进度事件
-          transcodingProgress.value = 50 + (event as ProgressEvent).progress * 0.5; // 转码进度占50%
-        } else if (event && 'message' in event) {
-          // 日志事件
-          console.log('FFmpeg转码日志:', (event as LogEvent).message);
-        }
-      });
-
-      // 将转码后的ArrayBuffer转换为File对象
-      const mp4File = arrayBufferToFile(transcodedBuffer, file);
-
-      // 添加转码后的文件
-      await addNewFile(mp4File);
-
-      isTranscoding.value = false;
-      transcodingProgress.value = 0;
-    }
-
-    actionType.value = 'this';
-  } catch (error) {
-    console.error('文件处理失败:', error);
-    isTranscoding.value = false;
-    transcodingProgress.value = 0;
-    // 可以在这里添加错误提示
-  }
+  actionType.value = 'this';
+  // 调用新的handleFile函数处理文件
+  await handleFile(e.file.file);
 }
 
 function handleClickVideo(e: any) {
@@ -192,6 +145,105 @@ async function handleAdd(material: any) {
     console.error(e);
   }
 }
+
+// 处理文件夹导入
+async function handleImportFolder() {
+  try {
+    // 打开文件夹选择器
+    const directoryHandle = await window.showDirectoryPicker();
+
+    // 递归扫描文件夹中的所有视频文件
+    const videoFiles: File[] = [];
+    await scanDirectory(directoryHandle, videoFiles);
+
+    // 按文件名排序
+    videoFiles.sort((a, b) => a.name.localeCompare(b.name));
+
+    // 立即切换到当前项目tab
+    actionType.value = 'this';
+
+    // 逐一上传视频文件
+    for (const file of videoFiles) {
+      await handleFile(file);
+    }
+  } catch (error) {
+    console.error('文件夹导入失败:', error);
+  }
+}
+
+// 递归扫描文件夹
+async function scanDirectory(directoryHandle: FileSystemDirectoryHandle, videoFiles: File[]) {
+  for await (const entry of directoryHandle.values()) {
+    if (entry.kind === 'file') {
+      const file = await entry.getFile();
+      // 检查是否为视频文件
+      if (file.type.startsWith('video/') || file.name.toLowerCase().endsWith('.mkv')) {
+        videoFiles.push(file);
+      }
+    } else if (entry.kind === 'directory') {
+      // 递归扫描子文件夹
+      await scanDirectory(entry, videoFiles);
+    }
+  }
+}
+
+// 处理单个文件上传（复用原逻辑）
+async function handleFile(file: File) {
+  try {
+    // 将文件添加到上传中列表
+    uploadingFiles.value.add(file.name);
+
+    // 检查是否为MP4格式
+    if (isMP4Format(file)) {
+      // 如果是MP4格式，直接添加
+      await addNewFile(file);
+    } else {
+      // 如果不是MP4格式，进行转码
+      isTranscoding.value = true;
+      transcodingProgress.value = 0;
+
+      // 加载FFmpeg
+      const ffmpeg = await loadFFmpeg((event: ProgressEvent | LogEvent) => {
+        // 区分是进度事件还是日志事件
+        if (event && 'progress' in event && typeof event.progress === 'number') {
+          // 进度事件
+          transcodingProgress.value = (event as ProgressEvent).progress * 0.5; // 加载进度占50%
+        } else if (event && 'message' in event) {
+          // 日志事件
+          console.log('FFmpeg加载日志:', (event as LogEvent).message);
+        }
+      });
+
+      // 转码为MP4
+      const transcodedBuffer = await transcodeToMP4ByFFmpeg(file, ffmpeg, (event: ProgressEvent | LogEvent) => {
+        // 区分是进度事件还是日志事件
+        if (event && 'progress' in event && typeof event.progress === 'number') {
+          // 进度事件
+          transcodingProgress.value = 50 + (event as ProgressEvent).progress * 0.5; // 转码进度占50%
+        } else if (event && 'message' in event) {
+          // 日志事件
+          console.log('FFmpeg转码日志:', (event as LogEvent).message);
+        }
+      });
+
+      // 将转码后的ArrayBuffer转换为File对象
+      const mp4File = arrayBufferToFile(transcodedBuffer, file);
+
+      // 添加转码后的文件
+      await addNewFile(mp4File);
+
+      isTranscoding.value = false;
+      transcodingProgress.value = 0;
+    }
+  } catch (error) {
+    console.error('文件处理失败:', error);
+    isTranscoding.value = false;
+    transcodingProgress.value = 0;
+  } finally {
+    // 从上传中列表移除文件
+    uploadingFiles.value.delete(file.name);
+  }
+}
 </script>
 
 <template>
@@ -219,13 +271,39 @@ async function handleAdd(material: any) {
             <div v-if="!isTranscoding"><small>{{ t('或者点击上传') }}</small></div>
           </n-upload-dragger>
         </n-upload>
+
+        <div style="margin-top: 16px; text-align: center;">
+          <n-button type="default" @click="handleImportFolder" :disabled="isTranscoding" text size="small">
+            <small>{{ t('导入文件夹') }}</small>
+          </n-button>
+        </div>
       </div>
 
       <scroll-box class="webcut-material-container" v-if="actionType === 'this'">
         <div class="webcut-material-list">
+
+          <!-- 上传中的视频 -->
+          <div v-for="name in Array.from(uploadingFiles)" :key="`uploading-${name}`" class="webcut-material-item">
+            <div class="webcut-material-preview">
+              <n-spin size="small" style="width: 40px; height: 40px;" />
+              <n-button class="webcut-add-button" size="tiny" type="primary" circle :disabled="true">
+                <template #icon>
+                  <n-icon>
+                    <Add />
+                  </n-icon>
+                </template>
+              </n-button>
+            </div>
+            <div class="webcut-material-title">
+              {{ name }}
+            </div>
+          </div>
+
+          <!-- 已上传的视频 -->
           <div v-for="material in projectVideoList" :key="material.id" class="webcut-material-item" @contextmenu.stop="handleContextMenu($event, material)">
             <div class="webcut-material-preview">
               <video :src="fileUrl(material.id)" v-if="fileUrl(material.id)" class="webcut-material-video" @click="handleClickVideo" @mouseleave="onLeaveVideo"></video>
+              <n-spin v-else size="small" style="width: 40px; height: 40px;" />
               <n-button class="webcut-add-button" size="tiny" type="primary" circle @click="handleAdd(material)">
                 <template #icon>
                   <n-icon>
@@ -238,7 +316,7 @@ async function handleAdd(material: any) {
               {{ material.name }}
             </div>
           </div>
-          <div v-if="projectVideoList.length === 0" class="webcut-empty-materials">
+          <div v-if="projectVideoList.length === 0 && uploadingFiles.size === 0" class="webcut-empty-materials">
             {{ t('暂无素材，请先导入素材') }}
           </div>
         </div>
