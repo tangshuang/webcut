@@ -120,10 +120,10 @@ player.value = exports;
 .webcut-screen-box--text-edit-active :deep(.sprite-rect) {
     display: none;
 }
-.webcut-screen-box--only-selectable :deep(.sprite-rect) {
+.webcut-screen-box :deep(.sprite-rect:has(> div[class^="ctrl-key-"] > svg)) {
     cursor: default !important;
 }
-.webcut-screen-box--only-selectable :deep(.sprite-rect > div[class^="ctrl-key-"]) {
+.webcut-screen-box :deep(.sprite-rect > div[class^="ctrl-key-"] > svg) {
     display: none !important;
 }
 </style>
