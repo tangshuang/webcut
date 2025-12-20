@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch, ref, watchEffect, onBeforeUnmount, onMounted, inject, nextTick } from 'vue';
+import { watch, ref, watchEffect, onBeforeUnmount, onMounted, inject, nextTick, computed } from 'vue';
 import { useWebCutPlayer, useWebCutContext } from '../../hooks';
 import { Evt } from '../../libs/evt';
 
@@ -10,7 +10,7 @@ const props = defineProps<{
     maxHeight?: number;
 }>();
 
-const { viewport, width, height, player, editTextState } = useWebCutContext();
+const { viewport, width, height, player, editTextState, currentSource } = useWebCutContext();
 const { init, destroy } = useWebCutPlayer();
 const canvasSizeRef = inject('videoCanvasSizeRef', null);
 
@@ -18,6 +18,14 @@ const box = ref();
 const canvasMaxWidth = ref(0);
 const canvasMaxHeight = ref(0);
 const canvasScale = ref(1);
+
+const isOnlySelectable = computed(() => {
+    if (!currentSource.value) {
+        return false;
+    }
+    const { sprite } = currentSource.value;
+    return sprite.interactable === 'selectable';
+});
 
 watch(viewport, (el) => {
     if (el) {
@@ -88,7 +96,10 @@ player.value = exports;
 </script>
 
 <template>
-    <div class="webcut-screen-box" ref="box" :class="{ 'webcut-screen-box--text-edit-active': editTextState?.isActive }">
+    <div class="webcut-screen-box" ref="box" :class="{
+        'webcut-screen-box--text-edit-active': editTextState?.isActive,
+        'webcut-screen-box--only-selectable': isOnlySelectable,
+    }">
         <div class="webcut-screen-viewport" ref="viewport" :style="{
             width: width + 'px',
             height: height + 'px',
@@ -108,5 +119,11 @@ player.value = exports;
 }
 .webcut-screen-box--text-edit-active :deep(.sprite-rect) {
     display: none;
+}
+.webcut-screen-box--only-selectable :deep(.sprite-rect) {
+    cursor: default !important;
+}
+.webcut-screen-box--only-selectable :deep(.sprite-rect > div[class^="ctrl-key-"]) {
+    display: none !important;
 }
 </style>
