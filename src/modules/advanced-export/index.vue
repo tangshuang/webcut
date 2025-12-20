@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { NButton, NIcon } from 'naive-ui';
 import ExportModal from './export-modal.vue';
 import { useWebCutContext } from '../../hooks';
-import { useT } from '../../hooks/i18n';
+import { useT } from '../../i18n/hooks';
 import { ArrowDownload16Regular } from '@vicons/fluent';
 
 const t = useT();

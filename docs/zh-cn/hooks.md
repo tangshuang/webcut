@@ -89,7 +89,7 @@ ScrollBox 组件的钩子，管理滚动行为（见 `src/components/scroll-box`
 
 ### useWebCutLocale
 
-国际化语言管理（见 `src/hooks/i18n`）。
+国际化语言管理（见 `src/i18n/hooks`）。
 
 - 提供语言切换和本地化支持。
 

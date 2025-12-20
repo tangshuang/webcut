@@ -3,7 +3,7 @@ import { AudioClip } from '@webav/av-cliper';
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, onMounted, ref } from 'vue';
 import { useWebCutContext } from '../../../hooks';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { exportAsWavBlobOffscreen } from '../../../libs';
 import { downloadBlob } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';

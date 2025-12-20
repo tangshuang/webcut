@@ -12,7 +12,7 @@ import { useWebCutLibrary } from '../../hooks/library';
 import ScrollBox from '../../components/scroll-box/index.vue';
 import { useWebCutPlayer } from '../../hooks';
 import { useWebCutLocalFile } from '../../hooks/local-file';
-import { useT } from '../../hooks/i18n';
+import { useT } from '../../i18n/hooks';
 import { useWebCutHistory } from '../../hooks/history';
 
 const t = useT();

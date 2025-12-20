@@ -10,7 +10,7 @@ import {
 } from 'naive-ui';
 import { WebCutExportVideoParams, WebCutExportAudioParams } from './types';
 import { useWebCutContext, useWebCutPlayer } from '../../hooks';
-import { useT } from '../../hooks/i18n';
+import { useT } from '../../i18n/hooks';
 import { aspectRatioMap, aspectRatio720PMap, aspectRatio480PMap, aspectRatio360PMap } from '../../constants';
 import { calcAspectRatio, resampleAudioWithOfflineContext, saveAsFile } from '../../libs';
 

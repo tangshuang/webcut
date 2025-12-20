@@ -16,7 +16,7 @@ import {
 import { SubtractAlt } from '@vicons/carbon';
 import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { useWebCutHistory } from '../../../hooks/history';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { fixNum, throttle } from 'ts-fns';
 import { WebCutAnimationType, WebCutAnimationData } from '../../../types';
 import { ScanObject20Filled } from '@vicons/fluent';
@@ -33,7 +33,7 @@ const animationPresets = Object.values(animationDefaults);
 // 节流保存历史记录
 const throttledPushHistory = throttle(pushHistory, 500);
 
-const selectedAnimationType = ref<WebCutAnimationType>(WebCutAnimationType.Enter);
+const selectedAnimationType = ref<WebCutAnimationType | string>(WebCutAnimationType.Enter);
 
 // 当前选中的素材及其配置
 const usedAnimation = ref<WebCutAnimationData | null>(null);

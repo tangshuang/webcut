@@ -4,7 +4,7 @@ import { Delete } from '@vicons/carbon';
 import { useWebCutContext } from '../../../hooks';
 import { useWebCutManager } from '../../../hooks/manager';
 import { useWebCutHistory } from '../../../hooks/history';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 
 const { rails, current, sources } = useWebCutContext();
 const { deleteSegment } = useWebCutManager();

@@ -6,7 +6,7 @@ import {
 } from 'naive-ui';
 import { Add } from '@vicons/carbon';
 import { useWebCutPlayer } from '../../hooks';
-import { useT } from '../../hooks/i18n';
+import { useT } from '../../i18n/hooks';
 import { useWebCutHistory } from '../../hooks/history';
 
 const { push } = useWebCutPlayer();

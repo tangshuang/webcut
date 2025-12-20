@@ -7,10 +7,10 @@ import AnimationSetting from './animation/index.vue';
 import FilterSetting from './filter/index.vue';
 import VideoSetting from './video/index.vue';
 import AudioSetting from './audio/index.vue';
-import { ref, watch } from 'vue';
-import { useT } from '../../hooks/i18n';
+import { computed, ref, watch } from 'vue';
+import { useT } from '../../i18n/hooks';
 
-const { currentRail, currentSegment, editTextState } = useWebCutContext();
+const { currentRail, currentSegment, editTextState, findRailExtensionPack } = useWebCutContext();
 const tab = ref('basic');
 const t = useT();
 
@@ -25,6 +25,9 @@ watch([currentSegment, editTextState], () => {
       tab.value = currentRail.value?.type === 'audio' ? 'audio' : 'basic';
     }
 });
+
+const railExtensionPack = computed(() => findRailExtensionPack(currentRail.value!));
+const thingTabs = computed(() => railExtensionPack.value?.panelConfig?.tabs || []);
 </script>
 
 <template>
@@ -49,6 +52,9 @@ watch([currentSegment, editTextState], () => {
         <div class="webcut-panel-tab" v-if="['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" :class="{'webcut-panel-tab--active': tab === 'filter'}" @click="tab = 'filter'">
           {{ t('滤镜') }}
         </div>
+        <div class="webcut-panel-tab" v-for="item in thingTabs" :key="item.key" :class="{'webcut-panel-tab--active': tab === item.key}" @click="tab = item.key">
+          {{ t(item.label) }}
+        </div>
       </div>
     </div>
     <div class="webcut-panel-content" v-if="currentRail">
@@ -59,6 +65,9 @@ watch([currentSegment, editTextState], () => {
         <AnimationSetting v-if="tab === 'animation' && ['text', 'image', 'video'].includes(currentRail?.type!) && currentSegment" />
         <VideoSetting v-if="tab === 'video' && ['video'].includes(currentRail?.type!) && currentSegment" />
         <AudioSetting v-if="tab === 'audio' && ['audio'].includes(currentRail?.type!) && currentSegment" />
+        <template v-for="item in thingTabs" :key="item.key">
+          <component :is="item.component" v-if="tab === item.key" />
+        </template>
       </ScrollBox>
     </div>
   </div>

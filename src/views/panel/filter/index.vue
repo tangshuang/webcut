@@ -2,7 +2,7 @@
 import { ref, watch, computed } from 'vue';
 import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { NForm, NFormItem, NDivider, NSlider, NSelect } from 'naive-ui';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 import EffectIcon from '../../../components/effect-icon/index.vue';
 import { filterManager } from '../../../modules/filters';

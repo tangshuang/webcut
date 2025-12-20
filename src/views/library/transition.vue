@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { NButton, NIcon } from 'naive-ui';
 import { Add } from '@vicons/carbon';
-import { useT } from '../../hooks/i18n';
+import { useT } from '../../i18n/hooks';
 import { useWebCutContext } from '../../hooks';
 import ScrollBox from '../../components/scroll-box/index.vue';
 import { useWebCutToast } from '../../hooks/toast';

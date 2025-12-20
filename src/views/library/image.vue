@@ -12,7 +12,7 @@ import { useWebCutLibrary } from '../../hooks/library';
 import ScrollBox from '../../components/scroll-box/index.vue';
 import { useWebCutPlayer } from '../../hooks';
 import { useWebCutLocalFile } from '../../hooks/local-file';
-import { useT } from '../../hooks/i18n';
+import { useT } from '../../i18n/hooks';
 import { useWebCutHistory } from '../../hooks/history';
 
 const t = useT();
@@ -23,15 +23,19 @@ const { fileUrl } = useWebCutLocalFile();
 const { push: pushHistory } = useWebCutHistory();
 
 const allImageList = computed(() => {
-  const items = files.value.filter((file) => file.type.startsWith('image/')).sort((a, b) => (b.time || 0) - (a.time || 0));
+  const items = files.value
+    .filter((file) => file.type.startsWith('image/'))
+    .filter((file) => !file.tags || !file.tags.length)
+    .sort((a, b) => (b.time || 0) - (a.time || 0));
   return items;
 });
 const projectImageList = computed(() => {
-  const items = projectFiles.value.filter((file) => file.type.startsWith('image/')).sort((a, b) => (b.time || 0) - (a.time || 0));
+  const items = projectFiles.value
+    .filter((file) => file.type.startsWith('image/'))
+    .filter((file) => !file.tags || !file.tags.length)
+    .sort((a, b) => (b.time || 0) - (a.time || 0));
   return items;
 });
-
-
 
 const actionType = ref<'import' | 'this' | 'all'>('this');
 

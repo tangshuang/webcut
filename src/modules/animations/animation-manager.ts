@@ -5,7 +5,7 @@ import { VisibleSprite } from '@webav/av-cliper';
 /**
  * 动画管理器类
  */
-export class AnimationManager {
+export class WebCutAnimationManager {
     private animations: Map<string, WebCutBaseAnimation> = new Map();
 
     /**
@@ -39,7 +39,7 @@ export class AnimationManager {
     getAnimationDefaults() {
         const names = this.getAnimationNames();
         const defaults: Record<string, {
-            type: WebCutAnimationType;
+            type: WebCutAnimationType | string;
             name: string;
             title?: string;
             defaultParams: WebCutAnimationParams;
@@ -84,14 +84,16 @@ export class AnimationManager {
             return null;
         }
 
-        const keyframe: WebCutAnimationKeyframe = anim.calcKeyframe(initState, canvasSize);
         const keyframeParams = anim.processParams(params || {}, maxDuration);
+        const keyframe: WebCutAnimationKeyframe = anim.calcKeyframe(initState, canvasSize, keyframeParams);
 
         // 恢复素材到初始状态
         const { x, y, w, h, angle, opacity } = initState!;
         Object.assign(sprite.rect, { x, y, w, h, angle });
         sprite.opacity = opacity || 1;
 
+        // 禁止交互
+        sprite.interactable = 'selectable';
         sprite.setAnimation(keyframe, keyframeParams);
 
         return keyframeParams;
@@ -111,6 +113,7 @@ export class AnimationManager {
         if (sprite.setAnimation) {
             sprite.setAnimation({}, { duration: 0 });
         }
+        sprite.interactable = 'interactive';
     }
 
     /**

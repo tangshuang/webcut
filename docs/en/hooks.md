@@ -89,7 +89,7 @@ Persist and restore via `HistoryMachine` (see `src/hooks/history.ts`).
 
 ### useWebCutLocale
 
-Internationalization language management (see `src/hooks/i18n`).
+Internationalization language management (see `src/i18n/hooks`).
 
 - Provides language switching and localization support.
 

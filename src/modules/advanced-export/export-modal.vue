@@ -2,7 +2,7 @@
 import { NModal, NButton } from 'naive-ui';
 import ExportPanel from './export-panel.vue';
 import WebCutThemeBox from '../../views/theme-box/index.vue';
-import { useT } from '../../hooks/i18n';
+import { useT } from '../../i18n/hooks';
 
 const t = useT();
 const show = defineModel<boolean>('show');

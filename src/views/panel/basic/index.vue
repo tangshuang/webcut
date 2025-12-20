@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { NForm, NFormItem, NInputNumber, NInputGroup, NButton, NInputGroupLabel, NSlider, NAlert } from 'naive-ui';
 import RotateInput from '../../../components/rotate-input/index.vue';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { autoFitRect } from '../../../libs';
 import { ImgClip, MP4Clip } from '@webav/av-cliper';
 import { useWebCutHistory } from '../../../hooks/history';
@@ -27,62 +27,24 @@ const formData = ref<any>({
 });
 
 let isSyncing = false;
-function syncCanvasToForm(e: any) {
-    const { rect } = e;
-    if (!rect) {
+
+watch(() => currentSource.value?.meta, (meta) => {
+    if (!meta) {
         return;
     }
 
-    isSyncing = true;
+    const sprite = currentSource.value!.sprite;
+    const {
+        rect = sprite.rect,
+        opacity = sprite.opacity
+    } = meta;
     const { x, y, w, h, angle } = rect;
-    Object.keys({ x, y, angle }).forEach((key) => {
-        if (typeof rect[key] !== 'number') {
-            return;
-        }
-        formData.value[key] = rect[key];
-    });
-
-    // 文本不允许通过缩放调整大小
-    if (currentSource.value?.type !== 'text') {
-        Object.keys({ w, h }).forEach((key) => {
-            if (typeof rect[key] !== 'number') {
-                return;
-            }
-            formData.value[key] = rect[key];
-        });
-    }
-
-    // Sync opacity from sprite
-    if (currentSource.value) {
-        formData.value.opacity = currentSource.value.sprite.opacity;
-    }
+    isSyncing = true;
+    formData.value = { x, y, w, h, angle, opacity };
     nextTick(() => {
         isSyncing = false;
     });
-}
-
-let unsubscribe: any;
-watch(() => currentSource.value, () => {
-    if (!currentSource.value) {
-        return;
-    }
-
-    const sprite = currentSource.value.sprite;
-
-    if (unsubscribe) {
-        unsubscribe();
-    }
-    unsubscribe = sprite.on('propsChange', syncCanvasToForm);
-
-    const { rect, opacity } = sprite;
-    const { x, y, w, h, angle } = rect;
-    formData.value = { x, y, w, h, angle, opacity };
-}, { immediate: true });
-onBeforeUnmount(() => {
-    if (unsubscribe) {
-        unsubscribe();
-    }
-});
+}, { immediate: true, deep: true });
 
 function setupWatch(type: 'x' | 'y' | 'w' | 'h' | 'angle' | 'opacity') {
     watch(() => formData.value[type], (next) => {

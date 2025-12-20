@@ -2,7 +2,7 @@
 import { NIcon, NPopover, NButton } from 'naive-ui';
 import { Broom16Regular } from '@vicons/fluent';
 import { useWebCutContext } from '../../../hooks';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 
 const { selected, current } = useWebCutContext();

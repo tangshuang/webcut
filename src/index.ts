@@ -129,9 +129,6 @@ export {
     useWebCutLocalFile,
 } from './hooks/local-file';
 export {
-    useWebCutLocale,
-} from './hooks/i18n';
-export {
     useWebCutToast,
     type ToastType,
     type ToastOptions,
@@ -204,7 +201,20 @@ export {
 export {
     animationManager,
     WebCutBaseAnimation,
+    WebCutAnimationManager,
 } from './modules/animations';
+
+export {
+    appendLangPkg,
+    mergeLangPkg,
+    mapLangPkg,
+    getLangPkg,
+    getAllLangPkgs,
+} from './i18n/core';
+export {
+    useT,
+    useWebCutLocale,
+} from './i18n/hooks';
 
 // constants
 export { aspectRatioMap } from './constants';
@@ -232,11 +242,12 @@ export {
     type WebCutHighlightOfText,
     type WebCutSegmentOfText,
     type WebCutRailOfText,
+    type WebCutThingType,
     type WebCutSegment,
     type WebCutRail,
     type WebCutMaterialType,
     type WebCutMaterial,
-    type WebCutMaterialMeta,
+    type WebCutSourceMeta,
     type WebCutSource,
     type WebCutSourceData,
     type WebCutProjectHistoryState,
@@ -249,6 +260,7 @@ export {
     type WebCutAnimationData,
     type WebCutTransitionData,
     type WebCutFilterData,
+    type WebCutExtensionPack,
 } from './types';
 
 export {

@@ -13,8 +13,8 @@ import WebCutLibrary from '../library/index.vue';
 import { ref } from 'vue';
 import Panel from '../panel/index.vue';
 import ExportButton from '../export-button/index.vue';
-import { WebCutColors } from '../../types';
-import { useWebCutLocale } from '../../hooks/i18n';
+import { WebCutColors, WebCutExtensionPack } from '../../types';
+import { useWebCutLocale } from '../../i18n/hooks';
 import WebCutToast from '../toast/index.vue';
 import AdvancedExport from '../../modules/advanced-export/index.vue';
 import WebCutTextEditPanel from '../panel/text/contenteditable.vue';
@@ -26,12 +26,17 @@ const props = defineProps<{
     colors?: Partial<WebCutColors>;
     /** 是否禁用顶部右侧栏 */
     disableTopRightBar?: boolean;
+    modules?: (new () => WebCutExtensionPack)[];
 }>();
 
-useWebCutContext(() => props.projectId ? { id: props.projectId } : undefined);
+const { registerExtensionPack } = useWebCutContext(() => props.projectId ? { id: props.projectId } : undefined);
 useWebCutThemeColors(() => props.colors);
 useWebCutDarkMode(darkMode);
 useWebCutLocale(language);
+
+if (props.modules) {
+    props.modules.forEach(mod => registerExtensionPack(mod));
+}
 
 const { resize } = useWebCutPlayer();
 

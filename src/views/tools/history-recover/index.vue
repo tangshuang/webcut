@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { NPopover, NButton, NIcon } from 'naive-ui';
 import { History16Regular } from '@vicons/fluent';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 import { ref } from 'vue';
 

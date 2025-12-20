@@ -4,7 +4,7 @@ import { PanelLeft16Filled } from '@vicons/fluent';
 import { useWebCutContext } from '../../../hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 import { useWebCutManager } from '../../../hooks/manager';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { computed } from 'vue';
 
 const { rails, current, cursorTime } = useWebCutContext();

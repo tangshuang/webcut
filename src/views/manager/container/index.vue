@@ -12,7 +12,7 @@ import AdjustableBox, { AdjustEventData } from '../../../components/adjustable-b
 import { WebCutRail, WebCutSegment } from '../../../types';
 import { Video } from '@vicons/carbon';
 import { NIcon } from 'naive-ui';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 import { useWebCutTransition } from '../../../hooks/transition';
@@ -28,12 +28,12 @@ export type WebCutManagerProps = {
     disableEmptyRail?: boolean;
     /** 轨道高度，默认60，注意，不包含gap，gap为4 */
     railHeight?: number;
-    /** 轨道高度，根据类型不同而不同 */
-    railHeightByType?: Record<string, number>;
     /** 禁用排序，默认false */
     disableSort?: boolean;
-    /** 禁用尺寸调整 */
-    disableResize?: boolean;
+    /** 是否禁用segment的时间调整 */
+    disableChangeTiming?: boolean;
+    /** 根据rail信息来计算rail的高度 */
+    calcRailHeightByType?: (rail: WebCutRail) => number;
 };
 
 const emit = defineEmits(['sort', 'resize']);
@@ -41,7 +41,7 @@ const emit = defineEmits(['sort', 'resize']);
 const maxHeight = defineModel<number>('maxHeight', { default: 264 });
 const props = defineProps<WebCutManagerProps>();
 
-const { rails, manager, selected, current, sources, toggleSegment, unselectSegment, selectSegment } = useWebCutContext();
+const { rails, manager, selected, current, sources, toggleSegment, unselectSegment, selectSegment, modules } = useWebCutContext();
 const { resort } = useWebCutPlayer();
 const slots = useSlots();
 const { scroll1, scroll2, totalPx, timeToPx, pxToTime, pxOf1Frame, resetSegmentTime } = useWebCutManager();
@@ -77,8 +77,8 @@ function updateManagerHeight() {
     const gap = 4;
     const defaultRailHeight = props.railHeight || 60;
     const totalRailsHeight = dataList.value.reduce((acc, cur) => {
-        const { type } = cur;
-        const height = props.railHeightByType?.[type] || defaultRailHeight;
+        const regMod = findMatchExtensionPackConfig(cur);
+        const height = regMod?.height || defaultRailHeight;
         return acc + height + gap;
     }, 0);
     // 这里gap + 2是为了确保滚动条可以被用户触发，如果没有这个处理，用户无法拖动滚动条
@@ -160,8 +160,8 @@ function handleMoveRelease(segment: WebCutSegment, rail: WebCutRail) {
     emit('resize', { segment, rail });
 }
 
-function canMoveLeft(_e: any, segment: WebCutSegment, _rail: WebCutRail) {
-    if (props.disableResize) {
+function canMoveLeft(_e: any, segment: WebCutSegment, rail: WebCutRail) {
+    if (isDisableChangeTiming(rail)) {
         return false;
     }
 
@@ -173,8 +173,8 @@ function canMoveLeft(_e: any, segment: WebCutSegment, _rail: WebCutRail) {
     return true;
 }
 
-function canMoveRight(_e: any, segment: WebCutSegment, _rail: WebCutRail) {
-    if (props.disableResize) {
+function canMoveRight(_e: any, segment: WebCutSegment, rail: WebCutRail) {
+    if (isDisableChangeTiming(rail)) {
         return false;
     }
 
@@ -187,7 +187,7 @@ function canMoveRight(_e: any, segment: WebCutSegment, _rail: WebCutRail) {
 }
 
 function handleLeftClick(segment: WebCutSegment, rail: WebCutRail) {
-    if (props.disableResize) {
+    if (isDisableChangeTiming(rail)) {
         return false;
     }
     handleMoveStart(segment);
@@ -199,7 +199,7 @@ function handleLeftClick(segment: WebCutSegment, rail: WebCutRail) {
 }
 
 function handleRightClick(segment: WebCutSegment, rail: WebCutRail) {
-    if (props.disableResize) {
+    if (isDisableChangeTiming(rail)) {
         return false;
     }
     handleMoveStart(segment);
@@ -373,8 +373,8 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
     emit('resize', { segment, rail: targetRail });
 }
 
-function canMoveSegment(_e: any, segment: WebCutSegment, _rail: WebCutRail) {
-    if (props.disableResize) {
+function canMoveSegment(_e: any, segment: WebCutSegment, rail: WebCutRail) {
+    if (isDisableChangeTiming(rail)) {
         return false;
     }
 
@@ -393,6 +393,34 @@ function handleClickSegment(item: WebCutSegment, rail: WebCutRail) {
 function handleClickTransition(transition: any, rail: WebCutRail) {
     // 当点击transition时，更新current对象，设置transitionId和railId
     current.value = { railId: rail.id, transitionId: transition.id };
+}
+
+function findMatchExtensionPackConfig(rail: WebCutRail) {
+    const regMod = [...modules.value.values()].find(module => module.managerConfig?.is(rail));
+    if (regMod) {
+        return regMod.managerConfig;
+    }
+}
+
+function calcRailHeightByType(rail: WebCutRail) {
+    const regMod = findMatchExtensionPackConfig(rail);
+    if (typeof regMod?.height === 'number') {
+        return regMod.height + 'px';
+    }
+    if (props.calcRailHeightByType) {
+        return props.calcRailHeightByType(rail);
+    }
+}
+
+function isDisableChangeTiming(rail: WebCutRail) {
+    if (props.disableChangeTiming) {
+        return true;
+    }
+    const regMod = findMatchExtensionPackConfig(rail);
+    if (regMod?.segment?.disableChangeTiming) {
+        return true;
+    }
+    return false;
 }
 
 const exposes = {
@@ -415,13 +443,13 @@ manager.value = exposes;
                 <div class="webcut__mananger__top-bar"></div>
                 <Draggable v-model="dataList" class="webcut__mananger__aside__list" @update:model-value="emit('sort', dataList)" v-if="showDragable && !props.disableSort">
                     <template #item="{ item }">
-                        <div class="webcute__manager__aside__rail" :style="{ '--rail-height': props.railHeightByType?.[item.type] ? props.railHeightByType?.[item.type] + 'px' : undefined }">
+                        <div class="webcute__manager__aside__rail" :style="{ '--rail-height': calcRailHeightByType(item) }">
                             <slot name="asideRail" :rail="item" :railIndex="dataList.indexOf(item)"></slot>
                         </div>
                     </template>
                 </Draggable>
                 <div class="webcut__mananger__aside__list" v-if="props.disableSort">
-                    <div class="webcute__manager__aside__rail" undraggable v-for="item in dataList" :style="{ '--rail-height': props.railHeightByType?.[item.type] ? props.railHeightByType?.[item.type] + 'px' : undefined }">
+                    <div class="webcute__manager__aside__rail" undraggable v-for="item in dataList" :style="{ '--rail-height': calcRailHeightByType(item) }">
                         <slot name="asideRail" :rail="item" :railIndex="dataList.indexOf(item)"></slot>
                     </div>
                 </div>
@@ -442,7 +470,7 @@ manager.value = exposes;
                             'webcute__manager__main__rail--locked': rail.locked,
                             'webcute__manager__main__rail--hidden': rail.hidden,
                         }"
-                        :style="{ '--rail-height': props.railHeightByType?.[rail.type || ''] ? props.railHeightByType?.[rail.type || ''] + 'px' : undefined }"
+                        :style="{ '--rail-height': calcRailHeightByType(rail) }"
                     >
                         <AdjustableBox
                             v-for="(item,segmentIndex) in rail.segments"
@@ -471,7 +499,7 @@ manager.value = exposes;
                             :can-move-left="e => canMoveLeft(e, item, rail)"
                             :can-move-right="e => canMoveRight(e, item, rail)"
                             :can-move="e => canMoveSegment(e, item, rail)"
-                            :disabled="props.disableResize"
+                            :disabled="isDisableChangeTiming(rail)"
                         >
                             <slot name="mainSegment" :segment="item" :rail="rail" :segmentIndex="segmentIndex" :railIndex="railIndex" :segments="rail.segments"></slot>
                         </AdjustableBox>

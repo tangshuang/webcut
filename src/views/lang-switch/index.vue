@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { NDropdown, NButton, NIcon } from 'naive-ui';
 import { Translate } from '@vicons/carbon';
-import { useWebCutLocale } from '../../hooks/i18n';
+import { useWebCutLocale } from '../../i18n/hooks';
 
 const { locale } = useWebCutLocale();
 

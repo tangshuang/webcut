@@ -249,7 +249,7 @@ Parameters:
 
 #### useWebCutLocale()
 - Purpose: Internationalization language management.
-- Source: `src/hooks/i18n`
+- Source: `src/i18n/hooks`
 - Behavior: Provides language switching and localization support, managing multi-language display in the editor.
 
 ## Library Functions

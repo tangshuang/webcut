@@ -3,7 +3,7 @@ import { WebCutRail, WebCutTransitionData } from '../../../types';
 import { computed } from 'vue';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutTransition } from '../../../hooks/transition';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 
 const props = defineProps<{
     transition: WebCutTransitionData;

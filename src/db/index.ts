@@ -4,7 +4,13 @@ import { write, file } from 'opfs-tools'; // https://github.com/hughfenghen/opfs
 import { createRandomString } from 'ts-fns';
 import { getFileMd5 } from '../libs/file';
 import { AsyncQueue } from '../libs/async-queue';
-import { WebCutProjectHistoryData, WebCutProjectHistoryState, WebCutProjectState } from '../types';
+import {
+    WebCutProjectHistoryData,
+    WebCutProjectHistoryState,
+    WebCutProjectState,
+    WebCutProjectData,
+    WebCutMaterial,
+} from '../types';
 
 const queue = new AsyncQueue();
 
@@ -68,7 +74,7 @@ const historyStorage = idb.use('project_history');
 
 const projectStateStorage = idb.use('project_state');
 
-export async function getProject(projectId: string) {
+export async function getProject(projectId: string): Promise<WebCutProjectData | null> {
     if (!projectId) {
         return null;
     }
@@ -100,9 +106,9 @@ export async function getProject(projectId: string) {
     return projectData;
 }
 
-export async function createNewProject(id?: string) {
+export async function createNewProject(id?: string): Promise<string> {
     const projectId = id || createRandomString(16);
-    const projectData = {
+    const projectData: WebCutProjectData = {
         id: projectId,
         name: `新项目 ${projectId}`,
         files: [],
@@ -111,7 +117,7 @@ export async function createNewProject(id?: string) {
     return projectId;
 }
 
-export async function addFileToProject(projectId: string, fileId: string) {
+export async function addFileToProject(projectId: string, fileId: string): Promise<WebCutProjectData | null> {
     let projectData = await projectsStorage.get(projectId);
     if (!projectData) {
         await createNewProject(projectId);
@@ -133,7 +139,7 @@ export async function addFileToProject(projectId: string, fileId: string) {
     return projectData;
 }
 
-export async function removeFileFromProject(projectId: string, fileId: string) {
+export async function removeFileFromProject(projectId: string, fileId: string): Promise<WebCutProjectData | null> {
     let projectData = await projectsStorage.get(projectId);
     if (!projectData) {
         return null;
@@ -146,7 +152,7 @@ export async function removeFileFromProject(projectId: string, fileId: string) {
     return projectData;
 }
 
-export async function writeFile(f: File) {
+export async function writeFile(f: File): Promise<string> {
     const fileId = await getFileMd5(f);
     const opfsFilePath = `/webcut/file/${fileId}`;
 
@@ -157,32 +163,25 @@ export async function writeFile(f: File) {
 
     await queue.push(() => write(opfsFilePath, f.stream(), { overwrite: true }));
 
-    // 用一个文件来保存扩展信息
-    const ext = f.name.includes('.') ? f.name.split('.').pop() : '';
-    const type = f.type;
-    const size = f.size;
-    const name = f.name;
-    const time = Date.now();
-    const opfsFileMetaPath = `/webcut/file_meta/${fileId}`;
-    await queue.push(() => write(opfsFileMetaPath, JSON.stringify({ ext, type, size, time, name }), { overwrite: true }));
+    // // 用一个文件来保存扩展信息
+    // const ext = f.name.includes('.') ? f.name.split('.').pop() : '';
+    // const type = f.type;
+    // const size = f.size;
+    // const name = f.name;
+    // const time = Date.now();
+    // const opfsFileMetaPath = `/webcut/file_meta/${fileId}`;
+    // await queue.push(() => write(opfsFileMetaPath, JSON.stringify({ ext, type, size, time, name }), { overwrite: true }));
 
     return fileId;
 }
 
-export async function readFile(fileId: string) {
+export async function readFile(fileId: string): Promise<File | null> {
     const opfsFilePath = `/webcut/file/${fileId}`;
     const fileCtx = file(opfsFilePath);
     if (await fileCtx.exists()) {
         const outfile = await fileCtx.getOriginFile();
         if (!outfile) {
             return null;
-        }
-
-        // 读取扩展信息
-        const fileMeta = await readFileMeta(fileId);
-        if (fileMeta) {
-            const { type, time, name } = fileMeta;
-            return new File([outfile], name, { type, lastModified: time });
         }
 
         // 使用indexedDB中存的文件元数据
@@ -197,31 +196,30 @@ export async function readFile(fileId: string) {
     return null;
 }
 
-export async function readFileMeta(fileId: string) {
-    const fileMetaCtx = await file(`/webcut/file_meta/${fileId}`);
-    if (await fileMetaCtx.exists()) {
-        const fileMeta = await fileMetaCtx.getOriginFile();
-        const fileMetaJson = await fileMeta!.text();
-        const fileMetaObj = JSON.parse(fileMetaJson);
-        return fileMetaObj;
-    }
-    return null;
-}
-
-export async function addFile(file: File) {
+export async function addFile(file: File, tags?: string[]) {
     const fileId = await writeFile(file);
-    const fileData = {
+    const fileData: WebCutMaterial = {
         id: fileId,
         name: file.name,
         type: file.type,
         size: file.size,
         time: Date.now(),
+        tags: tags || [],
     };
     await filesStorage.put(fileData);
     return fileId;
 }
 
-export async function getFile(fileId: string): Promise<{ id: string, name: string, type: string, size: number, time: number }> {
+export async function addFileTags(fileId: string, tags: string[]) {
+    const fileData = await getFile(fileId);
+    if (!fileData) {
+        throw new Error('文件不存在');
+    }
+    fileData.tags = [...new Set([...fileData.tags || [], ...tags])];
+    await filesStorage.put(fileData);
+}
+
+export async function getFile(fileId: string): Promise<WebCutMaterial> {
     const fileData = await filesStorage.get(fileId);
     if (!fileData) {
         throw new Error('文件不存在');
@@ -229,7 +227,7 @@ export async function getFile(fileId: string): Promise<{ id: string, name: strin
     return fileData;
 }
 
-export async function getAllFiles() {
+export async function getAllFiles(): Promise<WebCutMaterial[]> {
     const files = await filesStorage.all();
     return files.reverse();
 }

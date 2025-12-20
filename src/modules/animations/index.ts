@@ -1,4 +1,4 @@
-import { AnimationManager } from './animation-manager';
+import { WebCutAnimationManager } from './animation-manager';
 import {
   WebCutFadeInAnimation,
   WebCutFadeOutAnimation,
@@ -28,7 +28,7 @@ export * from './preset-animations';
 /**
  * 动画管理器单例
  */
-export const animationManager = new AnimationManager();
+export const animationManager = new WebCutAnimationManager();
 
 // 注册预设动画
 animationManager.registerAnimation(new WebCutFadeInAnimation());
