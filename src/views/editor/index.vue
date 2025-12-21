@@ -26,7 +26,7 @@ const props = defineProps<{
     colors?: Partial<WebCutColors>;
     /** 是否禁用顶部右侧栏 */
     disableTopRightBar?: boolean;
-    modules?: (new () => WebCutExtensionPack)[];
+    packs?: (new () => WebCutExtensionPack)[];
 }>();
 
 const { registerExtensionPack } = useWebCutContext(() => props.projectId ? { id: props.projectId } : undefined);
@@ -34,8 +34,8 @@ useWebCutThemeColors(() => props.colors);
 useWebCutDarkMode(darkMode);
 useWebCutLocale(language);
 
-if (props.modules) {
-    props.modules.forEach(mod => registerExtensionPack(mod));
+if (props.packs) {
+    props.packs.forEach(mod => registerExtensionPack(mod));
 }
 
 const { resize } = useWebCutPlayer();

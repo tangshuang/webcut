@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick, computed } from 'vue';
+import { ref, nextTick, computed, onMounted } from 'vue';
 import {
   NButton,
   NIcon,
@@ -68,6 +68,11 @@ const options = computed(() => [
     key: 'delete'
   }
 ]);
+
+onMounted(() => {
+  // 初始化FFmpeg
+  setTimeout(loadFFmpeg, 2000);
+});
 
 // 检查文件是否为MP4格式
 function isMP4Format(file: File): boolean {
