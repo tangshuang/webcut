@@ -13,11 +13,11 @@ import { useT, useWebCutLocale } from '../../i18n/hooks';
 import { useWebCutContext } from '../../hooks';
 
 // 导入素材面板组件
-import VideoPanel from './video.vue';
-import AudioPanel from './audio.vue';
-import ImagePanel from './image.vue';
-import TextPanel from './text.vue';
-import TransitionPanel from './transition.vue';
+import VideoPanel from './video/index.vue';
+import AudioPanel from './audio/index.vue';
+import ImagePanel from './image/index.vue';
+import TextPanel from './text/index.vue';
+import TransitionPanel from './transition/index.vue';
 
 // 当前激活的 tab
 const activeTab = ref<string>('video');

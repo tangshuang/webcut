@@ -46,6 +46,10 @@ import WebCutFilterPanel from './views/panel/filter/index.vue';
 import WebCutAnimationPanel from './views/panel/animation/index.vue';
 // 素材库 - 编辑器左侧
 import WebCutLibrary from './views/library/index.vue';
+import WebCutLibraryAside from './views/library/_shared/aside.vue';
+import WebCutLibraryImport from './views/library/_shared/import.vue';
+import WebCutLibraryList from './views/library/_shared/list.vue';
+import WebCutLibraryContainer from './views/library/_shared/container.vue';
 // 编辑器 - 高度集成，包含播放器、素材库、管理器、面板等
 import WebCutEditor from './views/editor/index.vue';
 
@@ -82,6 +86,10 @@ export {
     WebCutSelectAspectRatio,
     WebCutTimeClock,
     WebCutLibrary,
+    WebCutLibraryAside,
+    WebCutLibraryImport,
+    WebCutLibraryList,
+    WebCutLibraryContainer,
     WebCutPanel,
     WebCutTextPanel,
     WebCutBasicPanel,
