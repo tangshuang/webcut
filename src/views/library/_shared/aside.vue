@@ -8,13 +8,13 @@ const actionType = defineModel('current', { default: '' });
 const selectedNav = defineModel('selected', { default: null });
 const props = defineProps<{
     thingType: WebCutThingType;
-    defaultNavs?: { label: string; key: string; component?: any }[];
+    thingNavs?: { label: string; key: string; component?: any }[];
 }>();
 
 const t = useT();
 const { modules } = useWebCutContext();
 
-const defaultNavs: { label: string; key: string; component?: any }[] = props.defaultNavs || [
+const defaultNavs: { label: string; key: string; component?: any }[] = props.thingNavs || [
   {
     label: '当前',
     key: 'this',

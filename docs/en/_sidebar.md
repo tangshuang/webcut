@@ -4,5 +4,6 @@
 - [Components](/en/components)
 - [Hooks](/en/hooks)
 - [Libs](/en/libs)
+- [Extension Pack](/en/extension-pack)
 - [FAQ](/en/faq)
 - [API Reference](/en/api)

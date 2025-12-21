@@ -4,5 +4,6 @@
 - [组件](/zh-cn/components)
 - [钩子](/zh-cn/hooks)
 - [工具函数](/zh-cn/libs)
+- [扩展包](/zh-cn/extension-pack)
 - [FAQ](/zh-cn/faq)
 - [API参考](/zh-cn/api)

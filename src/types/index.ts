@@ -196,8 +196,16 @@ export type WebCutRail = {
     [key: string]: any;
 };
 
-// 素材类型定义
+/**
+ * 素材类型主要指被push到avcanvas中的素材类型，目前仅支持视频、音频、图片、文本
+ * 对象类型是我们用来进行管理的一种类型，用于区分不同的对象，它的作用主要有：
+ * 1. rail拥有thingType（rail.type)，用于判断素材是否可以被push到轨道上，在素材从一个rail移动到另外一个rail上时，作为判断依据
+ * 2. source.meta.thingType，用于记录segment的thingType
+ */
+// 素材类型
 export type WebCutMaterialType = 'video' | 'audio' | 'image' | 'text';
+// 对象类型
+export type WebCutThingType = string;
 
 export interface WebCutMaterial {
     id: string;
@@ -373,9 +381,6 @@ export type WebCutSourceMeta = {
     /** 用指定id作为新segment的id，主要用在恢复之前的历史记录时 */
     withSegmentId?: string;
 };
-
-/** 对象类型 */
-export type WebCutThingType = string;
 
 export type WebCutSource = {
     key: string;
