@@ -49,7 +49,7 @@ import WebCutLibrary from './views/library/index.vue';
 import WebCutLibraryAside from './views/library/_shared/aside.vue';
 import WebCutLibraryImport from './views/library/_shared/import.vue';
 import WebCutLibraryList from './views/library/_shared/list.vue';
-import WebCutLibraryContainer from './views/library/_shared/container.vue';
+import WebCutLibraryContainer, { WebCutLibarayNavComponentProps } from './views/library/_shared/container.vue';
 // 编辑器 - 高度集成，包含播放器、素材库、管理器、面板等
 import WebCutEditor from './views/editor/index.vue';
 
@@ -275,3 +275,7 @@ export {
     type WebCutExportAudioParams,
     type WebCutExportVideoParams,
 } from './modules/advanced-export/types';
+
+export type {
+    WebCutLibarayNavComponentProps,
+};

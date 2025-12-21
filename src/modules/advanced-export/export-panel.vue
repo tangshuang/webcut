@@ -125,7 +125,6 @@ async function exportWebM() {
         recorder.ondataavailable = (event) => {
             if (event.data.size > 0) {
                 chunks.push(event.data);
-                console.log('收到数据块:', event.data.size, 'bytes');
             }
         };
 

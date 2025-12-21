@@ -13,8 +13,7 @@ import { useT } from '../../../i18n/hooks';
 import { WebCutThingType } from '../../../types';
 import { loadFFmpeg, transcodeToMP4ByFFmpeg } from '../../../libs/ffmpeg';
 
-const emit = defineEmits(['fileImported', 'dirImported']);
-const actionType = defineModel('current', { default: 'this' });
+const emit = defineEmits(['fileImport', 'fileImported', 'dirImport', 'dirImported']);
 // 上传中的文件列表
 const uploadingFiles = defineModel<Set<string>>('uploadingFiles', { default: new Set() });
 // 转码相关状态
@@ -48,7 +47,7 @@ onMounted(() => {
 });
 
 async function handleFileChange(e: any) {
-    actionType.value = 'this';
+    emit('fileImport', e.file.file);
     // 调用新的handleFile函数处理文件
     await importOneFile(e.file.file);
     emit('fileImported', e.file.file);
@@ -68,7 +67,7 @@ async function handleImportFolder() {
         files.sort((a, b) => a.name.localeCompare(b.name));
 
         // 立即切换到当前项目tab
-        actionType.value = 'this';
+        emit('dirImport', files);
 
         // 逐一上传视频文件
         for (const file of files) {

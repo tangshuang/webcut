@@ -4,18 +4,27 @@ import { useWebCutLibrary } from '../../../hooks/library';
 import ScrollBox from '../../../components/scroll-box/index.vue';
 import { useWebCutPlayer } from '../../../hooks';
 import { useWebCutHistory } from '../../../hooks/history';
-import { WebCutThingType, WebCutMaterialType } from '../../../types';
+import { WebCutThingType, WebCutMaterialType, WebCutMaterial } from '../../../types';
 
-import Aside from './aside.vue';
+import Aside, { Nav } from './aside.vue';
 import ImportBox from './import.vue';
 import List from './list.vue';
+
+export type WebCutLibarayNavComponentProps = {
+  allFiles: WebCutMaterial[];
+  projectFiles: WebCutMaterial[];
+  onMaterialAdd: typeof onMaterialAdd;
+  onFileChange: typeof onFileChange;
+  onNavSwitch: typeof onNavSwitch;
+  onResetNav: typeof onResetNav;
+};
 
 const emit = defineEmits(['leaveListItem', 'enterListItem', 'clickListItem']);
 const props = defineProps<{
   thingType: WebCutThingType;
   materialType: WebCutMaterialType;
   accept: string;
-  disableDefaultNavs?: string[];
+  navs?: Nav[];
   supportsDirectoryUpload?: boolean;
 }>();
 
@@ -32,42 +41,58 @@ const projectFileList = computed(() => {
   return items;
 });
 
-const actionType = ref<string>('this');
+const navKey = ref<string>('');
 const selectedNav = ref<any>(null);
+const asideRef = ref();
 
-async function handleFileChange(e: any) {
-  const file = e.file.file;
+async function onFileChange(file: File) {
   await addNewFile(file);
-  actionType.value = 'this';
 }
 
-async function handleAdd(material: any) {
+async function onMaterialAdd(material: WebCutMaterial) {
   try {
     const { id } = material;
-    await push('audio', `file:${id}`);
+    await push(material.type, `file:${id}`);
     await pushHistory();
   }
   catch (e) {
     console.error(e);
   }
 }
+
+function onNavSwitch(nav: any) {
+  navKey.value = nav.key;
+  selectedNav.value = nav;
+}
+
+function onResetNav() {
+  asideRef.value?.resetToFirstNav();
+}
 </script>
 
 <template>
   <div class="webcut-library-panel">
-    <Aside v-model:current="actionType" :selected="selectedNav" :thingType="props.thingType" :disableDefaultNavs="props.disableDefaultNavs"></Aside>
+    <Aside
+      v-model:current="navKey"
+      v-model:selected="selectedNav"
+      :thingType="props.thingType"
+      :navs="props.navs"
+      ref="asideRef"
+    ></Aside>
 
     <!-- 右侧素材列表 -->
     <main class="webcut-library-panel-main">
       <ImportBox
-        v-if="actionType === 'import'"
-        v-model:current="actionType"
+        v-if="navKey === 'import'"
+        v-model:current="navKey"
         :thingType="props.thingType"
         :accept="props.accept"
         :supportsDirectoryUpload="props.supportsDirectoryUpload"
+        @fileImport="asideRef?.resetToFirstNav"
+        @dirImport="asideRef?.resetToFirstNav"
       ></ImportBox>
 
-      <scroll-box class="webcut-material-container" v-if="actionType === 'this'">
+      <scroll-box class="webcut-material-container" v-if="navKey === 'this'">
         <List
           :files="projectFileList"
           :thingType="props.thingType"
@@ -85,7 +110,7 @@ async function handleAdd(material: any) {
         </List>
       </scroll-box>
 
-      <scroll-box class="webcut-material-container" v-if="actionType === 'all'">
+      <scroll-box class="webcut-material-container" v-if="navKey === 'all'">
         <List
           :files="allFileList"
           :thingType="props.thingType"
@@ -109,8 +134,10 @@ async function handleAdd(material: any) {
           :is="selectedNav.component"
           :allFiles="allFileList"
           :projectFiles="projectFileList"
-          :onAdd="handleAdd"
-          :onFileChange="handleFileChange"
+          :onMaterialAdd="onMaterialAdd"
+          :onFileChange="onFileChange"
+          :onNavSwitch="onNavSwitch"
+          :onResetNav="onResetNav"
         ></component>
       </scroll-box>
     </main>

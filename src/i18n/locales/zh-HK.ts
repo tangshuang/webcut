@@ -1,4 +1,5 @@
 export default {
+  "新": "新",
   // Text Panel
   "文本": "文字",
   "颜色": "顏色",

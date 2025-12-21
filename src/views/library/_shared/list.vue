@@ -4,6 +4,7 @@ import {
     NButton,
     NIcon,
     NDropdown,
+    NTag,
 } from 'naive-ui';
 import { Add } from '@vicons/carbon';
 import { useWebCutLibrary } from '../../../hooks/library';
@@ -95,6 +96,7 @@ async function handleAdd(material: any) {
             @click="emit('clickItem', file)"
         >
             <div class="webcut-material-preview">
+                <n-tag type="error" :bordered="false" size="tiny" round :color="{ color: '#f55', textColor: 'white' }" class="webcut-material-badge" v-if="file.time + 5000 > Date.now()"><small>{{ t('新') }}</small></n-tag>
                 <slot name="preview" :file="file"></slot>
                 <slot :file="file"></slot>
                 <n-button class="webcut-add-button" size="tiny" type="primary" circle @click.stop="handleAdd(file)">

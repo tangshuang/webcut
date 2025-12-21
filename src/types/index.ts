@@ -147,11 +147,11 @@ export interface WebCutExtensionPack {
     /** 语言包 */
     languagePackages?: Record<string, Record<string, string>>;
     /** 初始化模块 */
-    onRegister(context: WebCutContext): Promise<void>;
+    onRegister?(context: WebCutContext): Promise<void>;
     /** 素材被push到轨道上时调用 */
-    onPush(source: WebCutSource): Promise<void>;
+    onPush?(source: WebCutSource): Promise<void>;
     /** 在push新轨道时，对轨道排序进行二次处理 */
-    onSortRails(rails: WebCutRail[]): WebCutRail[];
+    onSortRails?(rails: WebCutRail[]): WebCutRail[];
 }
 
 export type WebCutHighlightOfText = {
@@ -209,7 +209,7 @@ export type WebCutThingType = string;
 
 export interface WebCutMaterial {
     id: string;
-    type: string;
+    type: WebCutMaterialType;
     name: string;
     size: number;
     time: number;

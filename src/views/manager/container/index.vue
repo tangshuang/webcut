@@ -408,7 +408,8 @@ function calcRailHeightByType(rail: WebCutRail) {
         return regMod.height + 'px';
     }
     if (props.calcRailHeightByType) {
-        return props.calcRailHeightByType(rail);
+        const height = props.calcRailHeightByType(rail);
+        return height ? height + 'px' : undefined;
     }
 }
 

@@ -240,7 +240,7 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
             });
         }
 
-        await inst.onRegister(finalContext!);
+        await inst.onRegister?.(finalContext!);
     }
 
     function findRailExtensionPack(rail: WebCutRail) {
@@ -847,7 +847,7 @@ export function useWebCutPlayer() {
 
                 const modulesWithSortHook = [...modules.value.values()].filter(item => item.onSortRails);
                 if (modulesWithSortHook.length) {
-                    newRails = modulesWithSortHook.reduce((prev, cur) => cur.onSortRails(prev), newRails);
+                    newRails = modulesWithSortHook.reduce((prev, cur) => cur.onSortRails?.(prev) || prev, newRails);
                 }
 
                 rails.value = newRails;
@@ -875,7 +875,7 @@ export function useWebCutPlayer() {
             const { thingType } = meta;
             const sourceExtensionPack = [...modules.value.values()].find(item => item.materialConfig?.thingType === thingType);
             if (sourceExtensionPack) {
-                await sourceExtensionPack.onPush(newSource);
+                await sourceExtensionPack.onPush?.(newSource);
             }
 
             // 将rect固定到meta上，后续animation中需要用到

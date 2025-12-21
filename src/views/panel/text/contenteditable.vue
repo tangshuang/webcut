@@ -222,10 +222,10 @@ function onDoubleClickTextOnCanvas(e: MouseEvent) {
 }
 
 onMounted(() => {
-    player.value.viewport.addEventListener('dblclick', onDoubleClickTextOnCanvas);
+    player.value?.viewport?.addEventListener('dblclick', onDoubleClickTextOnCanvas);
 });
 onBeforeUnmount(() => {
-    player.value.viewport.removeEventListener('dblclick', onDoubleClickTextOnCanvas);
+    player.value?.viewport?.removeEventListener('dblclick', onDoubleClickTextOnCanvas);
 });
 </script>
 

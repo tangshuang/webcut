@@ -7,6 +7,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useWebCutPlayer } from '../../hooks';
 import { useWebCutManager } from '../../hooks/manager';
 import TransitionSegment from './segments/transition.vue';
+import { WebCutRail } from '../../types';
 
 const { resize } = useWebCutPlayer();
 const { resizeManagerMaxHeight } = useWebCutManager();
@@ -31,6 +32,12 @@ onBeforeUnmount(() => {
     resizeObserver.disconnect();
 });
 
+function calcRailHeightByType(rail: WebCutRail) {
+    const heightMap = { audio: 32, text: 24 };
+    // @ts-ignore
+    return heightMap[rail.type];
+}
+
 defineExpose({
     resizeHeight,
 });
@@ -39,7 +46,7 @@ defineExpose({
 <template>
     <div class="webcut-manager-root" ref="root">
         <ToolBar :aside-width="120" />
-        <ManagerContainer disable-sort :aside-width="120" class="webcut-manager-container" :rail-height-by-type="{ audio: 32, text: 24 }">
+        <ManagerContainer disable-sort :aside-width="120" class="webcut-manager-container" :calcRailHeightByType="calcRailHeightByType">
             <template #asideRail="{ rail }">
                 <AsideRail :rail="rail"></AsideRail>
             </template>
