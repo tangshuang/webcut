@@ -221,6 +221,7 @@ export {
 } from './i18n/core';
 export {
     useT,
+    useT as  useWebCutTranslate,
     useWebCutLocale,
 } from './i18n/hooks';
 
