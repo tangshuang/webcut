@@ -34,11 +34,6 @@ const source = computed(() => {
     const source = sources.value.get(key);
     return source;
 });
-// 总宽度
-const width = computed(() => {
-    const duration = props.segment.end - props.segment.start;
-    return timeToPx(duration);
-});
 const audioF32 = ref<Float32Array>();
 
 watch(source, async () => {
