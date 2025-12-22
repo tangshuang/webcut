@@ -3,19 +3,19 @@ import { computed } from 'vue';
 import { NDropdown, NButton, NIcon } from 'naive-ui';
 import { Translate } from '@vicons/carbon';
 import { useWebCutLocale } from '../../i18n/hooks';
-import { getLangLabelsMap } from '../../i18n/core';
-import { each } from 'ts-fns';
+import { languageLabelMap, supportedLanguages } from '../../i18n/core';
 
 const { locale } = useWebCutLocale();
 
 // 语言选项
-const languageOptions: any[] = [];
-each(getLangLabelsMap(), (label, key) => {
-  languageOptions.push({
+const languageOptions: any[] = supportedLanguages.map((key) => {
+  const lang = key.split('-')[0];
+  const label = languageLabelMap[key] || languageLabelMap[lang] || lang;
+  return {
     label,
     key,
     disabled: locale.value === key || locale.value === key.split('-')[0],
-  });
+  };
 });
 
 // 当前语言显示文本

@@ -7,7 +7,7 @@ import zhHK from './locales/zh-HK';
 import zhTW from './locales/zh-TW';
 
 // 语言包映射
-const langPkgs: Record<string, Record<string, string>> = {
+export const languagePackageMap: Record<string, Record<string, string>> = {
     'en-US': enUS,
     'en': enUS,
     'fr-FR': frFR,
@@ -22,13 +22,26 @@ const langPkgs: Record<string, Record<string, string>> = {
     'zh-TW': zhTW,
 };
 
-const langLabelMap: Record<string, string> = {
-    'zh-CN': '中文(简体)',
-    'en-US': 'English',
-    'fr-FR': 'Français',
-    'ja-JP': '日本語',
-    'de-DE': 'Deutsch',
-    'es-ES': 'Español',
+// 支持的语言列表，用于在语言切换组件中显示
+export const supportedLanguages = [
+    'zh-CN',
+    'en-US',
+    'fr-FR',
+    'ja-JP',
+    'de-DE',
+    'es-ES',
+    'zh-HK',
+    'zh-TW',
+];
+
+// 语言标签映射，用于展示语言名称为对应的标签
+export const languageLabelMap: Record<string, string> = {
+    'zh': '中文(简体)',
+    'en': 'English',
+    'fr': 'Français',
+    'ja': '日本語',
+    'de': 'Deutsch',
+    'es': 'Español',
     'zh-HK': '中文(香港)',
     'zh-TW': '中文(台灣)',
 };
@@ -39,7 +52,7 @@ const langLabelMap: Record<string, string> = {
  * @param pkg 语言包，键值对形式，如 { 'key': 'value' }
  */
 export function appendLangPkg(lang: string, pkg: Record<string, string>) {
-    langPkgs[lang] = pkg;
+    languagePackageMap[lang] = pkg;
 }
 
 /**
@@ -48,7 +61,7 @@ export function appendLangPkg(lang: string, pkg: Record<string, string>) {
  * @param pkg 语言包，键值对形式，如 { 'key': 'value' }
  */
 export function mergeLangPkg(lang: string, pkg: Record<string, string>) {
-    langPkgs[lang] = { ...(langPkgs[lang] || {}), ...pkg };
+    languagePackageMap[lang] = { ...(languagePackageMap[lang] || {}), ...pkg };
 }
 
 /**
@@ -57,8 +70,8 @@ export function mergeLangPkg(lang: string, pkg: Record<string, string>) {
  * @param toLang 目标语言代码，如 'en-US'
  */
 export function mapLangPkg(lang: string, toLang: string) {
-    if (langPkgs[toLang]) {
-        langPkgs[lang] = langPkgs[toLang];
+    if (languagePackageMap[toLang]) {
+        languagePackageMap[lang] = languagePackageMap[toLang];
     }
 }
 
@@ -71,14 +84,14 @@ export function getLangPkg(lang?: string): Record<string, string> | null {
     const language = lang || navigator.language || 'zh-CN';
 
     // 尝试精确匹配
-    if (langPkgs[language]) {
-        return langPkgs[language];
+    if (languagePackageMap[language]) {
+        return languagePackageMap[language];
     }
 
     // 尝试匹配语言前缀（如 en-US -> en）
     const langPrefix = language.split('-')[0];
-    if (langPkgs[langPrefix]) {
-        return langPkgs[langPrefix];
+    if (languagePackageMap[langPrefix]) {
+        return languagePackageMap[langPrefix];
     }
 
     // 不支持的语言，返回 null，使用 key 作为显示内容
@@ -86,7 +99,7 @@ export function getLangPkg(lang?: string): Record<string, string> | null {
 }
 
 export function getLangLabelsMap() {
-    return langLabelMap;
+    return languageLabelMap;
 }
 
 /**
@@ -94,5 +107,5 @@ export function getLangLabelsMap() {
  * @returns 所有语言包，键值对形式，如 { 'en-US': { 'key': 'value' }, 'en': { 'key': 'value' } }
  */
 export function getLangPkgsMap() {
-    return langPkgs;
+    return languagePackageMap;
 }
