@@ -33,7 +33,7 @@ onBeforeUnmount(() => {
 });
 
 function calcRailHeightByType(rail: WebCutRail) {
-    const heightMap = { audio: 32, text: 24 };
+    const heightMap = { audio: 32, text: 32 };
     // @ts-ignore
     return heightMap[rail.type];
 }
