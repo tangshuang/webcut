@@ -1153,7 +1153,7 @@ export function useWebCutPlayer() {
      * @param sprite 目标 sprite
      * @param data 动画配置
      */
-    async function applyAnimation(sourceKey: string, data: WebCutAnimationData | null, manager?: WebCutAnimationManager) {
+    async function applyAnimation(sourceKey: string, data: Omit<WebCutAnimationData, 'keyframe'> | null, manager?: WebCutAnimationManager) {
         if (!sourceKey) {
             return;
         }
@@ -1198,25 +1198,25 @@ export function useWebCutPlayer() {
         }
 
         const { type, name, params } = data;
-        const finalParams = (manager || animationManager).applyAnimation({
+        const animRet = (manager || animationManager).applyAnimation({
             sprite,
             animationName: name,
             params,
             canvasSize: { width: width.value, height: height.value },
-            maxDuration: segment.end - segment.start,
+            animationDuration: segment.end - segment.start,
             initState,
         });
 
-        if (finalParams) {
+        if (animRet) {
             meta.animation = {
                 type,
                 name,
-                params: finalParams,
+                ...animRet,
             };
         }
 
         // 将动画参数返回给外部使用
-        return finalParams;
+        return animRet;
     }
 
     function moveTo(time: number) {

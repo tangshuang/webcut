@@ -110,12 +110,12 @@ async function handleToggleAnimation(animationName: string) {
         return;
     }
 
-    const info = await applyAnimation(currentSegment.value?.sourceKey!, {
+    const animRet = await applyAnimation(currentSegment.value?.sourceKey!, {
         type,
         name: animationName,
         params: usedAnimation.value?.params || preset.defaultParams,
     });
-    if (!info) {
+    if (!animRet) {
         return;
     }
 
@@ -123,7 +123,7 @@ async function handleToggleAnimation(animationName: string) {
     usedAnimation.value = {
         type,
         name: animationName,
-        params: info,
+        ...animRet,
     };
     pushHistory();
     nextTick(() => {

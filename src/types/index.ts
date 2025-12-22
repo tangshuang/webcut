@@ -317,6 +317,8 @@ export interface WebCutAnimationData {
     type: WebCutAnimationType | string;
     /** 动画参数 */
     params: WebCutAnimationParams;
+    /** 动画关键帧 */
+    keyframe: WebCutAnimationKeyframe;
 }
 
 // -----------------------------------------------------------
