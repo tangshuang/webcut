@@ -22,6 +22,17 @@ const langPkgs: Record<string, Record<string, string>> = {
     'zh-TW': zhTW,
 };
 
+const langLabelMap: Record<string, string> = {
+    'zh-CN': '中文(简体)',
+    'en-US': 'English',
+    'fr-FR': 'Français',
+    'ja-JP': '日本語',
+    'de-DE': 'Deutsch',
+    'es-ES': 'Español',
+    'zh-HK': '中文(香港)',
+    'zh-TW': '中文(台灣)',
+};
+
 /**
  * 追加语言包，注意，如果语言包已存在，会覆盖原有内容，建议此时使用合并函数 mergeLangPkg
  * @param lang 语言代码，如 'en-US'
@@ -74,10 +85,14 @@ export function getLangPkg(lang?: string): Record<string, string> | null {
     return null;
 }
 
+export function getLangLabelsMap() {
+    return langLabelMap;
+}
+
 /**
  * 获取所有语言包
  * @returns 所有语言包，键值对形式，如 { 'en-US': { 'key': 'value' }, 'en': { 'key': 'value' } }
  */
-export function getAllLangPkgs() {
+export function getLangPkgsMap() {
     return langPkgs;
 }

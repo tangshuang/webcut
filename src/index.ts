@@ -217,7 +217,8 @@ export {
     mergeLangPkg,
     mapLangPkg,
     getLangPkg,
-    getAllLangPkgs,
+    getLangPkgsMap,
+    getLangLabelsMap,
 } from './i18n/core';
 export {
     useT,
