@@ -10,7 +10,7 @@ const { locale } = useWebCutLocale();
 // 语言选项
 const languageOptions: any[] = supportedLanguages.map((key) => {
   const lang = key.split('-')[0];
-  const label = languageLabelMap[key] || languageLabelMap[lang] || lang;
+  const label = languageLabelMap[key] || languageLabelMap[lang] || key;
   return {
     label,
     key,
