@@ -212,7 +212,7 @@ export type WebCutThingType = string;
 
 export interface WebCutMaterial {
     id: string;
-    type: WebCutMaterialType;
+    type: string; // 文件的mimetype
     name: string;
     size: number;
     time: number;

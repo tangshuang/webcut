@@ -76,6 +76,22 @@ export function useWebCutLibrary() {
         }
     }
 
+    async function addExistingFileToProject(fileId: string) {
+    try {
+        // 检查文件是否已经存在于项目中
+        if (projectFiles.value.some((file: any) => file.id === fileId)) {
+            return; // 文件已存在，不重复添加
+        }
+
+        loading.value = true;
+        await addFileToProject(projectId.value, fileId);
+        await refreshProjectData();
+        await refreshFiles();
+    } finally {
+        loading.value = false;
+    }
+}
+
     return {
         projectId,
         projectData,
@@ -83,5 +99,6 @@ export function useWebCutLibrary() {
         files,
         addNewFile,
         removeFile,
+        addExistingFileToProject,
     };
 }

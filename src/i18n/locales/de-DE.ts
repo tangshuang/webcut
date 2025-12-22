@@ -180,4 +180,10 @@ export default {
   "采样率": "Abtastrate",
   "导出中...": "Export läuft...",
   "开始导出": "Export starten",
+
+  // Multi-select functionality
+  "多选": "Mehrfachauswahl",
+  "已选{size}个": "{size} Elemente ausgewählt",
+  "按顺序添加": "In Reihenfolge hinzufügen",
+  "退出多选": "Mehrfachauswahl beenden",
 };

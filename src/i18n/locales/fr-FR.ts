@@ -180,4 +180,10 @@ export default {
   "采样率": "Taux d'échantillonnage",
   "导出中...": "Exportation en cours...",
   "开始导出": "Démarrer l'exportation",
+
+  // Multi-select functionality
+  "多选": "Sélection multiple",
+  "已选{size}个": "{size} éléments sélectionnés",
+  "按顺序添加": "Ajouter dans l'ordre",
+  "退出多选": "Quitter la sélection multiple",
 };

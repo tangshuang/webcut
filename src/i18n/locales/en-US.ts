@@ -180,4 +180,10 @@ export default {
   "采样率": "Sample Rate",
   "导出中...": "Exporting...",
   "开始导出": "Start Export",
+
+  // Multi-select functionality
+  "多选": "Multi-select",
+  "已选{size}个": "Selected {size} items",
+  "按顺序添加": "Add in Order",
+  "退出多选": "Exit Multi-select",
 };

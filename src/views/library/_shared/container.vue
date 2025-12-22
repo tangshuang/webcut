@@ -26,6 +26,8 @@ const props = defineProps<{
   accept: string;
   navs?: Nav[];
   supportsDirectoryUpload?: boolean;
+  /** 是否开启多选模式 */
+  enableMultipleSelect?: boolean;
 }>();
 
 const { push } = useWebCutPlayer();
@@ -51,8 +53,9 @@ async function onFileChange(file: File) {
 
 async function onMaterialAdd(material: WebCutMaterial) {
   try {
-    const { id } = material;
-    await push(material.type, `file:${id}`);
+    const { id, type } = material;
+    const finalType = type.split('/')[0] as WebCutMaterialType;
+    await push(finalType, `file:${id}`);
     await pushHistory();
   }
   catch (e) {
@@ -97,6 +100,7 @@ function onResetNav() {
           :files="projectFileList"
           :thingType="props.thingType"
           :materialType="props.materialType"
+          :enableMultipleSelect="props.enableMultipleSelect"
           @clickItem="emit('clickListItem', $event)"
           @leaveItem="emit('leaveListItem', $event)"
           @enterItem="emit('enterListItem', $event)"
@@ -115,7 +119,9 @@ function onResetNav() {
           :files="allFileList"
           :thingType="props.thingType"
           :materialType="props.materialType"
+          :enableMultipleSelect="props.enableMultipleSelect"
           disableContextMenu
+          enableAddToProject
           @clickItem="emit('clickListItem', $event)"
           @leaveItem="emit('leaveListItem', $event)"
           @enterItem="emit('enterListItem', $event)"

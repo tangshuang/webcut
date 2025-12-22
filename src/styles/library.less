@@ -122,3 +122,65 @@
   height: 100%;
   object-fit: contain;
 }
+
+// 多选相关样式
+.webcut-multiselect-toggle {
+  width: 100%;
+  padding: 4px 0;
+  margin-bottom: 8px;
+  font-size: var(--webcut-font-size-tiny);
+  text-align: right;
+}
+
+.webcut-multiselect-link {
+  color: var(--primary-color);
+  cursor: pointer;
+
+  &:hover {
+    opacity: 0.8;
+  }
+}
+
+.webcut-multiselect-info {
+  width: 100%;
+  padding: 8px;
+  background-color: var(--webcut-grey-deep-color);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--webcut-font-size-tiny);
+}
+
+.webcut-material-selected {
+  .webcut-material-preview {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(24, 160, 88, 0.2);
+  }
+}
+
+.webcut-checkbox-container {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  z-index: 102;
+  border-radius: 50%;
+  border: 1px solid var(--primary-color);
+
+  .webcut-material-selected & {
+    background-color: var(--primary-color);
+  }
+}
+
+.webcut-selection-order {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
