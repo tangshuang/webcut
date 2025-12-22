@@ -434,7 +434,7 @@ manager.value = exposes;
     <div class="webcut__manager" :style="{
         '--webcut-manager-top-bar-color': props.topBarColor,
         '--webcut-manager-rail-bg-color': props.railBgColor || 'var(--webcut-rail-bg-color)',
-        '--webcut-manager-segment-bg-color': props.segmentBgColor || 'var(--webcut-grey-color)',
+        '--webcut-manager-segment-bg-color': props.segmentBgColor || '#777',
         '--webcut-manager-segment-border-color': props.segmentBorderColor || 'var(--border-color)',
         '--webcut-manager-segment-handler-color': props.segmentHandlerColor || 'var(--webcut-grey-deep-color)',
         '--webcut-manager-aside-width': props.asideWidth && typeof props.asideWidth === 'number' ? props.asideWidth + 'px' : props.asideWidth,

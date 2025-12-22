@@ -335,7 +335,6 @@ function calcImgWidth(thumb: { left: number }, index: number) {
 .webcut-video-segment-bottom {
     width: 100%;
     height: var(--audio-wave-height);
-    width: var(--segment-total-width);
     position: absolute;
     left: 0;
     bottom: 0;
