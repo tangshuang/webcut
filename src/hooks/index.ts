@@ -53,6 +53,7 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         loading: false,
         evt: markRaw(new Evt()),
         modules: new Map(),
+        memory: markRaw({}),
     };
 
     const providedContextValue = providedContext?.();

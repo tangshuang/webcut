@@ -76,13 +76,16 @@ export type WebCutContext = {
     canRedo: boolean;
     canRecover: boolean;
 
-    // Loading status
+    // 是否展示loading组件
     loading: boolean;
 
     evt: Evt;
 
     /** 外部注册的模块列表 */
     modules: Map<new () => WebCutExtensionPack, WebCutExtensionPack>;
+
+    /** 内存缓存，用于存储一些临时数据，而且需要注意，使用markRaw标记，避免vue对其进行响应式处理 */
+    memory: Record<string, any>;
 };
 
 export interface WebCutExtensionPack {
