@@ -312,6 +312,11 @@
 - 来源：`src/i18n/hooks`
 - 行为：提供语言切换和本地化支持，管理编辑器的多语言显示。
 
+#### useWebCutTranslate()
+- 功能：翻译函数钩子。
+- 来源：`src/i18n/hooks`
+- 行为：提供简化的翻译函数接口，支持键值对翻译和插值，自动处理语言切换。
+
 ## 库函数
 
 ### 核心库函数（`src/libs/index.ts`）
@@ -375,9 +380,94 @@
 - `WebCutRail` 轨道类型。
 - `WebCutMaterialType` 素材类型。
 - `WebCutMaterial` 素材类型。
-- `WebCutMaterialMeta` 素材元数据类型。
+- `WebCutSourceMeta` 素材源元数据类型。
 - `WebCutSource` 素材源类型。
 - `WebCutSourceData` 素材源数据类型。
 - `WebCutProjectHistoryState` 项目历史状态类型。
 - `WebCutProjectHistoryData` 项目历史数据类型。
 - `WebCutColors` 颜色类型。
+- `WebCutAnimationType` 动画类型。
+- `WebCutAnimationKeyframe` 动画关键帧类型。
+- `WebCutAnimationKeyframeConfig` 动画关键帧配置类型。
+- `WebCutAnimationParams` 动画参数类型。
+- `WebCutAnimationData` 动画数据类型。
+- `WebCutTransitionData` 过渡数据类型。
+- `WebCutFilterData` 滤镜数据类型。
+- `WebCutExtensionPack` 扩展包类型。
+
+## 过渡效果
+
+从 `src/modules/transitions` 导出的过渡效果：
+- `transitionManager` 过渡效果管理器。
+- `WebCutBaseTransition` 基础过渡效果类。
+
+## 滤镜效果
+
+从 `src/modules/filters` 导出的滤镜效果：
+- `filterManager` 滤镜效果管理器。
+- `WebCutBaseFilter` 基础滤镜效果类。
+
+## 动画效果
+
+从 `src/modules/animations` 导出的动画效果：
+- `animationManager` 动画效果管理器。
+- `WebCutBaseAnimation` 基础动画效果类。
+- `WebCutAnimationManager` 动画效果管理器类。
+
+## 国际化
+
+从 `src/i18n/core` 导出的国际化函数：
+- `appendLangPkg` 追加语言包。
+- `mergeLangPkg` 合并语言包。
+- `mapLangPkg` 映射语言包。
+- `getLangPkg` 获取语言包。
+- `getLangPkgsMap` 获取语言包映射。
+- `getLangLabelsMap` 获取语言标签映射。
+
+从 `src/i18n/hooks` 导出的国际化钩子：
+- `useT` 翻译钩子。
+- `useWebCutTranslate` 翻译钩子（别名）。
+- `useWebCutLocale` 语言环境钩子。
+
+## FFmpeg 工具
+
+从 `src/libs/ffmpeg` 导出的 FFmpeg 工具函数：
+- `loadFFmpeg` 加载 FFmpeg。
+- `isFFmpegLoaded` 检查 FFmpeg 是否已加载。
+- `execFFmpeg` 执行 FFmpeg 命令。
+- `runFFmpeg` 运行 FFmpeg。
+- `transcodeToMP4ByFFmpeg` 使用 FFmpeg 转码为 MP4。
+- `sliceByFFmpeg` 使用 FFmpeg 切片。
+- `extractAudioFromVideo` 从视频中提取音频。
+
+## 导出参数类型
+
+从 `src/modules/advanced-export/types` 导出的导出参数类型：
+- `WebCutExportAudioParams` 音频导出参数类型。
+- `WebCutExportVideoParams` 视频导出参数类型。
+
+## 组件属性类型
+
+从 `src/views/library/_shared/container.vue` 导出的组件属性类型：
+- `WebCutLibarayNavComponentProps` 素材库导航组件属性类型。
+
+## 常量
+
+从 `src/constants` 导出的常量：
+- `aspectRatioMap` 宽高比映射表。
+
+## 加载与提示组件
+
+- `WebCutLoading` 加载提示组件。
+- `WebCutToast` 消息提示组件。
+
+## 过渡钩子
+
+- `useWebCutTransition` 过渡效果钩子。
+
+## 提示钩子与类型
+
+- `useWebCutToast` 消息提示钩子。
+- `ToastType` 消息提示类型。
+- `ToastOptions` 消息提示选项类型。
+- `ToastState` 消息提示状态类型。
