@@ -185,6 +185,7 @@ export function buildTextAsDOM({
         const txt = document.createElement(inline ? 'span' : 'pre');
         txt.innerHTML = html;
         txt.style.cssText = defaultCssText;
+        txt.classList.add('stroke-layer');
         container.appendChild(txt);
 
         // 当存在描边时，复制一份未描边的字，将其覆盖在有描边的字上面，以得到真正的描边效果
@@ -204,6 +205,7 @@ export function buildTextAsDOM({
             const cover = document.createElement(inline ? 'span' : 'pre');
             cover.innerHTML = html;
             cover.style.cssText = coverCssText;
+            cover.classList.add('cover-layer');
             container.appendChild(cover);
         }
 
