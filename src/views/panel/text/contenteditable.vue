@@ -31,30 +31,15 @@ watch(() => ({ ...editTextState.value }), (newState, oldState) => {
     }
 });
 
-const handleInput = async () => {
+const handleInput = () => {
     if (!isMathCurrentSource()) {
         return;
     }
     if (editableRef.value && editTextState.value) {
-        const prevText = editTextState.value.text || '';
-        const prevWidth = Number.parseFloat(editableRef.value.style.width.replace('px', ''));
-        const prevLines = prevText.split('\n');
-        const prevLongestLine = prevLines.reduce((longest, line) => line.length > longest.length ? line : longest, '');
-        const perLetterWidth = prevLongestLine.length > 0 ? prevWidth / prevLongestLine.length : 0;
-
         const text = editableRef.value.innerText;
-        const lines = text.split('\n');
-        const longestLine = lines.reduce((longest, line) => line.length > longest.length ? line : longest, '');
-
-        // 先用不精确的宽度，等文本渲染完成后，再用精确的宽度
-        if (longestLine.length > prevLongestLine.length) {
-            editableRef.value.style.width = `${(longestLine.length + 1) * perLetterWidth + 2}px`;
-        }
-
         editTextState.value.text = text;
 
-        // 用精确的宽度
-        const size = await measureTextSize(text, currentSource.value?.meta?.text?.css || {});
+        const size = measureTextSize(text, currentSource.value?.meta?.text?.css || {});
         editableRef.value.style.width = `${size.width + 2}px`;
         editableRef.value.style.height = `${size.height}px`;
     }

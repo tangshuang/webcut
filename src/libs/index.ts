@@ -430,16 +430,44 @@ export async function measureAudioDuration(source: File | string) {
 }
 
 /**
- * 测量文本尺寸
+ * 测量文本尺寸（同步版本，用于编辑时实时测量）
  * @param text
  * @param css
  * @returns
  */
-export async function measureTextSize(text: string, css: Record<string, any>, highlights?: WebCutHighlightOfText[]): Promise<{ height: number; width: number }> {
-    const bitmap = await renderTxt2ImgBitmap(text, css, highlights);
-    const { height, width } = bitmap;
+export function measureTextSize(text: string, css: Record<string, any>, highlights?: WebCutHighlightOfText[]): { height: number; width: number } {
+    const container = buildTextAsDOM({ text, css, highlights });
+    container.style.visibility = 'hidden';
+    document.body.appendChild(container);
+    
+    const { width, top, bottom } = container.getBoundingClientRect();
+    const children = container.querySelectorAll('*');
+    let minTop = top, maxBottom = bottom;
+    children.forEach((child) => {
+        if (child.classList.contains('background-block')) {
+            return;
+        }
+        const { top, bottom } = child.getBoundingClientRect();
+        minTop = Math.min(top, minTop);
+        maxBottom = Math.max(bottom, maxBottom);
+    });
+    const height = maxBottom - minTop;
+    
+    container.remove();
     return { height, width };
 }
+
+// /**
+//  * 测量文本尺寸
+//  * @param text
+//  * @param css
+//  * @returns
+//  */
+// export async function measureTextSizeAsync(text: string, css: Record<string, any>, highlights?: WebCutHighlightOfText[]): Promise<{ height: number; width: number }> {
+//     const bitmap = await renderTxt2ImgBitmap(text, css, highlights);
+//     const { height, width } = bitmap;
+//     return { height, width };
+// }
 
 
 /**

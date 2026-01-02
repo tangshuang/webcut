@@ -12,7 +12,7 @@ import { useWebCutPlayer } from '../../../hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../i18n/hooks';
-import { WebCutMaterial, WebCutThingType, WebCutMaterialType } from 'src/types';
+import { WebCutMaterial, WebCutThingType, WebCutMaterialType } from '../../../types';
 
 const fileList = defineModel<WebCutMaterial[]>('files', { default: [] });
 const emit = defineEmits(['added', 'deleted', 'leaveItem', 'enterItem', 'clickItem']);
