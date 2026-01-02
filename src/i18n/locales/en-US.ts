@@ -180,6 +180,7 @@ export default {
   "采样率": "Sample Rate",
   "导出中...": "Exporting...",
   "开始导出": "Start Export",
+  "导出完成后自动关闭": "Auto-close after export",
 
   // Multi-select functionality
   "多选": "Multi-select",

@@ -180,6 +180,7 @@ export default {
   "采样率": "Abtastrate",
   "导出中...": "Export läuft...",
   "开始导出": "Export starten",
+  "导出完成后自动关闭": "Automatisch nach dem Export schließen",
 
   // Multi-select functionality
   "多选": "Mehrfachauswahl",

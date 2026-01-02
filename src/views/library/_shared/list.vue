@@ -225,7 +225,7 @@ function toggleMultiSelectMode() {
 <template>
     <div class="webcut-material-list">
         <!-- 多选模式提示 -->
-        <div class="webcut-multiselect-info" v-if="props.enableMultipleSelect">
+        <div class="webcut-multiselect-info" v-if="props.enableMultipleSelect && fileList.length">
             <span class="webcut-multiselect-link" @click="toggleMultiSelectMode" v-if="!isMultiSelectMode">
                 {{ t('多选') }}
             </span>

@@ -180,6 +180,7 @@ export default {
   "采样率": "Tasa de muestreo",
   "导出中...": "Exportando...",
   "开始导出": "Iniciar exportación",
+  "导出完成后自动关闭": "Cerrar automáticamente después de exportar",
 
   // Multi-select functionality
   "多选": "Selección múltiple",

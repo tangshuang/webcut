@@ -18,6 +18,10 @@ const t = useT();
 const { fps, canvas, width, height } = useWebCutContext();
 const { exportAsWavBlob } = useWebCutPlayer();
 
+const emit = defineEmits<{
+    (e: 'export-success'): void;
+}>();
+
 const isExporting = ref(false);
 const exportMessage = ref('');
 const exportStatus = ref<'default' | 'success' | 'error'>('default');
@@ -37,6 +41,8 @@ const audioData = ref<WebCutExportAudioParams>({
     bitrate: 128000,
     sampleRate: 48000,
 });
+
+const autoClose = ref(true);
 
 const codecOptions = computed(() => {
     if (exportType.value === 'video' && videoData.value.format === 'mp4') {
@@ -85,6 +91,9 @@ async function handleExport() {
         // 导出成功
         exportStatus.value = 'success';
         exportMessage.value = t('导出完成！');
+        if (autoClose.value) {
+            emit('export-success');
+        }
     }
     catch (error) {
         console.error('Export failed:', error);
@@ -297,6 +306,10 @@ function calcVideoSize() {
             </section>
 
             <n-divider style="margin-top: 0"></n-divider>
+
+            <n-form-item :label="t('导出完成后自动关闭')">
+                <n-switch v-model:value="autoClose" />
+            </n-form-item>
 
             <div class="webcut-export-form-buttons">
                 <n-button type="primary" @click="handleExport" :loading="isExporting" :disabled="isExporting">

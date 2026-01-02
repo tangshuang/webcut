@@ -180,6 +180,7 @@ export default {
   "采样率": "Taux d'échantillonnage",
   "导出中...": "Exportation en cours...",
   "开始导出": "Démarrer l'exportation",
+  "导出完成后自动关闭": "Fermer automatiquement après l'exportation",
 
   // Multi-select functionality
   "多选": "Sélection multiple",
