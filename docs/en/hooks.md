@@ -117,6 +117,7 @@ Core media operations (see `src/hooks/index.ts`).
 
 - `init`, `play`, `pause`, `reset`, `moveTo` — player control
 - `push(type, source, meta)` — add media/text with `WebCutMaterialMeta` (see `src/types/index.ts`)
+- `pushSeries(materials, options)` — batch add media in sequence
 - `remove(key)`, `clear()`, `destroy()` — teardown
 - `exportBlob()`, `exportAsWavBlob()` — export MP4/WAV
 - `updateText(key, data)` — re-render text as bitmap
@@ -140,6 +141,7 @@ export default defineComponent({
       reset,
       moveTo,
       push,
+      pushSeries,
       remove,
       clear,
       exportBlob,
@@ -177,6 +179,28 @@ export default defineComponent({
       })
     }
 
+    // Batch add media in sequence
+    const addVideoSeries = async () => {
+      const sourceKeys = await pushSeries([
+        {
+          type: 'video',
+          source: 'https://example.com/video1.mp4'
+        },
+        {
+          type: 'video',
+          source: 'https://example.com/video2.mp4'
+        },
+        {
+          type: 'image',
+          source: 'https://example.com/image.png'
+        }
+      ], {
+        startTime: 0, // Start from 0, defaults to current cursor time
+        thingType: 'custom-type' // Optional, specify material type
+      })
+      console.log('Added materials:', sourceKeys)
+    }
+
     // Export functionality
     const exportVideo = async () => {
       const blob = await exportBlob({
@@ -197,6 +221,7 @@ export default defineComponent({
       moveTo,
       addVideo,
       addText,
+      addVideoSeries,
       exportVideo
     }
   }

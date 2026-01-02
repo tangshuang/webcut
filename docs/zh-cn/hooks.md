@@ -43,7 +43,7 @@ const { width, height, canvas, sprites, selected } = useWebCutContext()
 核心媒体操作（见 `src/hooks/index.ts`）。
 
 - 播放控制：`init`、`play`、`pause`、`reset`、`moveTo`
-- 推入素材：`push(type, source, meta)`，`WebCutMaterialMeta` 定义见 `src/types/index.ts`
+- 推入素材：`push(type, source, meta)`、`pushSeries(materials, options)`，`WebCutMaterialMeta` 定义见 `src/types/index.ts`
 - 清理与销毁：`remove(key)`、`clear()`、`destroy()`
 - 导出：`exportBlob()`、`exportAsWavBlob()`、`download(filename)`
 - 文本更新：`updateText(key, data)` 重新渲染文本为位图
@@ -72,6 +72,25 @@ await player.push('text', 'Hello World', {
     highlights: []
   },
   rect: { x: 100, y: 100, w: 400, h: 100 }
+})
+
+// 批量添加素材（按顺序连续添加）
+const sourceKeys = await player.pushSeries([
+  {
+    type: 'video',
+    source: 'https://example.com/video1.mp4'
+  },
+  {
+    type: 'video',
+    source: 'https://example.com/video2.mp4'
+  },
+  {
+    type: 'image',
+    source: 'https://example.com/image.png'
+  }
+], {
+  startTime: 0, // 从0秒开始，默认使用当前光标时间
+  thingType: 'custom-type' // 可选，指定素材类型
 })
 
 // 播放控制

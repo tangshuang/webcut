@@ -28,10 +28,10 @@ const props = defineProps<{
 
 const t = useT();
 
-const { push } = useWebCutPlayer();
+const { push, pushSeries } = useWebCutPlayer();
 const { removeFile, addExistingFileToProject } = useWebCutLibrary();
 const { push: pushHistory } = useWebCutHistory();
-const { id: projectId, sources, cursorTime } = useWebCutContext();
+const { id: projectId, cursorTime } = useWebCutContext();
 
 // 右键菜单相关状态
 const showDropdown = ref(false);
@@ -137,40 +137,31 @@ async function handleBatchAdd() {
     try {
         // 按选择顺序排序文件
         const sortedFiles = Array.from(selectedFiles.value.entries())
-            .sort((a, b) => a[1] - b[1]) // 按选择顺序排序
+            .sort((a, b) => a[1] - b[1])
             .map(([fileId]) => fileList.value.find(file => file.id === fileId))
             .filter((file): file is WebCutMaterial => Boolean(file));
 
-        let currentTime = cursorTime.value; // 记录当前时间点，用于连续添加素材
-
-        let railId;
-        for (const material of sortedFiles) {
-            const { id } = material;
-
-            // 如果启用了添加到项目功能，则先添加到项目
-            if (props.enableAddToProject && projectId.value) {
-                await addExistingFileToProject(id);
+        // 如果启用了添加到项目功能，则先添加到项目
+        if (props.enableAddToProject && projectId.value) {
+            for (const material of sortedFiles) {
+                await addExistingFileToProject(material.id);
             }
+        }
 
-            // 调用push函数，传入时间参数
-            const sourceKey = await push(props.materialType, `file:${id}`, {
-                time: {
-                    start: currentTime,
-                },
+        // 使用 pushSeries 批量添加素材
+        await pushSeries(
+            sortedFiles.map(material => ({
+                type: props.materialType,
+                source: `file:${material.id}`,
+            })),
+            {
+                startTime: cursorTime.value,
                 thingType: props.thingType,
-                withRailId: railId,
-            });
-
-            const source = sources.value.get(sourceKey);
-
-            if (!railId) {
-                railId = source?.railId;
             }
+        );
 
-            const duration = source?.sprite.time.duration || 2e6; // 默认2秒（单位：纳秒）
-            // 更新当前时间点，下一个素材从当前素材结束处开始
-            currentTime += duration;
-
+        // 触发 added 事件
+        for (const material of sortedFiles) {
             emit('added', material);
         }
 

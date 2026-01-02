@@ -917,6 +917,54 @@ export function useWebCutPlayer() {
         }
     }
 
+    /**
+     * 批量添加素材，按照它们的顺序，保证它们在时间上的连续性
+     * @param materials 素材数组，每个素材包含 type 和 source
+     * @param options 可选参数
+     * @returns 返回所有添加的素材的 sourceKey 数组
+     */
+    async function pushSeries(
+        materials: Array<{
+            type: WebCutMaterialType;
+            source: string | File;
+            meta?: WebCutSourceMeta;
+        }>,
+        options?: {
+            startTime?: number;
+            thingType?: string;
+        }
+    ): Promise<string[]> {
+        const sourceKeys: string[] = [];
+        let currentTime = options?.startTime ?? cursorTime.value;
+        let railId: string | undefined;
+
+        for (const material of materials) {
+            const { type, source, meta = {} } = material;
+
+            const sourceKey = await push(type, source, {
+                ...meta,
+                time: {
+                    start: currentTime,
+                    ...meta.time,
+                },
+                thingType: options?.thingType ?? meta.thingType,
+                withRailId: railId,
+            });
+
+            sourceKeys.push(sourceKey);
+
+            const sourceInfo = sources.value.get(sourceKey);
+            if (!railId && sourceInfo) {
+                railId = sourceInfo.railId;
+            }
+
+            const duration = sourceInfo?.sprite.time.duration || 2e6;
+            currentTime += duration;
+        }
+
+        return sourceKeys;
+    }
+
     // 对所有segments, transitions上的sprite进行重新排序
     function resort() {
         rails.value.forEach((rail, railIndex) => {
@@ -1321,6 +1369,7 @@ export function useWebCutPlayer() {
         exportBlob,
         exportAsWavBlob,
         push,
+        pushSeries,
         remove,
         clear,
         resort,
