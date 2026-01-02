@@ -8,20 +8,20 @@ import { languageLabelMap, supportedLanguages } from '../../i18n/core';
 const { locale } = useWebCutLocale();
 
 // 语言选项
-const languageOptions: any[] = supportedLanguages.map((key) => {
+const languageOptions = computed(() => supportedLanguages.map((key) => {
   const lang = key.split('-')[0];
   const label = languageLabelMap[key] || languageLabelMap[lang] || key;
   return {
     label,
     key,
-    disabled: locale.value === key || locale.value === key.split('-')[0],
+    disabled: locale.value === key || locale.value === lang,
   };
-});
+}));
 
 // 当前语言显示文本
 const currentLanguageLabel = computed(() => {
   const lang = locale.value || 'zh-CN';
-  const option = languageOptions.find((item) => item.key === lang);
+  const option = languageOptions.value.find((item) => item.key === lang);
   return option?.label;
 });
 

@@ -5,7 +5,7 @@
 
 import { computed, inject, ref, provide, type WritableComputedRef, type ModelRef } from 'vue';
 import { useWebCutContext } from '../../hooks';
-import { getLangPkg } from '../core';
+import { getLangPkg, supportedLanguages } from '../core';
 
 export function useWebCutLocale(language?: ModelRef<string | null | undefined>) {
     const { id } = useWebCutContext();
@@ -31,7 +31,41 @@ export function useWebCutLocale(language?: ModelRef<string | null | undefined>) 
             if (cachedLanguage.value) {
                 return cachedLanguage.value;
             }
-            return navigator.language || 'zh-CN';
+
+            if (supportedLanguages.includes(navigator.language)) {
+                return navigator.language;
+            }
+
+            const findBestMatch = (userLanguages: string[]): string | null => {
+                for (const userLang of userLanguages) {
+                    const normalizedLang = userLang.toLowerCase();
+                    
+                    for (const supportedLang of supportedLanguages) {
+                        const normalizedSupported = supportedLang.toLowerCase();
+                        
+                        if (normalizedLang === normalizedSupported) {
+                            return supportedLang;
+                        }
+                        
+                        const userLangPrefix = normalizedLang.split('-')[0];
+                        const supportedLangPrefix = normalizedSupported.split('-')[0];
+                        
+                        if (userLangPrefix === supportedLangPrefix) {
+                            return supportedLang;
+                        }
+                    }
+                }
+                return null;
+            };
+
+            const languages = [navigator.language, ...(navigator.languages || [])];
+            const bestMatch = findBestMatch(languages);
+
+            if (bestMatch) {
+                return bestMatch;
+            }
+
+            return 'zh-CN';
         },
         set: (v) => {
             // 受控模式

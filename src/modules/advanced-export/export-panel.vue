@@ -253,7 +253,7 @@ function calcVideoSize() {
                     <n-select v-model:value="videoData.codec" :options="codecOptions" size="tiny" />
                 </n-form-item>
 
-                <n-form-item :label="t('包含音频')" :feedback="t('关闭时将导出无声音的视频')" v-if="videoData.format === 'mp4'">
+                <n-form-item :label="t('包含音频')" :feedback="videoData.audio ? undefined : t('关闭时将导出无声音的视频')" v-if="videoData.format === 'mp4'">
                     <n-switch v-model:value="videoData.audio" />
                 </n-form-item>
 
