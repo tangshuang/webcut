@@ -1,5 +1,5 @@
 import { inject, toRefs, markRaw, reactive, provide, watch, ref, watchEffect, computed, type ComputedRef, ModelRef, WritableComputedRef } from 'vue';
-import { WebCutAnimationData, WebCutColors, WebCutContext, WebCutSource, WebCutFilterData } from '../types';
+import { WebCutAnimationData, WebCutColors, WebCutContext, WebCutSource, WebCutFilterData, WebCutExtensionPack, WebCutMaterialType, WebCutHighlightOfText, WebCutSourceMeta, WebCutRail } from '../types';
 import { AVCanvas } from '@webav/av-canvas';
 import {
   AudioClip,
@@ -9,15 +9,16 @@ import {
 } from '@webav/av-cliper';
 import { base64ToFile, downloadBlob } from '../libs/file';
 import { assignNotEmpty } from '../libs/object';
-import { isEmpty, createRandomString, clone, assign } from 'ts-fns';
+import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-fns';
 import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
-import { WebCutHighlightOfText, WebCutMaterialMeta } from '../types';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
 import { aspectRatioMap } from '../constants';
 import { filterManager } from '../modules/filters';
-import { animationManager } from '../modules/animations';
+import { WebCutAnimationManager, animationManager } from '../modules/animations';
+import { Evt } from '../libs/evt';
+import { mergeLangPkg } from '../i18n/core';
 
 let context: WebCutContext | null | undefined = null;
 export function useWebCutContext(providedContext?: () => Partial<WebCutContext> | undefined | null) {
@@ -32,6 +33,7 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         sources: new Map(),
         cursorTime: 0,
         status: 0,
+        duration: 0,
         disableSelectSprite: false,
         autoResetWhenStop: false,
         fps: 30,
@@ -49,6 +51,9 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         canRedo: false,
         canRecover: false,
         loading: false,
+        evt: markRaw(new Evt()),
+        modules: new Map(),
+        memory: markRaw({}),
     };
 
     const providedContextValue = providedContext?.();
@@ -75,13 +80,17 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         context = null;
     }, 0);
 
-    const { id, sprites, status, cursorTime, fps, selected, current, rails, sources, width, height } = refs;
+    const { id, sprites, status, cursorTime, fps, selected, current, rails, sources, width, height, modules, evt, duration } = refs;
 
     // 总时长，纳秒，1000*1000=1秒
-    const duration = ref(0);
-    const updateDuration = async () => {
+    const updateDuration = debounce(async () => {
+        const latestDuration = duration.value;
+
         if (!sprites.value.length) {
             duration.value = 0;
+            if (latestDuration !== duration.value) {
+                evt.value.emit('durationChange', duration.value);
+            }
             return;
         }
 
@@ -95,6 +104,9 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
             }
         }
         duration.value = max;
+        if (latestDuration !== duration.value) {
+            evt.value.emit('durationChange', duration.value);
+        }
 
         // 视频长度变化后，如果先前停留在停止状态的，要切换为暂停
         if (status.value === -1) {
@@ -102,7 +114,7 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
                 status.value = 0;
             }
         }
-    };
+    }, 100);
     watchEffect(updateDuration);
 
     provide('WEBCUT_CONTEXT', finalContext);
@@ -206,6 +218,37 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         await updateProjectState(id.value, { aspectRatio });
     }
 
+    async function registerExtensionPack(mod: new () => WebCutExtensionPack) {
+        if (modules.value.has(mod)) {
+            return;
+        }
+
+        const inst = new mod();
+        const { materialConfig } = inst;
+
+        // 检查thingType合法性
+        if ([...[...modules.value.values()].map(item => item.materialConfig?.thingType), 'video', 'audio', 'image', 'text'].some(item => item === materialConfig?.thingType)) {
+            return;
+        }
+
+        modules.value.set(mod, markRaw(inst));
+
+        // 合并语言包
+        // 注意，这个动作要先执行，避免由于异步执行导致的语言包合并延迟
+        if (inst.languagePackages) {
+            each(inst.languagePackages, (pkg: Record<string, string>, lang: string) => {
+                mergeLangPkg(lang, pkg);
+            });
+        }
+
+        await inst.onRegister?.(finalContext!);
+    }
+
+    function findRailExtensionPack(rail: WebCutRail) {
+        const regMod = [...modules.value.values()].find(module => module.managerConfig?.is(rail));
+        return regMod;
+    }
+
     return {
         ...refs,
         duration,
@@ -221,6 +264,8 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         currentTransition,
         currentSource,
         updateByAspectRatio,
+        registerExtensionPack,
+        findRailExtensionPack,
     };
 }
 
@@ -245,6 +290,8 @@ export function useWebCutPlayer() {
         unselectSegment,
         currentSource,
         loading,
+        modules,
+        updateDuration,
     } = refs;
 
     const opts = {
@@ -324,8 +371,18 @@ export function useWebCutPlayer() {
 
             activeSpriteUnsubscribe = spr.on('propsChange', (props) => {
                 player.value?.emit('change', props);
+
+                if (!sourceItem) {
+                    return;
+                }
+
+                // 如果是禁用交互的素材，则很可能是在执行动画，因此，不往下执行，否则导致动画失效，也可能导致meta被错误修改
+                if (spr.interactable && spr.interactable !== 'interactive') {
+                    return false;
+                }
+
                 // 如果是文本，禁止缩放（注意，是可以移动的，但是不允许缩放）
-                if (sourceItem?.type === 'text' && sourceItem.meta.rect && (typeof props.rect?.w === 'number' || typeof props.rect?.h === 'number')) {
+                if (sourceItem.type === 'text' && sourceItem.meta.rect && (typeof props.rect?.w === 'number' || typeof props.rect?.h === 'number')) {
                     if (typeof sourceItem.meta.rect.w === 'number') {
                         spr.rect.w = sourceItem.meta.rect.w;
                     }
@@ -333,6 +390,12 @@ export function useWebCutPlayer() {
                         spr.rect.h = sourceItem.meta.rect.h;
                     }
                     return false;
+                }
+
+                // 同步到meta上
+                if (props.rect) {
+                    const rect = sourceItem.meta.rect = sourceItem.meta.rect || {};
+                    Object.assign(rect, props.rect);
                 }
             });
 
@@ -507,7 +570,14 @@ export function useWebCutPlayer() {
         canvas.value?.previewFrame(currentTime);
     };
 
-    async function push(type: 'video' | 'audio' | 'image' | 'text', source: string | File, meta: WebCutMaterialMeta = {}): Promise<string> {
+    /**
+     * 将素材推送到当前视频中
+     * @param type 素材类型，注意，素材类型是固定的，它决定了素材在canvas中如何使用
+     * @param source 素材源
+     * @param meta 元数据
+     * @returns
+     */
+    async function push(type: WebCutMaterialType, source: string | File, meta: WebCutSourceMeta = {}): Promise<string> {
         loading.value = true;
         try {
             let clip: MP4Clip | ImgClip | AudioClip;
@@ -524,7 +594,7 @@ export function useWebCutPlayer() {
                     clip = new MP4Clip(source.stream(), options);
                 }
                 else if (source.startsWith('data:')) {
-                    file = base64ToFile(source, 'video.mp4', 'video/mp4');
+                    file = base64ToFile(source, 'video.mp4');
                     fileId = await writeFile(file);
                     clip = new MP4Clip(file.stream(), options);
                 }
@@ -557,7 +627,7 @@ export function useWebCutPlayer() {
                     clip = new AudioClip(source.stream(), options);
                 }
                 else if (source.startsWith('data:')) {
-                    file = base64ToFile(source, 'audio.mp3', 'audio/mpeg');
+                    file = base64ToFile(source, 'audio.mp3');
                     fileId = await writeFile(file);
                     clip = new AudioClip(file.stream(), options);
                 }
@@ -594,7 +664,7 @@ export function useWebCutPlayer() {
                 }
                 else if (source.startsWith('data:')) {
                     const ext = source.split(';')[0].split('/')[1];
-                    file = base64ToFile(source, `image.${ext}`, `image/${ext}`);
+                    file = base64ToFile(source, `image.${ext}`);
                     fileId = await writeFile(file);
                     if (ext === 'gif') {
                         clip = new ImgClip({ type: 'image/gif', stream: file.stream() });
@@ -639,6 +709,7 @@ export function useWebCutPlayer() {
                 throw new Error(`Unknown type: ${type}`);
             }
             clips.value.push(markRaw(clip!));
+
             const spr = new VisibleSprite(clip!);
 
             // 处理rect
@@ -689,6 +760,16 @@ export function useWebCutPlayer() {
                 spr.time.duration = 2 * 1e6;
             }
 
+            // 存储原始素材时长（用于播放速度调整时计算新的显示时长）
+            segMeta.time = segMeta.time || {};
+            segMeta.time.originalDuration = spr.time.duration;
+
+            // 如果有播放速度设置，需要调整显示时长
+            if (typeof meta.time?.playbackRate === 'number' && meta.time.playbackRate !== 1) {
+                spr.time.duration = Math.round(spr.time.duration / meta.time.playbackRate);
+                segMeta.time.duration = spr.time.duration;
+            }
+
             // 处理其他信息
             if (typeof meta.time?.playbackRate === 'number') {
                 spr.time.playbackRate = meta.time.playbackRate;
@@ -736,15 +817,16 @@ export function useWebCutPlayer() {
              */
             else {
                 const latestRails = [...rails.value];
-                let rail = latestRails.find(item => item.type === type);
+                const railType = meta.thingType || type;
+                let rail = latestRails.find(item => item.type === railType);
                 if (!rail) {
                     rail = {
                         id: withRailId || createRandomString(16),
-                        type,
+                        type: railType,
                         segments: [],
                         transitions: [],
                     };
-                    if (type === 'video') {
+                    if (railType === 'video') {
                         rail.main = true;
                     }
                     latestRails.push(rail);
@@ -754,7 +836,7 @@ export function useWebCutPlayer() {
                 if (overlap) {
                     rail = {
                         id: withRailId || createRandomString(16),
-                        type,
+                        type: railType,
                         segments: [],
                         transitions: [],
                     };
@@ -773,13 +855,20 @@ export function useWebCutPlayer() {
                 //     finalRails.push(mainRail);
                 // }
                 // finalRails.push(...otherRails);
-                rails.value = [...audioRails, ...otherRails, ...textRails];
+                let newRails = [...audioRails, ...otherRails, ...textRails];
+
+                const modulesWithSortHook = [...modules.value.values()].filter(item => item.onSortRails);
+                if (modulesWithSortHook.length) {
+                    newRails = modulesWithSortHook.reduce((prev, cur) => cur.onSortRails?.(prev) || prev, newRails);
+                }
+
+                rails.value = newRails;
                 railId = rail.id;
             }
 
             // 记录对应关系，方便后面删除
             const sourceMeta = reactive(segMeta);
-            sources.value.set(key, {
+            const newSource = {
                 key,
                 type,
                 clip: clip!,
@@ -790,9 +879,16 @@ export function useWebCutPlayer() {
                 segmentId: segment.id,
                 railId,
                 meta: sourceMeta,
-            });
+            };
+            sources.value.set(key, newSource);
 
             resort();
+
+            const { thingType } = meta;
+            const sourceExtensionPack = [...modules.value.values()].find(item => item.materialConfig?.thingType === thingType);
+            if (sourceExtensionPack) {
+                await sourceExtensionPack.onPush?.(newSource);
+            }
 
             // 将rect固定到meta上，后续animation中需要用到
             setTimeout(async () => {
@@ -832,6 +928,54 @@ export function useWebCutPlayer() {
         }
     }
 
+    /**
+     * 批量添加素材，按照它们的顺序，保证它们在时间上的连续性
+     * @param materials 素材数组，每个素材包含 type 和 source
+     * @param options 可选参数
+     * @returns 返回所有添加的素材的 sourceKey 数组
+     */
+    async function pushSeries(
+        materials: Array<{
+            type: WebCutMaterialType;
+            source: string | File;
+            meta?: WebCutSourceMeta;
+        }>,
+        options?: {
+            startTime?: number;
+            thingType?: string;
+        }
+    ): Promise<string[]> {
+        const sourceKeys: string[] = [];
+        let currentTime = options?.startTime ?? cursorTime.value;
+        let railId: string | undefined;
+
+        for (const material of materials) {
+            const { type, source, meta = {} } = material;
+
+            const sourceKey = await push(type, source, {
+                ...meta,
+                time: {
+                    start: currentTime,
+                    ...meta.time,
+                },
+                thingType: options?.thingType ?? meta.thingType,
+                withRailId: railId,
+            });
+
+            sourceKeys.push(sourceKey);
+
+            const sourceInfo = sources.value.get(sourceKey);
+            if (!railId && sourceInfo) {
+                railId = sourceInfo.railId;
+            }
+
+            const duration = sourceInfo?.sprite.time.duration || 2e6;
+            currentTime += duration;
+        }
+
+        return sourceKeys;
+    }
+
     // 对所有segments, transitions上的sprite进行重新排序
     function resort() {
         rails.value.forEach((rail, railIndex) => {
@@ -839,7 +983,8 @@ export function useWebCutPlayer() {
                 const { sourceKey } = seg;
                 const source = sources.value.get(sourceKey);
                 const spr = source?.sprite;
-                if (spr) {
+                const zIndex = source?.meta.zIndex;
+                if (typeof zIndex !== 'number' && spr) {
                     spr.zIndex = railIndex * 1000000 + index;
                     source.meta.zIndex = spr.zIndex;
                 }
@@ -852,7 +997,8 @@ export function useWebCutPlayer() {
                 sourceKeys.forEach((key) => {
                     const source = sources.value.get(key);
                     const spr = source?.sprite;
-                    if (spr) {
+                    const zIndex = source?.meta.zIndex;
+                    if (typeof zIndex !== 'number' && spr) {
                         spr.zIndex = railIndex * 1000000 + index * 1000;
                         source.meta.zIndex = spr.zIndex;
                     }
@@ -1066,7 +1212,7 @@ export function useWebCutPlayer() {
      * @param sprite 目标 sprite
      * @param data 动画配置
      */
-    async function applyAnimation(sourceKey: string, data: WebCutAnimationData | null) {
+    async function applyAnimation(sourceKey: string, data: Omit<WebCutAnimationData, 'keyframe'> | null, manager?: WebCutAnimationManager) {
         if (!sourceKey) {
             return;
         }
@@ -1092,7 +1238,7 @@ export function useWebCutPlayer() {
 
         // 如果没有动画，清除现有动画并重置
         if (!data) {
-            animationManager.clearAnimation({
+            (manager || animationManager).clearAnimation({
                 sprite,
                 initState,
             });
@@ -1111,25 +1257,25 @@ export function useWebCutPlayer() {
         }
 
         const { type, name, params } = data;
-        const finalParams = animationManager.applyAnimation({
+        const animRet = (manager || animationManager).applyAnimation({
             sprite,
             animationName: name,
             params,
             canvasSize: { width: width.value, height: height.value },
-            maxDuration: segment.end - segment.start,
+            animationDuration: segment.end - segment.start,
             initState,
         });
 
-        if (finalParams) {
+        if (animRet) {
             meta.animation = {
                 type,
                 name,
-                params: finalParams,
+                ...animRet,
             };
         }
 
         // 将动画参数返回给外部使用
-        return finalParams;
+        return animRet;
     }
 
     function moveTo(time: number) {
@@ -1183,8 +1329,9 @@ export function useWebCutPlayer() {
         animation?: WebCutAnimationData,
         audio?: { volume?: number },
         video?: { volume?: number },
+        time?: { playbackRate?: number },
     }) {
-        const { rect, opacity, filters, animation, audio, video } = data;
+        const { rect, opacity, filters, animation, audio, video, time } = data;
         if (rect) {
             Object.assign(source.sprite.rect, rect);
             source.meta.rect = source.meta.rect || {};
@@ -1201,6 +1348,31 @@ export function useWebCutPlayer() {
         if (video !== undefined) {
             source.meta.video = source.meta.video || {};
             Object.assign(source.meta.video, video);
+        }
+        if (time !== undefined) {
+            source.meta.time = source.meta.time || {};
+            Object.assign(source.meta.time, time);
+            if (time.playbackRate !== undefined) {
+                source.sprite.time.playbackRate = time.playbackRate;
+
+                // 根据播放速度更新显示时长和轨道片段
+                const originalDuration = source.meta.time.originalDuration || source.sprite.time.duration;
+                const newDuration = Math.round(originalDuration / time.playbackRate);
+                source.sprite.time.duration = newDuration;
+                source.meta.time.duration = newDuration;
+
+                // 更新 segment.end
+                const rail = rails.value.find(r => r.id === source.railId);
+                if (rail) {
+                    const segment = rail.segments.find(s => s.id === source.segmentId);
+                    if (segment) {
+                        segment.end = segment.start + newDuration;
+                    }
+                }
+
+                // 更新总时长
+                updateDuration();
+            }
         }
 
         let shouldSyncTickInterceptor = false;
@@ -1234,6 +1406,7 @@ export function useWebCutPlayer() {
         exportBlob,
         exportAsWavBlob,
         push,
+        pushSeries,
         remove,
         clear,
         resort,

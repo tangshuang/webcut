@@ -3,7 +3,7 @@ import { AudioClip } from '@webav/av-cliper';
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, onMounted, ref } from 'vue';
 import { useWebCutContext } from '../../../hooks';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { exportAsWavBlobOffscreen } from '../../../libs';
 import { downloadBlob } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';
@@ -34,11 +34,6 @@ const source = computed(() => {
     const source = sources.value.get(key);
     return source;
 });
-// 总宽度
-const width = computed(() => {
-    const duration = props.segment.end - props.segment.start;
-    return timeToPx(duration);
-});
 const audioF32 = ref<Float32Array>();
 
 watch(source, async () => {
@@ -50,6 +45,14 @@ watch(source, async () => {
     audioF32.value = (clip as AudioClip).getPCMData()[0];
 }, { immediate: true });
 
+const audioOriginalDuration = computed(() => {
+    const { sprite } = source.value || {};
+    return sprite ? sprite.time.duration || 0 : 0;
+});
+// 容器的总宽度
+const audioWidth = computed(() => {
+    return timeToPx(audioOriginalDuration.value);
+});
 const visibleRange = ref<[number, number]>([0, 0]);
 function updateVisibleRange() {
     const start = timeToPx(props.segment.start);
@@ -117,7 +120,7 @@ const data = computed(() => {
         <div class="webcut-audio-segment" @contextmenu.capture.stop="showContextMenus">
             <audio-shape
                 :height="20"
-                :width="width"
+                :width="audioWidth"
                 :data="data"
                 :visible-range="visibleRange"
                 class="webcut-audio-segment-canvas"

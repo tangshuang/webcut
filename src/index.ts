@@ -46,6 +46,10 @@ import WebCutFilterPanel from './views/panel/filter/index.vue';
 import WebCutAnimationPanel from './views/panel/animation/index.vue';
 // 素材库 - 编辑器左侧
 import WebCutLibrary from './views/library/index.vue';
+import WebCutLibraryAside from './views/library/_shared/aside.vue';
+import WebCutLibraryImport from './views/library/_shared/import.vue';
+import WebCutLibraryList from './views/library/_shared/list.vue';
+import WebCutLibraryContainer, { WebCutLibarayNavComponentProps } from './views/library/_shared/container.vue';
 // 编辑器 - 高度集成，包含播放器、素材库、管理器、面板等
 import WebCutEditor from './views/editor/index.vue';
 
@@ -82,6 +86,10 @@ export {
     WebCutSelectAspectRatio,
     WebCutTimeClock,
     WebCutLibrary,
+    WebCutLibraryAside,
+    WebCutLibraryImport,
+    WebCutLibraryList,
+    WebCutLibraryContainer,
     WebCutPanel,
     WebCutTextPanel,
     WebCutBasicPanel,
@@ -128,9 +136,6 @@ export {
 export {
     useWebCutLocalFile,
 } from './hooks/local-file';
-export {
-    useWebCutLocale,
-} from './hooks/i18n';
 export {
     useWebCutToast,
     type ToastType,
@@ -179,6 +184,15 @@ export {
     getFileMd5,
     blobToFile,
 } from './libs/file';
+export {
+    loadFFmpeg,
+    isFFmpegLoaded,
+    execFFmpeg,
+    runFFmpeg,
+    transcodeToMP4ByFFmpeg,
+    sliceByFFmpeg,
+    extractAudioFromVideo,
+} from './libs/ffmpeg';
 
 // transitions
 export {
@@ -195,7 +209,22 @@ export {
 export {
     animationManager,
     WebCutBaseAnimation,
+    WebCutAnimationManager,
 } from './modules/animations';
+
+export {
+    appendLangPkg,
+    mergeLangPkg,
+    mapLangPkg,
+    getLangPkg,
+    getLangPkgsMap,
+    getLangLabelsMap,
+} from './i18n/core';
+export {
+    useT,
+    useT as  useWebCutTranslate,
+    useWebCutLocale,
+} from './i18n/hooks';
 
 // constants
 export { aspectRatioMap } from './constants';
@@ -223,11 +252,12 @@ export {
     type WebCutHighlightOfText,
     type WebCutSegmentOfText,
     type WebCutRailOfText,
+    type WebCutThingType,
     type WebCutSegment,
     type WebCutRail,
     type WebCutMaterialType,
     type WebCutMaterial,
-    type WebCutMaterialMeta,
+    type WebCutSourceMeta,
     type WebCutSource,
     type WebCutSourceData,
     type WebCutProjectHistoryState,
@@ -240,9 +270,14 @@ export {
     type WebCutAnimationData,
     type WebCutTransitionData,
     type WebCutFilterData,
+    type WebCutExtensionPack,
 } from './types';
 
 export {
     type WebCutExportAudioParams,
     type WebCutExportVideoParams,
 } from './modules/advanced-export/types';
+
+export type {
+    WebCutLibarayNavComponentProps,
+};

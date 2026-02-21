@@ -6,7 +6,9 @@ import { clone } from 'ts-fns';
 
 const { updateText } = useWebCutPlayer();
 const { currentSource, editTextState, player, width, height } = useWebCutContext();
-const editableRef = ref<HTMLDivElement | null>(null);
+const editBoxRef = ref<HTMLDivElement | null>(null);
+const editNodeRef = ref<HTMLElement | null>(null);
+const coverLayerRef = ref<HTMLElement | null>(null);
 
 // 监听编辑状态变化，自动聚焦和初始化内容
 watch(editTextState, (state) => {
@@ -31,32 +33,22 @@ watch(() => ({ ...editTextState.value }), (newState, oldState) => {
     }
 });
 
-const handleInput = async () => {
+const handleInput = () => {
     if (!isMathCurrentSource()) {
         return;
     }
-    if (editableRef.value && editTextState.value) {
-        const prevText = editTextState.value.text || '';
-        const prevWidth = Number.parseFloat(editableRef.value.style.width.replace('px', ''));
-        const prevLines = prevText.split('\n');
-        const prevLongestLine = prevLines.reduce((longest, line) => line.length > longest.length ? line : longest, '');
-        const perLetterWidth = prevLongestLine.length > 0 ? prevWidth / prevLongestLine.length : 0;
-
-        const text = editableRef.value.innerText;
-        const lines = text.split('\n');
-        const longestLine = lines.reduce((longest, line) => line.length > longest.length ? line : longest, '');
-
-        // 先用不精确的宽度，等文本渲染完成后，再用精确的宽度
-        if (longestLine.length > prevLongestLine.length) {
-            editableRef.value.style.width = `${(longestLine.length + 1) * perLetterWidth + 2}px`;
+    if (editBoxRef.value && editTextState.value) {
+        const text = editNodeRef.value!.innerText;
+        editTextState.value.text = text;
+        // 同步更新双层文本结构中的底层文本
+        if (coverLayerRef.value) {
+            coverLayerRef.value.innerHTML = text;
         }
 
-        editTextState.value.text = text;
-
-        // 用精确的宽度
-        const size = await measureTextSize(text, currentSource.value?.meta?.text?.css || {});
-        editableRef.value.style.width = `${size.width + 2}px`;
-        editableRef.value.style.height = `${size.height}px`;
+        // 更新盒子的尺寸
+        const size = measureTextSize(text, currentSource.value?.meta?.text?.css || {});
+        editBoxRef.value.style.width = `${size.width + 2}px`;
+        editBoxRef.value.style.height = `${size.height}px`;
     }
 };
 
@@ -101,10 +93,9 @@ function mount() {
     container.style.transformOrigin = 'top left';
     container.style.overflow = 'hidden';
 
-    const editable = document.createElement('div');
-    editable.contentEditable = 'true';
+    const editBox = document.createElement('div');
     const { x, y, w, h, angle } = sprite.rect;
-    Object.assign(editable.style, {
+    Object.assign(editBox.style, {
         position: 'absolute',
         left: `${x}px`,
         top: `${y}px`,
@@ -125,36 +116,46 @@ function mount() {
     node.style.width = '100%';
     node.style.height = '100%';
 
+    editBox.appendChild(node);
+    container.appendChild(editBox);
+    document.body.appendChild(container);
+    editBoxRef.value = editBox as HTMLDivElement;
+
+    // 获取双层文本结构的引用
+    editNodeRef.value = node.querySelector('.stroke-layer') as HTMLElement;
+    coverLayerRef.value = node.querySelector('.cover-layer') as HTMLElement;
+    if (coverLayerRef.value) {
+        coverLayerRef.value.style.pointerEvents = 'none';
+    }
+    editNodeRef.value.contentEditable = 'true';
+
     if (currentSource.value.sprite) {
         currentSource.value.sprite.visible = false;
     }
-    editable.appendChild(node);
-    container.appendChild(editable);
-    document.body.appendChild(container);
 
-    editable.addEventListener('input', handleInput);
-    editable.addEventListener('blur', handleBlur);
-    editable.focus();
+    editNodeRef.value.addEventListener('input', handleInput);
+    editNodeRef.value.addEventListener('blur', handleBlur);
+    editNodeRef.value.focus();
     const range = document.createRange();
     const selection = window.getSelection();
-    if (editable.lastChild && selection) {
-        range.setStartAfter(editable.lastChild);
+    if (editNodeRef.value.lastChild && selection) {
+        range.setStartAfter(editNodeRef.value.lastChild);
         range.collapse(true);
         selection.removeAllRanges();
         selection.addRange(range);
     }
-
-    editableRef.value = editable as HTMLDivElement;
 }
 
 function unmount() {
     editTextState.value = null;
-    if (editableRef.value) {
-        editableRef.value.removeEventListener('input', handleInput);
-        editableRef.value.removeEventListener('blur', handleBlur);
-        document.body.removeChild(editableRef.value.parentElement!);
-        editableRef.value = null;
+    if (editBoxRef.value) {
+        editBoxRef.value.removeEventListener('input', handleInput);
+        editBoxRef.value.removeEventListener('blur', handleBlur);
+        document.body.removeChild(editBoxRef.value.parentElement!);
+        editBoxRef.value = null;
     }
+    editNodeRef.value = null;
+    coverLayerRef.value = null;
     if (currentSource.value?.sprite) {
         currentSource.value.sprite.visible = true;
     }
@@ -222,10 +223,10 @@ function onDoubleClickTextOnCanvas(e: MouseEvent) {
 }
 
 onMounted(() => {
-    player.value.viewport.addEventListener('dblclick', onDoubleClickTextOnCanvas);
+    player.value?.viewport?.addEventListener('dblclick', onDoubleClickTextOnCanvas);
 });
 onBeforeUnmount(() => {
-    player.value.viewport.removeEventListener('dblclick', onDoubleClickTextOnCanvas);
+    player.value?.viewport?.removeEventListener('dblclick', onDoubleClickTextOnCanvas);
 });
 </script>
 

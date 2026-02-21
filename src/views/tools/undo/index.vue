@@ -2,7 +2,7 @@
 import { NIcon, NPopover, NButton } from 'naive-ui';
 import { Undo } from '@vicons/carbon';
 import { useWebCutHistory } from '../../../hooks/history';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 
 const { canUndo, undo } = useWebCutHistory();
 const t = useT();

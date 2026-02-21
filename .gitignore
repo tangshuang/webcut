@@ -18,7 +18,6 @@ dist-ssr
 .vscode
 /performance
 /scripts
-/third-parts
 
 # Editor directories and files
 .vscode/*
@@ -49,6 +48,7 @@ coverage
 # Package manager files
 package-lock.json
 pnpm-lock.yaml
+yarn.lock
 
 # TypeScript
 *.tsbuildinfo

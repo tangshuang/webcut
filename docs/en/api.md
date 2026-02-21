@@ -249,8 +249,13 @@ Parameters:
 
 #### useWebCutLocale()
 - Purpose: Internationalization language management.
-- Source: `src/hooks/i18n`
+- Source: `src/i18n/hooks`
 - Behavior: Provides language switching and localization support, managing multi-language display in the editor.
+
+#### useWebCutTranslate()
+- Purpose: Translation function hook.
+- Source: `src/i18n/hooks`
+- Behavior: Provides simplified translation function interface, supports key-value translation and interpolation, automatically handles language switching.
 
 ## Library Functions
 
@@ -304,18 +309,310 @@ Parameters:
 - `getProjectState` gets project state.
 - `updateProjectState` updates project state.
 
-## Types (`src/types/index.ts`)
-- `WebCutContext` editor context type.
-- `WebCutHighlightOfText` text highlight type.
-- `WebCutSegmentOfText` text segment type.
-- `WebCutRailOfText` text rail type.
-- `WebCutSegment` segment type.
-- `WebCutRail` rail type.
-- `WebCutMaterialType` material type.
-- `WebCutMaterial` material type.
-- `WebCutMaterialMeta` material metadata type.
-- `WebCutSource` source type.
-- `WebCutSourceData` source data type.
-- `WebCutProjectHistoryState` project history state type.
-- `WebCutProjectHistoryData` project history data type.
-- `WebCutColors` colors type.
+## Type Definitions
+
+### WebCut Context Types
+
+```typescript
+// Main context type
+type WebCutContext = {
+  // Core state and methods
+  video: Ref<WebCutVideo | undefined>
+  audio: Ref<WebCutAudio | undefined>
+  timeline: Ref<WebCutTimeline | undefined>
+  segments: Ref<WebCutSegment[]>
+  // ... other context properties
+}
+
+// Video-related types
+type WebCutVideo = {
+  src: string
+  width: number
+  height: number
+  duration: number
+  fps: number
+  // ... other video properties
+}
+
+// Audio-related types
+type WebCutAudio = {
+  src: string
+  duration: number
+  volume: number
+  // ... other audio properties
+}
+
+// Timeline types
+type WebCutTimeline = {
+  currentTime: number
+  duration: number
+  zoom: number
+  // ... other timeline properties
+}
+
+// Segment types
+type WebCutSegment = {
+  id: string
+  start: number
+  end: number
+  type: 'video' | 'audio'
+  // ... other segment properties
+}
+```
+
+### Animation Types
+
+```typescript
+// Animation configuration types
+type AnimationConfig = {
+  name: string
+  duration: number
+  delay?: number
+  easing?: string
+  fill?: 'forwards' | 'backwards' | 'both' | 'none'
+}
+
+// Preset animation types
+type FadeAnimation = AnimationConfig & {
+  type: 'fade'
+  direction: 'in' | 'out'
+}
+
+type ScaleAnimation = AnimationConfig & {
+  type: 'scale'
+  from: number
+  to: number
+}
+
+type SlideAnimation = AnimationConfig & {
+  type: 'slide'
+  direction: 'left' | 'right' | 'up' | 'down'
+  distance: number
+}
+```
+
+### Transition Types
+
+```typescript
+// Transition effect types
+type TransitionType = 'fade' | 'slide' | 'dissolve' | 'wipe' | 'zoom'
+
+type TransitionConfig = {
+  type: TransitionType
+  duration: number
+  direction?: 'horizontal' | 'vertical'
+  easing?: string
+}
+```
+
+### Filter Types
+
+```typescript
+// Filter effect types
+type FilterType = 'brightness' | 'contrast' | 'saturation' | 'blur' | 'grayscale'
+
+type FilterConfig = {
+  type: FilterType
+  value: number
+  enabled: boolean
+}
+```
+
+### Animation Effect Types
+
+```typescript
+// Animation effect configuration
+type AnimationEffect = {
+  id: string
+  name: string
+  type: 'entrance' | 'exit' | 'emphasis'
+  duration: number
+  properties: Record<string, any>
+}
+```
+
+### Internationalization Types
+
+```typescript
+// Language configuration
+type LocaleConfig = {
+  code: string
+  name: string
+  messages: Record<string, string>
+}
+
+// Translation keys
+type TranslationKeys = {
+  'common.play': string
+  'common.pause': string
+  'common.stop': string
+  'timeline.zoom': string
+  'export.title': string
+  // ... other translation keys
+}
+```
+
+### FFmpeg Tool Types
+
+```typescript
+// FFmpeg command configuration
+type FFmpegCommand = {
+  input: string
+  output: string
+  options: Record<string, any>
+  filters?: string[]
+}
+
+// FFmpeg progress callback
+type FFmpegProgressCallback = (progress: {
+  percent: number
+  current: number
+  total: number
+  speed?: number
+  eta?: number
+}) => void
+```
+
+### Export Parameter Types
+
+```typescript
+// Export configuration
+type ExportConfig = {
+  format: 'mp4' | 'webm' | 'avi' | 'mov'
+  quality: 'low' | 'medium' | 'high' | 'ultra'
+  resolution: {
+    width: number
+    height: number
+  }
+  bitrate?: number
+  fps?: number
+  audioCodec?: string
+  videoCodec?: string
+}
+
+// Export progress callback
+type ExportProgressCallback = (progress: {
+  percent: number
+  stage: 'processing' | 'encoding' | 'finalizing'
+  message?: string
+}) => void
+```
+
+### Component Property Types
+
+```typescript
+// Component props interfaces
+interface WebCutProps {
+  width?: number
+  height?: number
+  theme?: 'light' | 'dark'
+  locale?: string
+  onReady?: () => void
+  onError?: (error: Error) => void
+}
+
+interface WebCutTimelineProps {
+  duration: number
+  currentTime: number
+  zoom?: number
+  onTimeChange?: (time: number) => void
+  onSegmentAdd?: (segment: WebCutSegment) => void
+  onSegmentRemove?: (id: string) => void
+}
+
+interface WebCutPlayerProps {
+  src: string
+  type: 'video' | 'audio'
+  controls?: boolean
+  autoplay?: boolean
+  loop?: boolean
+  onTimeUpdate?: (time: number) => void
+  onEnded?: () => void
+}
+```
+
+### Constants
+
+```typescript
+// Application constants
+const APP_VERSION = '1.0.0'
+const MAX_DURATION = 3600 // 1 hour in seconds
+const MIN_SEGMENT_DURATION = 0.1 // 100ms
+
+// Timeline constants
+const DEFAULT_ZOOM = 1
+const MAX_ZOOM = 10
+const MIN_ZOOM = 0.1
+
+// Export constants
+const SUPPORTED_FORMATS = ['mp4', 'webm', 'avi', 'mov']
+const DEFAULT_QUALITY = 'medium'
+const MAX_FILE_SIZE = 1024 * 1024 * 1024 // 1GB
+```
+
+### Loading and Toast Components
+
+```typescript
+// Loading component types
+type LoadingProps = {
+  show: boolean
+  message?: string
+  size?: 'small' | 'medium' | 'large'
+  color?: string
+}
+
+// Toast component types
+type ToastType = 'success' | 'error' | 'warning' | 'info'
+
+type ToastProps = {
+  id: string
+  type: ToastType
+  message: string
+  duration?: number
+  action?: {
+    label: string
+    handler: () => void
+  }
+}
+```
+
+### Transition Hooks Types
+
+```typescript
+// Transition hook return types
+type UseTransitionReturn = {
+  isVisible: boolean
+  show: () => void
+  hide: () => void
+  toggle: () => void
+  isAnimating: boolean
+}
+
+// Transition configuration
+type UseTransitionConfig = {
+  duration?: number
+  delay?: number
+  easing?: string
+  onShow?: () => void
+  onHide?: () => void
+}
+```
+
+### Toast Hooks Types
+
+```typescript
+// Toast hook return types
+type UseToastReturn = {
+  showToast: (message: string, type?: ToastType) => void
+  hideToast: (id: string) => void
+  clearToasts: () => void
+  toasts: ToastProps[]
+}
+
+// Toast configuration
+type UseToastConfig = {
+  position?: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+  duration?: number
+  maxToasts?: number
+}
+```

@@ -6,7 +6,7 @@ import { nextTick } from 'vue';
 import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { ref, watch } from 'vue';
 import { clone, throttle } from 'ts-fns';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 
 const { currentSource, currentSegment, height, editTextState } = useWebCutContext();

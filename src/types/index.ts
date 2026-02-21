@@ -1,5 +1,7 @@
 import { AVCanvas } from '@webav/av-canvas';
 import { VisibleSprite, MP4Clip, ImgClip, AudioClip } from '@webav/av-cliper';
+import { Evt } from '../libs/evt';
+import { Component } from 'vue';
 
 export type WebCutContext = {
     // 项目id
@@ -25,6 +27,8 @@ export type WebCutContext = {
     cursorTime: number;
     // 是否播放中, -1: 停止， 0: 暂停/初始态， 1: 播放
     status: -1 | 0 | 1;
+    // 总时长
+    duration: number;
 
     // 禁用选中素材
     disableSelectSprite: boolean;
@@ -72,9 +76,86 @@ export type WebCutContext = {
     canRedo: boolean;
     canRecover: boolean;
 
-    // Loading status
+    // 是否展示loading组件
     loading: boolean;
+
+    evt: Evt;
+
+    /** 外部注册的模块列表 */
+    modules: Map<new () => WebCutExtensionPack, WebCutExtensionPack>;
+
+    /** 内存缓存，用于存储一些临时数据，而且需要注意，使用markRaw标记，避免vue对其进行响应式处理 */
+    memory: Record<string, any>;
 };
+
+export interface WebCutExtensionPack {
+    /** 素材配置 */
+    materialConfig?: {
+        /** 在素材库中进行注册 */
+        name: string;
+        /** 素材库顶部、规定左侧显示的图标 */
+        icon: Component;
+        /** 显示名 */
+        displayName: string;
+        /** 素材类型，用于在push到canvas中时用来进行判断的标识 */
+        materialType: WebCutMaterialType;
+        /**
+         * 资源类型，用于控制rail中应该保持同一素材
+         * 需要注意，一种thingType，只能被注册一次，且不可以注册内置的4种type
+         */
+        thingType: WebCutThingType;
+        /** 素材库组件 */
+        libraryComponent: Component;
+    };
+    /** 素材库配置 */
+    libraryConfig?: {
+        /** 在素材库中注册新的导航项 */
+        navs: {
+            /** 目标素材，可以是自定义的素材 */
+            targetThing: WebCutThingType;
+            /** 插入位置 */
+            insertBeforeIndex: number;
+            key: string;
+            label: string;
+            component: Component;
+        }[];
+    };
+    /** 轨道管理器配置 */
+    managerConfig?: {
+        /** 是否满足条件，在manager中使用本模块 */
+        is: (rail: WebCutRail) => boolean;
+        /** 轨道高度，根据类型不同而不同 */
+        height?: number;
+        segment?: {
+            /** 是否禁用时间轴调整 */
+            disableChangeTiming?: boolean;
+            component?: Component;
+        },
+        aside?: {
+            component?: Component;
+            // 是否开启下面这些功能，默认不开启
+            lock?: boolean;
+            hide?: boolean;
+            mute?: boolean;
+        },
+    };
+    /** 右侧编辑面板 */
+    panelConfig?: {
+        tabs?: {
+            key: string;
+            label: string;
+            component: Component;
+        }[];
+    };
+    /** 语言包 */
+    languagePackages?: Record<string, Record<string, string>>;
+    /** 初始化模块 */
+    onRegister?(context: WebCutContext): Promise<void>;
+    /** 素材被push到轨道上时调用 */
+    onPush?(source: WebCutSource): Promise<void>;
+    /** 在push新轨道时，对轨道排序进行二次处理 */
+    onSortRails?(rails: WebCutRail[]): WebCutRail[];
+}
 
 export type WebCutHighlightOfText = {
     id: string;
@@ -108,7 +189,7 @@ export type WebCutSegment = {
 
 export type WebCutRail = {
     id: string;
-    type: WebCutMaterialType;
+    type: WebCutThingType;
     segments: WebCutSegment[];
     /** 轨道上的转场效果列表 */
     transitions: WebCutTransitionData[];
@@ -118,20 +199,24 @@ export type WebCutRail = {
     [key: string]: any;
 };
 
-// 素材类型定义
+/**
+ * 素材类型主要指被push到avcanvas中的素材类型，目前仅支持视频、音频、图片、文本
+ * 对象类型是我们用来进行管理的一种类型，用于区分不同的对象，它的作用主要有：
+ * 1. rail拥有thingType（rail.type)，用于判断素材是否可以被push到轨道上，在素材从一个rail移动到另外一个rail上时，作为判断依据
+ * 2. source.meta.thingType，用于记录segment的thingType
+ */
+// 素材类型
 export type WebCutMaterialType = 'video' | 'audio' | 'image' | 'text';
+// 对象类型
+export type WebCutThingType = string;
 
 export interface WebCutMaterial {
-  id: string;
-  name: string;
-  type: WebCutMaterialType;
-  url: string;
-  size: number;
-  duration?: number; // 视频和音频的时长
-  width?: number; // 图片和视频的宽度
-  height?: number; // 图片和视频的高度
-  createdAt: number;
-  updatedAt: number;
+    id: string;
+    type: string; // 文件的mimetype
+    name: string;
+    size: number;
+    time: number;
+    tags?: string[]; // 对素材打标签，同一type下的素材可以根据标签进行分类。兼容老版本的数据。
 };
 
 // -----------------------------------------------------------
@@ -197,6 +282,17 @@ export type WebCutAnimationKeyframeConfig = Partial<Record<`${number}%` | 'from'
     scale?: number;
     /** 相对于当前angle的旋转角度 */
     rotate?: number;
+
+    /** 绝对位置x */
+    x?: number;
+    /** 绝对位置y */
+    y?: number;
+    /** 宽度 */
+    w?: number;
+    /** 高度 */
+    h?: number;
+    /** 角度 */
+    angle?: number;
     /** 透明度 */
     opacity?: number;
 }>>;
@@ -218,9 +314,11 @@ export interface WebCutAnimationData {
     /** 动画名称，preset id */
     name: string;
     /** 动画类型 */
-    type: WebCutAnimationType;
+    type: WebCutAnimationType | string;
     /** 动画参数 */
     params: WebCutAnimationParams;
+    /** 动画关键帧 */
+    keyframe: WebCutAnimationKeyframe;
 }
 
 // -----------------------------------------------------------
@@ -232,8 +330,9 @@ export interface WebCutAnimationData {
  * 因为animation会实时调整sprite的属性值，而元数据则保存了不考虑animation下的初始值，
  * 切换任意的animation都是在初始值的基础上进行叠加，而非在上一个animation的值的基础上叠加
  */
-export type WebCutMaterialMeta = {
+export type WebCutSourceMeta = {
     id?: string;
+    thingType?: WebCutThingType;
 
     /** 素材的位置信息 */
     rect?: Partial<{
@@ -254,6 +353,8 @@ export type WebCutMaterialMeta = {
         start?: number;
         /** 在时间轴中的持续时间 */
         duration?: number;
+        /** 原始素材时长（不考虑播放速度），用于计算实际显示时长 */
+        originalDuration?: number;
         /** 播放速率，1为正常速率，0.5为半速，2为双倍速 */
         playbackRate?: number;
     },
@@ -290,7 +391,7 @@ export type WebCutMaterialMeta = {
 
 export type WebCutSource = {
     key: string;
-    type: WebCutMaterialType;
+    type: WebCutMaterialType; // 注意这里，source.type是素材的类型，不是thingType，thingType要到meta中取
     clip: MP4Clip | ImgClip | AudioClip;
     sprite: VisibleSprite;
     text?: string;
@@ -299,7 +400,7 @@ export type WebCutSource = {
     railId: string;
     segmentId?: string;
     transationId?: string;
-    meta: WebCutMaterialMeta;
+    meta: WebCutSourceMeta;
 };
 
 // 将source数据化，用于存储到db
@@ -373,4 +474,15 @@ export interface WebCutColors {
     managerTopBarColorDark: string,
     closeIconColor: string,
     closeIconColorDark: string,
+}
+
+export interface WebCutProjectData {
+    id: string;
+    name: string;
+    files: WebCutProjectFile[];
+}
+
+export interface WebCutProjectFile {
+    id: string;
+    time: number;
 }

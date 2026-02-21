@@ -10,13 +10,17 @@ import {
 } from 'naive-ui';
 import { WebCutExportVideoParams, WebCutExportAudioParams } from './types';
 import { useWebCutContext, useWebCutPlayer } from '../../hooks';
-import { useT } from '../../hooks/i18n';
+import { useT } from '../../i18n/hooks';
 import { aspectRatioMap, aspectRatio720PMap, aspectRatio480PMap, aspectRatio360PMap } from '../../constants';
 import { calcAspectRatio, resampleAudioWithOfflineContext, saveAsFile } from '../../libs';
 
 const t = useT();
 const { fps, canvas, width, height } = useWebCutContext();
 const { exportAsWavBlob } = useWebCutPlayer();
+
+const emit = defineEmits<{
+    (e: 'export-success'): void;
+}>();
 
 const isExporting = ref(false);
 const exportMessage = ref('');
@@ -37,6 +41,8 @@ const audioData = ref<WebCutExportAudioParams>({
     bitrate: 128000,
     sampleRate: 48000,
 });
+
+const autoClose = ref(true);
 
 const codecOptions = computed(() => {
     if (exportType.value === 'video' && videoData.value.format === 'mp4') {
@@ -85,6 +91,9 @@ async function handleExport() {
         // 导出成功
         exportStatus.value = 'success';
         exportMessage.value = t('导出完成！');
+        if (autoClose.value) {
+            emit('export-success');
+        }
     }
     catch (error) {
         console.error('Export failed:', error);
@@ -125,7 +134,6 @@ async function exportWebM() {
         recorder.ondataavailable = (event) => {
             if (event.data.size > 0) {
                 chunks.push(event.data);
-                console.log('收到数据块:', event.data.size, 'bytes');
             }
         };
 
@@ -254,7 +262,7 @@ function calcVideoSize() {
                     <n-select v-model:value="videoData.codec" :options="codecOptions" size="tiny" />
                 </n-form-item>
 
-                <n-form-item :label="t('包含音频')" :feedback="t('关闭时将导出无声音的视频')" v-if="videoData.format === 'mp4'">
+                <n-form-item :label="t('包含音频')" :feedback="videoData.audio ? undefined : t('关闭时将导出无声音的视频')" v-if="videoData.format === 'mp4'">
                     <n-switch v-model:value="videoData.audio" />
                 </n-form-item>
 
@@ -298,6 +306,10 @@ function calcVideoSize() {
             </section>
 
             <n-divider style="margin-top: 0"></n-divider>
+
+            <n-form-item :label="t('导出完成后自动关闭')">
+                <n-switch v-model:value="autoClose" />
+            </n-form-item>
 
             <div class="webcut-export-form-buttons">
                 <n-button type="primary" @click="handleExport" :loading="isExporting" :disabled="isExporting">

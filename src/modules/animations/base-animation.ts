@@ -8,17 +8,21 @@ import { autoFitRect } from '../../libs';
 export abstract class WebCutBaseAnimation {
     abstract name: string;
     abstract title: string;
-    abstract type: WebCutAnimationType;
-    abstract defaultKeyframe: WebCutAnimationKeyframeConfig;
+    abstract type: WebCutAnimationType | string;
     abstract defaultParams: WebCutAnimationParams;
+
+    defineKeyframe(_currentState: WebCutAnimationKeyframe[keyof WebCutAnimationKeyframe], _canvasSize: { width: number; height: number }, _params: WebCutAnimationParams): WebCutAnimationKeyframeConfig {
+        throw new Error(`Animation.defineKeyframe not implemented.`);
+    }
 
     /**
      * 计算关键帧数据
      * @param currentState 当前需要用于计算的对象数据
      * @param canvasSize 画布尺寸
+     * @param params 动画参数
      * @returns 计算后的关键帧数据
      */
-    calcKeyframe(currentState: WebCutAnimationKeyframe[keyof WebCutAnimationKeyframe], canvasSize: { width: number; height: number }): WebCutAnimationKeyframe {
+    calcKeyframe(currentState: WebCutAnimationKeyframe[keyof WebCutAnimationKeyframe], canvasSize: { width: number; height: number }, params: WebCutAnimationParams): WebCutAnimationKeyframe {
         const canvasWidth = canvasSize.width;
         const canvasHeight = canvasSize.height;
         const {
@@ -31,9 +35,14 @@ export abstract class WebCutBaseAnimation {
         } = currentState!;
 
         const keyframe: WebCutAnimationKeyframe = {};
+        const keyframeConfig = this.defineKeyframe(currentState, canvasSize, params);
 
-        each(this.defaultKeyframe, (conf: WebCutAnimationKeyframeConfig[keyof WebCutAnimationKeyframeConfig], key) => {
-            const { offsetX, offsetY, scale, rotate, opacity } = conf || {};
+        each(keyframeConfig, (conf: WebCutAnimationKeyframeConfig[keyof WebCutAnimationKeyframeConfig], key) => {
+            const {
+                offsetX, offsetY, scale, rotate,
+                x, y, w, h, angle, opacity
+            } = conf || {};
+
             const data = keyframe[key] = {
                 x: currentX,
                 y: currentY,
@@ -42,7 +51,11 @@ export abstract class WebCutBaseAnimation {
                 angle: currentAngle,
                 opacity: currentOpacity,
             };
-            if (offsetX) {
+
+            if (typeof x === 'number') {
+                data.x = x;
+            }
+            else if (offsetX) {
                 if (Number.isFinite(offsetX)) {
                     data.x = currentX! + offsetX;
                 }
@@ -55,7 +68,11 @@ export abstract class WebCutBaseAnimation {
                     data.x = -currentW! - 10;
                 }
             }
-            if (offsetY) {
+
+            if (typeof y === 'number') {
+                data.y = y;
+            }
+            else if (offsetY) {
                 if (Number.isFinite(offsetY)) {
                     data.y = currentY! + offsetY;
                 }
@@ -68,6 +85,17 @@ export abstract class WebCutBaseAnimation {
                     data.y = -currentH! - 10;
                 }
             }
+
+            if (typeof w === 'number' && w >= 0) {
+                // @ts-ignore
+                data.w = w;
+            }
+            if (typeof h === 'number' && h >= 0) {
+                // @ts-ignore
+                data.h = h;
+            }
+
+            // 对于通过scale来放大缩小
             if (typeof scale === 'number' && scale >= 0) {
                 // @ts-ignore
                 data.w = currentW * scale;
@@ -79,11 +107,16 @@ export abstract class WebCutBaseAnimation {
                 data.y = info.y;
                 // TODO 缩放时，是否要处理 offsetX, offsetY ？
             }
-            if (typeof rotate === 'number' && rotate !== 0) {
+
+            if (typeof angle === 'number') {
+                data.angle = angle;
+            }
+            else if (typeof rotate === 'number' && rotate !== 0) {
                 // rotate为deg，我们需要转为rad
                 // @ts-ignore
                 data.angle = rotate * Math.PI / 180;
             }
+
             if (typeof opacity === 'number' && opacity >= 0 && opacity < 1) {
                 // @ts-ignore
                 data.opacity = opacity;
@@ -95,25 +128,32 @@ export abstract class WebCutBaseAnimation {
     /**
      * 处理动画参数
      * @param params 动画参数
-     * @param maxDuration 动画能够在画布中执行的最长时间（一般指segment的长度）
+     * @param animationDuration 动画执行总时长（一般指segment的长度），基于该值可以计算迭代次数
      * @returns 处理后的动画参数
      */
-    processParams(params: WebCutAnimationParams, maxDuration: number): WebCutAnimationParams {
-        let { duration = 2e6, delay = 0, iterCount = 1 } = params;
+    processParams(params: WebCutAnimationParams, animationDuration: number): WebCutAnimationParams {
+        let {
+            duration = this.defaultParams.duration,
+            delay = this.defaultParams.delay,
+            iterCount = this.defaultParams.iterCount,
+        } = params;
+
+        // @DEPRECATED 不能做这个限制，否则会导致素材时长短时，动画跑的飞快
         // 动画时长不能超过segment时长
-        duration = Math.min(duration || this.defaultParams.duration || 0, maxDuration);
+        // duration = Math.min(duration, animationDuration);
 
         // 出场入场只能执行1次
         if (this.type === WebCutAnimationType.Enter || this.type === WebCutAnimationType.Exit) {
             iterCount = 1;
         }
-        else if (this.type === WebCutAnimationType.Motion && !iterCount) {
-            iterCount = this.defaultParams.iterCount || Math.ceil(maxDuration / duration);
+        // 前端不会主动去调整iterCount，因此，我们直接从defaultParams中去判断是否为持续动画
+        else if (!this.defaultParams.iterCount) {
+            iterCount = Math.ceil(animationDuration / duration);
         }
 
         // 对于出场，要让动画在segment结束时结束，通过延迟执行来实现
         if (this.type === WebCutAnimationType.Exit) {
-            delay = maxDuration - duration;
+            delay = animationDuration - duration;
         }
 
         return { duration, delay, iterCount };

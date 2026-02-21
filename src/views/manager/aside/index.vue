@@ -4,13 +4,43 @@ import { Video, Music, Image, StringText, Locked, Unlocked, View, ViewOff, Volum
 import { useWebCutContext } from '../../../hooks';
 import { useWebCutManager } from '../../../hooks/manager';
 import { WebCutRail } from '../../../types';
+import { computed } from 'vue';
 
-defineProps<{
+const props = defineProps<{
     rail: WebCutRail
 }>();
 
-const { rails, sources, current, canvas, selected } = useWebCutContext();
+const { rails, sources, current, canvas, selected, findRailExtensionPack } = useWebCutContext();
 const { toggleRailHidden, toggleRailMute } = useWebCutManager();
+const railExtensionPack = computed(() => findRailExtensionPack(props.rail));
+const icon = computed(() => {
+    if (railExtensionPack.value?.materialConfig) {
+        return railExtensionPack.value.materialConfig?.icon;
+    }
+    const map = {
+        video: Video,
+        audio: Music,
+        image: Image,
+        text: StringText,
+    };
+    // @ts-ignore
+    return map[props.rail.type];
+});
+const enabledFeatures = computed(() => {
+    if (railExtensionPack.value) {
+        const { lock, hide, mute } = !!railExtensionPack.value.managerConfig?.aside || {} as any;
+        return {
+            lock,
+            hide,
+            mute,
+        };
+    }
+    return {
+        lock: true,
+        hide: true,
+        mute: true,
+    };
+});
 
 function handleToggleLocked(rail: any) {
     const next = !rail.locked;
@@ -49,24 +79,21 @@ function handleDeleteRail(railId: string) {
 <template>
     <div class="webcut-manager-webcut-manager-rail-left-side">
         <span class="webcut-manager-webcut-manager-rail-left-side-type-icon" :class="{'webcut-manager-webcut-manager-rail-left-side-main-icon': rail.main }">
-            <n-icon :component="Video" v-if="rail.type === 'video'"></n-icon>
-            <n-icon :component="Music" v-if="rail.type === 'audio'"></n-icon>
-            <n-icon :component="Image" v-if="rail.type === 'image'"></n-icon>
-            <n-icon :component="StringText" v-if="rail.type === 'text'"></n-icon>
+            <n-icon :component="icon" v-if="icon"></n-icon>
         </span>
         <span class="webcut-manager-webcut-manager-rail-left-side-action-icon">
-            <n-icon :component="Unlocked" @click="handleToggleLocked(rail)" v-if="!rail.locked"></n-icon>
-            <n-icon :component="Locked" @click="handleToggleLocked(rail)" v-if="rail.locked"></n-icon>
+            <n-icon :component="Unlocked" @click="handleToggleLocked(rail)" v-if="enabledFeatures.lock && !rail.locked"></n-icon>
+            <n-icon :component="Locked" @click="handleToggleLocked(rail)" v-if="enabledFeatures.lock && rail.locked"></n-icon>
         </span>
         <span class="webcut-manager-webcut-manager-rail-left-side-action-icon">
-            <n-icon :component="View" @click="toggleRailHidden(rail)" v-if="!rail.hidden && !['audio'].includes(rail.type)"></n-icon>
-            <n-icon :component="ViewOff" @click="toggleRailHidden(rail)" v-if="rail.hidden && !['audio'].includes(rail.type)"></n-icon>
+            <n-icon :component="View" @click="toggleRailHidden(rail)" v-if="enabledFeatures.hide && !rail.hidden && !['audio'].includes(rail.type)"></n-icon>
+            <n-icon :component="ViewOff" @click="toggleRailHidden(rail)" v-if="enabledFeatures.hide && rail.hidden && !['audio'].includes(rail.type)"></n-icon>
         </span>
         <span class="webcut-manager-webcut-manager-rail-left-side-action-icon">
-            <n-icon :component="VolumeUp" @click="toggleRailMute(rail)" v-if="!rail.mute && ['video'].includes(rail.type)"></n-icon>
-            <n-icon :component="VolumeMute" @click="toggleRailMute(rail)" v-if="rail.mute && ['video'].includes(rail.type)"></n-icon>
-            <n-icon :component="VolumeUp" @click="toggleRailHidden(rail)" v-if="!rail.hidden && ['audio'].includes(rail.type)"></n-icon>
-            <n-icon :component="VolumeMute" @click="toggleRailHidden(rail)" v-if="rail.hidden && ['audio'].includes(rail.type)"></n-icon>
+            <n-icon :component="VolumeUp" @click="toggleRailMute(rail)" v-if="enabledFeatures.mute && !rail.mute && ['video'].includes(rail.type)"></n-icon>
+            <n-icon :component="VolumeMute" @click="toggleRailMute(rail)" v-if="enabledFeatures.mute && rail.mute && ['video'].includes(rail.type)"></n-icon>
+            <n-icon :component="VolumeUp" @click="toggleRailHidden(rail)" v-if="enabledFeatures.mute && !rail.hidden && ['audio'].includes(rail.type)"></n-icon>
+            <n-icon :component="VolumeMute" @click="toggleRailHidden(rail)" v-if="enabledFeatures.mute && rail.hidden && ['audio'].includes(rail.type)"></n-icon>
         </span>
         <span class="webcut-manager-webcut-manager-rail-left-side-action-icon" :class="{ 'webcut-manager-webcut-manager-rail-left-side-action-icon--disabled': rail.segments.length > 0 }">
             <n-icon :component="Delete" @click="rail.segments.length === 0 &&handleDeleteRail(rail.id)"></n-icon>

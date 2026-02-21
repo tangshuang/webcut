@@ -1,0 +1,140 @@
+<!-- ffmpeg-iframe.html - 需要设置跨域头 -->
+<!DOCTYPE html>
+<title>FFmpeg</title>
+<script type="module">
+import { FFmpeg } from './ffmpeg.js';
+import { fetchFile, toBlobURL } from './ffmpeg-util.js';
+
+const ffmpeg = new FFmpeg();
+
+let isLoaded = -1; // -1: not loaded, 0: loading, 1: loaded
+let setReady;
+const isFFmpegReady = new Promise((resolve) => {
+    setReady = resolve;
+});
+
+/**
+ * Load FFmpeg. 注意，使用本函数加载ffmpeg后，禁止调用 ffmpeg.terminate 方法，否则无法再次加载
+ * @param onLog
+ * @returns
+ */
+async function loadFFmpeg(onLog) {
+    if (onLog) {
+        ffmpeg.on('log', onLog);
+        ffmpeg.on('progress', onLog);
+    }
+
+    const unlisten = () => {
+        if (onLog) {
+            ffmpeg.off('log', onLog);
+            ffmpeg.off('progress', onLog);
+        }
+    };
+
+    if (isLoaded === 1) {
+        unlisten();
+        return await isFFmpegReady;
+    }
+
+    if (isLoaded === 0) {
+        unlisten();
+        return await isFFmpegReady;
+    }
+
+    isLoaded = 0;
+    try {
+        const sources = {
+            coreURL: `./ffmpeg-core.js`,
+            wasmURL: `./ffmpeg-core.wasm`,
+        };
+        await ffmpeg.load(sources);
+        isLoaded = 1;
+        setReady(ffmpeg);
+        console.debug('-> [FFmpeg] loaded');
+        return ffmpeg;
+    }
+    catch (e) {
+        isLoaded = -1;
+        console.debug('-> [FFmpeg] load failed:' + e.message);
+        window.postMessage(e);
+    }
+    finally {
+        unlisten();
+    }
+}
+
+loadFFmpeg();
+
+/**
+ * @type {{
+ *   file: ArrayBuff;
+ *   command: string[];
+ *   isExecuting: boolean;
+ * }}
+ */
+let execMeta = {};
+// 接收主页面消息
+window.addEventListener('message', async (e) => {
+    const data = e.data;
+    if (!data) {
+        return;
+    }
+    
+    // 注意，这里不仅接收到来自window的消息，还可能接收到来自worker的消息
+    if (data instanceof File) {
+        execMeta.file = data;
+    }
+    else if (typeof data === 'string') {
+        try {
+            const command = JSON.parse(data);
+            if (Array.isArray(command)) {
+                console.debug('-> [FFmpeg]: received command', command);
+                execMeta.command = command;
+            }
+        }
+        catch (e) {
+        }
+    }
+
+    consume();
+});
+
+async function consume() {
+    const { file, command, isExecuting } = execMeta;
+    if (!file || !command || isExecuting) {
+        return;
+    }
+
+    execMeta.isExecuting = true;
+
+    try {
+        // TODO 目前只支持一个输入和一个输出
+        const inputAt = command.indexOf('-i');
+        const filename = command[inputAt + 1];
+        const ffmpeg = await loadFFmpeg();
+        ffmpeg.on('log', (log) => {
+            window.postMessage(JSON.stringify(log));
+            if (log.type === 'stderr' && log.message === 'Aborted()') {
+                console.debug('-> [FFmpeg] aborted');
+                const error = new Error('FFmpeg aborted');
+                window.postMessage('[Error] ' + error.message);
+            }
+        });
+        await ffmpeg.writeFile(filename, await fetchFile(file));
+        const result = await ffmpeg.exec(command);
+        if (!result) {
+            return;
+        }
+        const output = command[command.length - 1];
+        const data = await ffmpeg.readFile(output);
+        window.postMessage(data);
+        await ffmpeg.deleteFile(output);
+        await ffmpeg.deleteFile(filename);
+        execMeta = {};
+    }
+    catch (e) {
+        console.debug('-> [FFmpeg] exec failed:' + e.message);
+        window.postMessage('[Error] ' + e.message);
+    }
+}
+</script>

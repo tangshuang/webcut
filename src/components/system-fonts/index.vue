@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { NSelect, useMessage } from 'naive-ui';
+import { NSelect } from 'naive-ui';
 import { loadLocalFonts } from './utils';
 import { ref, h } from 'vue';
 import { asyncOf } from '../../libs/async';
+import { useWebCutToast } from '../../hooks/toast';
 
 const value = defineModel<any>('value', { required: true });
-const toast = useMessage();
+const toast = useWebCutToast();
 
 const loading = ref(false);
 const options = ref([]);

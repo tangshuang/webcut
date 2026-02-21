@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { NPopover, NButton, NIcon } from 'naive-ui';
 import { DirectLink } from '@vicons/carbon';
 import { useWebCutContext } from '../../../hooks';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { downloadOffscreen } from '../../../libs';
 import { AudioClip } from '@webav/av-cliper';
 

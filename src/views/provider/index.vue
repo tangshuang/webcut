@@ -17,7 +17,7 @@ import {
     GlobalThemeOverrides,
 } from 'naive-ui';
 import { computed, inject, provide } from 'vue';
-import { useWebCutLocale } from '../../hooks/i18n';
+import { useWebCutLocale } from '../../i18n/hooks';
 import { createToastContext } from '../../hooks/toast';
 import ThemeBox from '../theme-box/index.vue';
 

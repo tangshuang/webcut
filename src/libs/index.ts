@@ -185,6 +185,7 @@ export function buildTextAsDOM({
         const txt = document.createElement(inline ? 'span' : 'pre');
         txt.innerHTML = html;
         txt.style.cssText = defaultCssText;
+        txt.classList.add('stroke-layer');
         container.appendChild(txt);
 
         // 当存在描边时，复制一份未描边的字，将其覆盖在有描边的字上面，以得到真正的描边效果
@@ -204,6 +205,7 @@ export function buildTextAsDOM({
             const cover = document.createElement(inline ? 'span' : 'pre');
             cover.innerHTML = html;
             cover.style.cssText = coverCssText;
+            cover.classList.add('cover-layer');
             container.appendChild(cover);
         }
 
@@ -318,7 +320,7 @@ export async function measureVideoSize(source: File | string) {
         url = URL.createObjectURL(source);
     }
     else if (source.startsWith('data:')) {
-        const file = base64ToFile(source, 'video.mp4', 'video/mp4');
+        const file = base64ToFile(source, 'video.mp4');
         url = URL.createObjectURL(file);
     }
     else {
@@ -372,7 +374,7 @@ export async function measureVideoDuration(source: File | string) {
         url = URL.createObjectURL(source);
     }
     else if (source.startsWith('data:')) {
-        const file = base64ToFile(source, 'video.mp4', 'video/mp4');
+        const file = base64ToFile(source, 'video.mp4');
         url = URL.createObjectURL(file);
     }
     else {
@@ -406,7 +408,7 @@ export async function measureAudioDuration(source: File | string) {
         url = URL.createObjectURL(source);
     }
     else if (source.startsWith('data:')) {
-        const file = base64ToFile(source, 'audio.mp3', 'audio/mpeg');
+        const file = base64ToFile(source, 'audio.mp3');
         url = URL.createObjectURL(file);
     }
     else {
@@ -430,16 +432,44 @@ export async function measureAudioDuration(source: File | string) {
 }
 
 /**
- * 测量文本尺寸
+ * 测量文本尺寸（同步版本，用于编辑时实时测量）
  * @param text
  * @param css
  * @returns
  */
-export async function measureTextSize(text: string, css: Record<string, any>, highlights?: WebCutHighlightOfText[]): Promise<{ height: number; width: number }> {
-    const bitmap = await renderTxt2ImgBitmap(text, css, highlights);
-    const { height, width } = bitmap;
+export function measureTextSize(text: string, css: Record<string, any>, highlights?: WebCutHighlightOfText[]): { height: number; width: number } {
+    const container = buildTextAsDOM({ text, css, highlights });
+    container.style.visibility = 'hidden';
+    document.body.appendChild(container);
+    
+    const { width, top, bottom } = container.getBoundingClientRect();
+    const children = container.querySelectorAll('*');
+    let minTop = top, maxBottom = bottom;
+    children.forEach((child) => {
+        if (child.classList.contains('background-block')) {
+            return;
+        }
+        const { top, bottom } = child.getBoundingClientRect();
+        minTop = Math.min(top, minTop);
+        maxBottom = Math.max(bottom, maxBottom);
+    });
+    const height = maxBottom - minTop;
+    
+    container.remove();
     return { height, width };
 }
+
+// /**
+//  * 测量文本尺寸
+//  * @param text
+//  * @param css
+//  * @returns
+//  */
+// export async function measureTextSizeAsync(text: string, css: Record<string, any>, highlights?: WebCutHighlightOfText[]): Promise<{ height: number; width: number }> {
+//     const bitmap = await renderTxt2ImgBitmap(text, css, highlights);
+//     const { height, width } = bitmap;
+//     return { height, width };
+// }
 
 
 /**

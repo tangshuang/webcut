@@ -2,53 +2,21 @@
 import { computed } from 'vue';
 import { NDropdown, NButton, NIcon } from 'naive-ui';
 import { Translate } from '@vicons/carbon';
-import { useWebCutLocale } from '../../hooks/i18n';
+import { useWebCutLocale } from '../../i18n/hooks';
+import { languageLabelMap, supportedLanguages } from '../../i18n/core';
 
 const { locale } = useWebCutLocale();
 
 // 语言选项
-const languageOptions = computed(() => [
-  {
-    label: '中文（简体）',
-    key: 'zh-CN',
-    disabled: locale.value === 'zh-CN' || locale.value === 'zh',
-  },
-  {
-    label: 'English',
-    key: 'en-US',
-    disabled: locale.value === 'en-US' || locale.value === 'en',
-  },
-  {
-    label: 'Français',
-    key: 'fr-FR',
-    disabled: locale.value === 'fr-FR' || locale.value === 'fr',
-  },
-  {
-    label: '日本語',
-    key: 'ja-JP',
-    disabled: locale.value === 'ja-JP' || locale.value === 'ja',
-  },
-  {
-    label: 'Deutsch',
-    key: 'de-DE',
-    disabled: locale.value === 'de-DE' || locale.value === 'de',
-  },
-  {
-    label: 'Español',
-    key: 'es-ES',
-    disabled: locale.value === 'es-ES' || locale.value === 'es',
-  },
-  {
-    label: '中文（香港）',
-    key: 'zh-HK',
-    disabled: locale.value === 'zh-HK',
-  },
-  {
-    label: '中文（台灣）',
-    key: 'zh-TW',
-    disabled: locale.value === 'zh-TW',
-  },
-]);
+const languageOptions = computed(() => supportedLanguages.map((key) => {
+  const lang = key.split('-')[0];
+  const label = languageLabelMap[key] || languageLabelMap[lang] || key;
+  return {
+    label,
+    key,
+    disabled: locale.value === key || locale.value === lang,
+  };
+}));
 
 // 当前语言显示文本
 const currentLanguageLabel = computed(() => {

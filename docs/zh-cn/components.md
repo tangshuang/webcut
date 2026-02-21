@@ -14,12 +14,22 @@
 - `WebCutManagerMainSegment` — 时间线片段主区域 (`src/views/manager/main/index.vue`)。
 - `WebCutManagerToolBar` — 时间线工具栏 (`src/views/manager/tool-bar/index.vue`)。
 - `WebCutLibrary` — 素材库（音频、图片、文本、视频）(`src/views/library/*`)。
-- `WebCutPanel`、`WebCutBasicPanel`、`WebCutTextPanel` — 编辑面板 (`src/views/panel/*`)。
+- `WebCutLibraryAside` — 素材库侧边栏 (`src/views/library/_shared/aside.vue`)。
+- `WebCutLibraryImport` — 素材库导入组件 (`src/views/library/_shared/import.vue`)。
+- `WebCutLibraryList` — 素材库列表组件 (`src/views/library/_shared/list.vue`)。
+- `WebCutLibraryContainer` — 素材库容器组件 (`src/views/library/_shared/container.vue`)。
+- `WebCutPanel`、`WebCutBasicPanel`、`WebCutTextPanel`、`WebCutAudioPanel`、`WebCutVideoPanel`、`WebCutFilterPanel`、`WebCutAnimationPanel` — 编辑面板 (`src/views/panel/*`)。
 - `WebCutSelectAspectRatio` — 画布比例选择器 (`src/views/select-aspect-ratio/index.vue`)。
 - `WebCutTimeClock` — 时间显示 (`src/views/time-clock/index.vue`)。
 - `WebCutThemeSwitch` — 暗色模式切换 (`src/views/theme-switch/index.vue`)。
+- `WebCutThemeBox` — 主题选择框 (`src/views/theme-box/index.vue`)。
 - `WebCutExportButton` — 导出按钮 (`src/views/export-button/index.vue`)。
+- `WebCutExport` — 高级导出组件 (`src/modules/advanced-export/index.vue`)。
+- `WebCutExportPanel` — 导出面板 (`src/modules/advanced-export/export-panel.vue`)。
+- `WebCutExportModal` — 导出模态框 (`src/modules/advanced-export/export-modal.vue`)。
 - `WebCutLangSwitch` — 语言切换 (`src/views/lang-switch/index.vue`)。
+- `WebCutLoading` — 加载提示组件 (`src/views/loading/index.vue`)。
+- `WebCutToast` — 消息提示组件 (`src/views/toast/index.vue`)。
 
 ## 片段组件
 
@@ -51,6 +61,8 @@
 
 ## 使用示例
 
+### 基本使用
+
 ```vue
 <script setup lang="ts">
 import { WebCutProvider, WebCutEditor, WebCutThemeSwitch } from 'webcut'
@@ -60,6 +72,83 @@ import { WebCutProvider, WebCutEditor, WebCutThemeSwitch } from 'webcut'
   <WebCutProvider>
     <WebCutThemeSwitch />
     <WebCutEditor :project-id="'project-1'" />
+  </WebCutProvider>
+</template>
+```
+
+### 高级使用
+
+```vue
+<script setup lang="ts">
+import { 
+  WebCutProvider, 
+  WebCutEditor, 
+  WebCutThemeSwitch,
+  WebCutLangSwitch,
+  WebCutExportButton,
+  WebCutToast,
+  WebCutLoading
+} from 'webcut'
+import { ref } from 'vue'
+
+const isLoading = ref(false)
+const showToast = ref(false)
+
+const handleExport = () => {
+  showToast.value = true
+}
+</script>
+
+<template>
+  <WebCutProvider>
+    <div class="toolbar">
+      <WebCutThemeSwitch />
+      <WebCutLangSwitch />
+      <WebCutExportButton @click="handleExport" />
+    </div>
+    <WebCutEditor :project-id="'project-1'" />
+    <WebCutLoading v-if="isLoading" />
+    <WebCutToast v-if="showToast" message="导出成功！" />
+  </WebCutProvider>
+</template>
+```
+
+### 自定义面板
+
+```vue
+<script setup lang="ts">
+import { 
+  WebCutProvider, 
+  WebCutEditor,
+  WebCutPanel,
+  WebCutBasicPanel,
+  WebCutTextPanel,
+  WebCutVideoPanel,
+  WebCutAudioPanel,
+  WebCutFilterPanel,
+  WebCutAnimationPanel
+} from 'webcut'
+import { computed } from 'vue'
+
+const selectedType = computed(() => {
+  // 根据选中的片段类型返回不同的面板
+  return 'video' // 可以是 'basic', 'text', 'video', 'audio', 'filter', 'animation'
+})
+</script>
+
+<template>
+  <WebCutProvider>
+    <div class="editor-layout">
+      <WebCutEditor :project-id="'project-1'" />
+      <WebCutPanel>
+        <WebCutBasicPanel v-if="selectedType === 'basic'" />
+        <WebCutTextPanel v-else-if="selectedType === 'text'" />
+        <WebCutVideoPanel v-else-if="selectedType === 'video'" />
+        <WebCutAudioPanel v-else-if="selectedType === 'audio'" />
+        <WebCutFilterPanel v-else-if="selectedType === 'filter'" />
+        <WebCutAnimationPanel v-else-if="selectedType === 'animation'" />
+      </WebCutPanel>
+    </div>
   </WebCutProvider>
 </template>
 ```

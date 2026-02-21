@@ -8,7 +8,12 @@ import { clone, isEqual } from 'ts-fns';
 const historyMachines = new Map<string, HistoryMachine>();
 
 export function useWebCutHistory() {
-    const { id: projectId, rails, sources, canUndo, canRedo, canRecover, canvas, selected, current, clips, sprites, updateByAspectRatio, loading } = useWebCutContext();
+    const {
+        id: projectId, rails, sources, canUndo, canRedo, canRecover, canvas, selected, current, clips, sprites,
+        updateByAspectRatio,
+        loading,
+        memory,
+    } = useWebCutContext();
     const { push: pushToPlayer } = useWebCutPlayer();
 
     // 创建历史记录管理器实例
@@ -23,6 +28,12 @@ export function useWebCutHistory() {
 
     // 初始化历史记录
     onMounted(async () => {
+        // 只允许执行一次
+        if (memory.value[`isHistoryInited(${projectId.value})`]) {
+            return;
+        }
+        memory.value[`isHistoryInited(${projectId.value})`] = true;
+
         const savedData = await historyMachine.init();
         await historyMachine.ready();
         if (savedData?.state) {

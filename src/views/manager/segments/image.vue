@@ -3,7 +3,7 @@ import { ImgClip } from '@webav/av-cliper';
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed } from 'vue';
 import { useWebCutContext } from '../../../hooks';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { useWebCutLocalFile } from '../../../hooks/local-file';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';

@@ -3,7 +3,7 @@ import { NIcon, NPopover, NButton } from 'naive-ui';
 import { FlipHorizontal16Regular } from '@vicons/fluent';
 import { useWebCutContext } from '../../../hooks';
 import { useWebCutHistory } from '../../../hooks/history';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { computed } from 'vue';
 
 const { currentSource } = useWebCutContext();

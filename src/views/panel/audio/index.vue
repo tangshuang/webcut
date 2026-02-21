@@ -2,7 +2,7 @@
 import { ref, watch, nextTick } from 'vue';
 import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { NForm, NFormItem, NSlider, NInputNumber, NAlert, NButton } from 'naive-ui';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 import { throttle } from 'ts-fns';
 

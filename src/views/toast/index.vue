@@ -49,27 +49,57 @@ const icon = computed(() => iconMap[state.type || 'info']);
     padding: 12px 20px;
     border-radius: 8px;
     font-size: 14px;
-    color: #333;
     min-width: 120px;
     max-width: 400px;
-    background-color: rgba(0, 0, 0, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: #fff;
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: #333;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .webcut-toast--dark {
+    background-color: rgba(0, 0, 0, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     color: #fff;
-}
-
-.webcut-toast--success,
-.webcut-toast--error {
-    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .webcut-toast__icon {
     font-size: 24px;
     font-weight: bold;
     flex-shrink: 0;
+}
+
+.webcut-toast--success .webcut-toast__icon {
+    color: #22c55e;
+}
+
+.webcut-toast--error .webcut-toast__icon {
+    color: #ef4444;
+}
+
+.webcut-toast--info .webcut-toast__icon {
+    color: #3b82f6;
+}
+
+.webcut-toast--loading .webcut-toast__icon {
+    color: #a855f7;
+}
+
+.webcut-toast--dark.webcut-toast--success .webcut-toast__icon {
+    color: #4ade80;
+}
+
+.webcut-toast--dark.webcut-toast--error .webcut-toast__icon {
+    color: #f87171;
+}
+
+.webcut-toast--dark.webcut-toast--info .webcut-toast__icon {
+    color: #60a5fa;
+}
+
+.webcut-toast--dark.webcut-toast--loading .webcut-toast__icon {
+    color: #c084fc;
 }
 
 .webcut-toast__message {

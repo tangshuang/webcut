@@ -3,7 +3,7 @@ import { MP4Clip } from '@webav/av-cliper';
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, ref, watch, onMounted, markRaw } from 'vue';
 import { useWebCutContext } from '../../../hooks';
-import { useT } from '../../../hooks/i18n';
+import { useT } from '../../../i18n/hooks';
 import { downloadBlob } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
@@ -28,7 +28,7 @@ const props = defineProps<{
     segments: WebCutSegment[]
 }>();
 
-const { sources, scale } = useWebCutContext();
+const { sources } = useWebCutContext();
 const { timeToPx, deleteSegment } = useWebCutManager();
 const { push: pushHistory } = useWebCutHistory();
 const scrollBox = useScrollBox();
@@ -40,9 +40,9 @@ const sourceImageWidth = ref(0);
 const sourceFrames = ref<{ ts: number; blob: Blob; offset: number }[]>([]);
 
 const source = computed(() => sources.value.get(props.segment.sourceKey));
+// 使用 segment.end - segment.start（响应式）来计算显示时长
 const totalDuration = computed(() => {
-    const { sprite } = source.value || {};
-    return sprite ? sprite.time.duration || 0 : 0;
+    return props.segment.end - props.segment.start;
 });
 // 容器的总宽度
 const totalWidth = computed(() => {
@@ -53,7 +53,12 @@ const audioF32 = ref();
 
 watch(source, initThumbnailsAndAudioWave, { immediate: true });
 
-watch(scale, updateThumbnails);
+// 监听总宽度变化（由播放速度或缩放比例变化引起），更新缩略图位置
+watch(totalWidth, () => {
+    if (sourceFrames.value.length) {
+        updateThumbnails();
+    }
+});
 
 const createImgUrl = (imgBlob: Blob) => {
     const url = URL.createObjectURL(imgBlob);
@@ -71,7 +76,7 @@ async function initThumbnailsAndAudioWave() {
         if (!source.value) {
             return;
         }
-        const { clip, sprite } = source.value;
+        const { clip, sprite, meta } = source.value;
         if (!clip) {
             return;
         }
@@ -79,8 +84,10 @@ async function initThumbnailsAndAudioWave() {
         await clip.ready;
         await sprite.ready;
 
-        const dur = sprite.time.duration;
-        const totalWidth = timeToPx(dur);
+        // 使用原始素材时长来计算帧的 offset 比例
+        const originalDur = meta.time?.originalDuration || sprite.time.duration;
+        const displayDur = sprite.time.duration;
+        const totalWidth = timeToPx(displayDur);
 
         // 算出每张图片在轨道中的实际宽度
         const originalWidth = clip.meta.width || 0;
@@ -101,7 +108,8 @@ async function initThumbnailsAndAudioWave() {
                 format: 'jpeg'
             });
 
-            const offset = ts / dur;
+            // 使用原始素材时长计算 offset，这样在 playbackRate 变化时只需要重新计算位置
+            const offset = ts / originalDur;
             const frame = {
                 ts,
                 blob: imgBlob,
@@ -335,7 +343,6 @@ function calcImgWidth(thumb: { left: number }, index: number) {
 .webcut-video-segment-bottom {
     width: 100%;
     height: var(--audio-wave-height);
-    width: var(--segment-total-width);
     position: absolute;
     left: 0;
     bottom: 0;

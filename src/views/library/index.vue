@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { NTabs, NTabPane, NIcon } from 'naive-ui';
 import {
   VideoClip16Filled,
@@ -8,29 +8,45 @@ import {
   TextField24Regular,
   VideoSwitch24Filled
 } from '@vicons/fluent';
-import { WebCutMaterialType } from '../../types';
-import { useT } from '../../hooks/i18n';
+import { WebCutExtensionPack, WebCutThingType } from '../../types';
+import { useT, useWebCutLocale } from '../../i18n/hooks';
+import { useWebCutContext } from '../../hooks';
 
 // 导入素材面板组件
-import VideoPanel from './video.vue';
-import AudioPanel from './audio.vue';
-import ImagePanel from './image.vue';
-import TextPanel from './text.vue';
-import TransitionPanel from './transition.vue';
+import VideoPanel from './video/index.vue';
+import AudioPanel from './audio/index.vue';
+import ImagePanel from './image/index.vue';
+import TextPanel from './text/index.vue';
+import TransitionPanel from './transition/index.vue';
 
 // 当前激活的 tab
 const activeTab = ref<string>('video');
 const t = useT();
+const { modules } = useWebCutContext();
+const tabsRef = ref();
+const { locale } = useWebCutLocale();
+
+const libModConfs = computed<NonNullable<WebCutExtensionPack['materialConfig']>[]>(() => {
+  return [...modules.value.values()].filter((item) => item.materialConfig).map(item => item.materialConfig) as any;
+});
+
+watch(locale, () => {
+  if (tabsRef.value) {
+    setTimeout(() => {
+      tabsRef.value.syncBarPosition();
+    }, 100);
+  }
+});
 
 // 处理 tab 切换
 const handleTabChange = (key: string) => {
-  activeTab.value = key as WebCutMaterialType;
+  activeTab.value = key as WebCutThingType;
 };
 </script>
 
 <template>
   <div class="webcut-library">
-    <n-tabs v-model:active-key="activeTab" @update:active-key="handleTabChange" :tabs-padding="8" size="small" type="line" class="webcut-library-tabs">
+    <n-tabs v-model:active-key="activeTab" @update:active-key="handleTabChange" :tabs-padding="8" size="small" type="line" class="webcut-library-tabs" ref="tabsRef">
       <n-tab-pane name="video">
         <template #tab>
             <div class="webcut-library-tab">
@@ -75,6 +91,15 @@ const handleTabChange = (key: string) => {
             </div>
         </template>
         <TransitionPanel />
+      </n-tab-pane>
+      <n-tab-pane v-for="cfg in libModConfs" :key="cfg.name" :name="cfg.name">
+        <template #tab>
+            <div class="webcut-library-tab">
+                <n-icon :component="cfg.icon"></n-icon>
+                <span>{{ t(cfg.displayName) }}</span>
+            </div>
+        </template>
+        <component :is="cfg.libraryComponent" />
       </n-tab-pane>
     </n-tabs>
   </div>

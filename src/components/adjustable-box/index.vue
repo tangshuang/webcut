@@ -17,6 +17,8 @@ const props = defineProps<{
     canMoveRight?: (e: any) => boolean;
     canMove?: (e: any) => boolean;
     disabled?: boolean;
+    /** 是否支持刻度级别的调整 */
+    enableTickAdjust?: boolean;
 }>();
 
 function canMoveMiddle(e: any) {
@@ -225,7 +227,7 @@ function handleMiddleMoveEnd(e: DragEventData) {
             :can-move="props.canMoveLeft"
             v-if="!props.disabled"
         >
-            <n-icon size="12px" class="webcut-adjustable-box-handler-icon" @mousedown.capture.stop @mouseup.capture.stop="handleLeftClick"><ChevronLeft /></n-icon>
+            <n-icon size="12px" class="webcut-adjustable-box-handler-icon" @mousedown.capture.stop @mouseup.capture.stop="handleLeftClick" v-if="enableTickAdjust"><ChevronLeft /></n-icon>
         </Handler>
         <Handler
             class="webcut-adjustable-box-handler webcut-adjustable-box-handler--middle"
@@ -246,7 +248,7 @@ function handleMiddleMoveEnd(e: DragEventData) {
             :can-move="props.canMoveRight"
             v-if="!props.disabled"
         >
-            <n-icon size="12px" class="webcut-adjustable-box-handler-icon" @mousedown.capture.stop @mouseup.capture.stop="handleRightClick"><ChevronRight /></n-icon>
+            <n-icon size="12px" class="webcut-adjustable-box-handler-icon" @mousedown.capture.stop @mouseup.capture.stop="handleRightClick" v-if="enableTickAdjust"><ChevronRight /></n-icon>
         </Handler>
     </div>
 </template>
@@ -283,7 +285,7 @@ function handleMiddleMoveEnd(e: DragEventData) {
         left: 0;
         right: 0;
         width: 100%;
-        background-color: transparent;
+        background-color: transparent !important;
         z-index: 1;
         cursor: default;
     }

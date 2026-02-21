@@ -41,6 +41,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@vicons/carbon": "^0.13.0",
     "@vicons/fluent": "^0.13.0",
     "@webav/av-canvas": "^1.2.7",

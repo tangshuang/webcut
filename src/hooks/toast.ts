@@ -133,6 +133,6 @@ export function createToastContext() {
         info,
         loading,
         // Provide function to re-provide in nested components if needed
-        provide: () => provide(TOAST_INJECTION_KEY, { state: readonly(state), show, hide, success, error, info }),
+        provide: () => provide(TOAST_INJECTION_KEY, { state: readonly(state), show, hide, success, error, info, loading }),
     };
 }
