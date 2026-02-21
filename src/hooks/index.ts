@@ -291,6 +291,7 @@ export function useWebCutPlayer() {
         currentSource,
         loading,
         modules,
+        updateDuration,
     } = refs;
 
     const opts = {
@@ -757,6 +758,16 @@ export function useWebCutPlayer() {
             }
             else {
                 spr.time.duration = 2 * 1e6;
+            }
+
+            // 存储原始素材时长（用于播放速度调整时计算新的显示时长）
+            segMeta.time = segMeta.time || {};
+            segMeta.time.originalDuration = spr.time.duration;
+
+            // 如果有播放速度设置，需要调整显示时长
+            if (typeof meta.time?.playbackRate === 'number' && meta.time.playbackRate !== 1) {
+                spr.time.duration = Math.round(spr.time.duration / meta.time.playbackRate);
+                segMeta.time.duration = spr.time.duration;
             }
 
             // 处理其他信息
@@ -1318,8 +1329,9 @@ export function useWebCutPlayer() {
         animation?: WebCutAnimationData,
         audio?: { volume?: number },
         video?: { volume?: number },
+        time?: { playbackRate?: number },
     }) {
-        const { rect, opacity, filters, animation, audio, video } = data;
+        const { rect, opacity, filters, animation, audio, video, time } = data;
         if (rect) {
             Object.assign(source.sprite.rect, rect);
             source.meta.rect = source.meta.rect || {};
@@ -1336,6 +1348,31 @@ export function useWebCutPlayer() {
         if (video !== undefined) {
             source.meta.video = source.meta.video || {};
             Object.assign(source.meta.video, video);
+        }
+        if (time !== undefined) {
+            source.meta.time = source.meta.time || {};
+            Object.assign(source.meta.time, time);
+            if (time.playbackRate !== undefined) {
+                source.sprite.time.playbackRate = time.playbackRate;
+
+                // 根据播放速度更新显示时长和轨道片段
+                const originalDuration = source.meta.time.originalDuration || source.sprite.time.duration;
+                const newDuration = Math.round(originalDuration / time.playbackRate);
+                source.sprite.time.duration = newDuration;
+                source.meta.time.duration = newDuration;
+
+                // 更新 segment.end
+                const rail = rails.value.find(r => r.id === source.railId);
+                if (rail) {
+                    const segment = rail.segments.find(s => s.id === source.segmentId);
+                    if (segment) {
+                        segment.end = segment.start + newDuration;
+                    }
+                }
+
+                // 更新总时长
+                updateDuration();
+            }
         }
 
         let shouldSyncTickInterceptor = false;

@@ -177,11 +177,11 @@ Locales in `src/locales/` (zh-HK, zh-TW, en-US, ja-JP, de-DE, es-ES, fr-FR). The
 
 - **Rail Auto-assignment**: When pushing materials without specifying a rail, the system automatically finds or creates an appropriate rail, avoiding overlapping segments.
 
-## Code Language
+## 代码语言
 
-Some code comments are written in Chinese. The project is developed with a Chinese-speaking team, so Chinese comments are common in the codebase.
+代码注释、文档使用中文。项目由中文团队开发，因此代码中常见中文注释。
 
-## Documentation
+## 文档
 
 Comprehensive documentation is available in the `docs/` directory with support for both English and Chinese:
 - API documentation

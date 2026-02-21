@@ -353,6 +353,8 @@ export type WebCutSourceMeta = {
         start?: number;
         /** 在时间轴中的持续时间 */
         duration?: number;
+        /** 原始素材时长（不考虑播放速度），用于计算实际显示时长 */
+        originalDuration?: number;
         /** 播放速率，1为正常速率，0.5为半速，2为双倍速 */
         playbackRate?: number;
     },

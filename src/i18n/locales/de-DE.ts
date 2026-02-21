@@ -157,6 +157,7 @@ export default {
 
   // Video/Audio Panel
   "音量": "Lautstärke",
+  "速度": "Geschwindigkeit",
   "请先选择视频片段": "Bitte wählen Sie zuerst ein Videosegment",
   "请先选择音频片段": "Bitte wählen Sie zuerst ein Audiosegment",
   "重置": "Zurücksetzen",
