@@ -25,7 +25,7 @@ const props = defineProps<{
     projectId?: string;
     colors?: Partial<WebCutColors>;
     /** 是否禁用顶部右侧栏 */
-    disableTopRightBar?: boolean;
+    disableRightTopBar?: boolean;
     packs?: (new () => WebCutExtensionPack)[];
 }>();
 
@@ -78,7 +78,7 @@ function handleResized() {
                                 </template>
                                 <template #2>
                                     <div class="webcut-editor-right-side">
-                                        <div class="webcut-editor-right-side-top-bar" v-if="!props.disableTopRightBar">
+                                        <div class="webcut-editor-right-side-top-bar" v-if="!props.disableRightTopBar">
                                             <ThemeSwitch></ThemeSwitch>
                                             <span style="margin: auto;"></span>
                                             <LangSwitch></LangSwitch>
