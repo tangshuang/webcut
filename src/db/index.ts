@@ -179,19 +179,38 @@ export async function readFile(fileId: string): Promise<File | null> {
     const opfsFilePath = `/webcut/file/${fileId}`;
     const fileCtx = file(opfsFilePath);
     if (await fileCtx.exists()) {
-        const outfile = await fileCtx.getOriginFile();
-        if (!outfile) {
-            return null;
+        // 兼容 opfs-tools 新旧版本：
+        // - 旧版本存在 getOriginFile()
+        // - 新版本仅提供 arrayBuffer()/stream()
+        const legacyGetOriginFile = (fileCtx as any).getOriginFile;
+        let outFile: File | null = null;
+
+        if (typeof legacyGetOriginFile === 'function') {
+            outFile = await legacyGetOriginFile.call(fileCtx);
         }
 
-        // 使用indexedDB中存的文件元数据
-        const fileData = await getFile(fileId);
+        let fileData: WebCutMaterial | null = null;
+        try {
+            fileData = await filesStorage.get(fileId);
+        } catch {}
+
+        if (!outFile) {
+            const arrbuf = await fileCtx.arrayBuffer();
+            const fallbackName = fileData?.name || `${fileId}.bin`;
+            const fallbackType = fileData?.type || 'application/octet-stream';
+            const fallbackTime = fileData?.time || Date.now();
+            outFile = new File([arrbuf], fallbackName, {
+                type: fallbackType,
+                lastModified: fallbackTime,
+            });
+        }
+
         if (fileData) {
             const { name, type, time } = fileData;
-            return new File([outfile], name, { type, lastModified: time });
+            return new File([outFile], name, { type, lastModified: time });
         }
 
-        return outfile;
+        return outFile;
     }
     return null;
 }
