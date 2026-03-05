@@ -96,7 +96,7 @@ function readTransitionTitle(transitionName: string) {
       thingType="transition"
       :current="actionType"
       :selected="selectedNav"
-      :thingNavs="[{ label: '默认', key: 'default' }]"
+      :navs="[{ label: '默认', key: 'default' }]"
     ></Aside>
 
     <!-- 右侧素材列表 -->
