@@ -29,7 +29,7 @@ async function handleAdd() {
     <Aside
       :current="actionType"
       :selected="selectedNav"
-      :thingNavs="[{ label: '新建文本', key: 'create' }]"
+      :navs="[{ label: '新建文本', key: 'create' }]"
       thingType="text"
     ></Aside>
 
