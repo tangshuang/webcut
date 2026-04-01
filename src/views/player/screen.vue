@@ -99,6 +99,12 @@ player.value = exports;
     <div class="webcut-screen-box" ref="box" :class="{
         'webcut-screen-box--text-edit-active': editTextState?.isActive,
         'webcut-screen-box--only-selectable': isOnlySelectable,
+    }" :style="{
+        '--video-width': width + 'px',
+        '--video-height': height + 'px',
+        '--video-max-width': canvasMaxWidth ? canvasMaxWidth + 'px' : undefined,
+        '--video-max-height': canvasMaxHeight ? canvasMaxHeight + 'px' : undefined,
+        '--video-scale': canvasScale,
     }">
         <div class="webcut-screen-viewport" ref="viewport" :style="{
             width: width + 'px',
