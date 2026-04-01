@@ -9,7 +9,7 @@ import { clone, throttle } from 'ts-fns';
 import { useT } from '../../../i18n/hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 
-const { currentSource, currentSegment, height, editTextState } = useWebCutContext();
+const { currentSource, currentSegment, height, editTextState, disableSelectSprite } = useWebCutContext();
 const { updateText } = useWebCutPlayer();
 const { push: pushHistory } = useWebCutHistory();
 const t = useT();
@@ -111,9 +111,11 @@ async function handleSetVerticalMiddle() {
     const { sprite } = currentSource.value;
     const { rect } = sprite;
     const { h } = rect;
+    const newY = (height.value - h) / 2;
 
     isSyncing = true;
-    marginBottom.value = (height.value - h) / 2;
+    marginBottom.value = newY;
+    rect.y = newY;
     await nextTick();
     isSyncing = false;
 
@@ -122,8 +124,16 @@ async function handleSetVerticalMiddle() {
 }
 
 async function handleSetVerticalBottom() {
+    if (!currentSource.value) {
+        return;
+    }
+    const { sprite } = currentSource.value;
+    const { rect } = sprite;
+    const { h } = rect;
+
     isSyncing = true;
     marginBottom.value = 0;
+    rect.y = height.value - h;
     await nextTick();
     isSyncing = false;
 
@@ -144,7 +154,7 @@ function handleActiveTextEdit() {
     <n-form size="small" label-placement="left" :label-width="90" label-align="right" class="webcut-form webcut-panel-form">
         <n-form-item :label="t('文本')" class="n-form-item--flex-column">
             <n-input type="textarea" v-model:value="text"></n-input>
-            <div style="opacity: 0.6;"><small>{{ t('在画布中双击文本，可以进行') }}<span @click="handleActiveTextEdit" style="color: var(--primary-color); cursor: pointer;">{{ t('可视化编辑') }}</span></small></div>
+            <div v-if="!disableSelectSprite" style="opacity: 0.6;"><small>{{ t('在画布中双击文本，可以进行') }}<span @click="handleActiveTextEdit" style="color: var(--primary-color); cursor: pointer;">{{ t('可视化编辑') }}</span></small></div>
         </n-form-item>
         <n-form-item :label="t('颜色')">
             <n-color-picker v-model:value="cssData.color" default-value="rgba(255,255,255,1)" :modes="['rgb']"></n-color-picker>

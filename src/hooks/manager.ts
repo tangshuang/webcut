@@ -19,6 +19,7 @@ export function useWebCutManager() {
         updateDuration,
         unselectSegment,
         loading,
+        rails,
     } = useWebCutContext();
     const { pause, push, syncSourceTickInterceptor } = useWebCutPlayer();
 
@@ -178,10 +179,10 @@ export function useWebCutManager() {
         const segmentIndex = rail.segments.findIndex(s => s.id === segment.id);
         rail.segments.splice(segmentIndex, 1);
 
-        // if (rail.segments.length === 0) {
-        //     const railIndex = rails.value.findIndex(r => r.id === rail.id);
-        //     rails.value.splice(railIndex, 1);
-        // }
+        if (rail.segments.length === 0) {
+            const railIndex = rails.value.findIndex(r => r.id === rail.id);
+            rails.value.splice(railIndex, 1);
+        }
 
         // 强制取消选中
         unselectSegment(segment.id, rail.id);
