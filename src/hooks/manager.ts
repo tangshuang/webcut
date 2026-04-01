@@ -148,8 +148,8 @@ export function useWebCutManager() {
         }
     }
 
-    function toggleRailMute(rail: WebCutRail) {
-        rail.mute = !rail.mute;
+    function toggleRailMute(rail: WebCutRail, mute?: boolean) {
+        rail.mute = mute !== undefined ? mute : !rail.mute;
         const segments = rail.segments;
         for (let segment of segments) {
             const { sourceKey } = segment;
