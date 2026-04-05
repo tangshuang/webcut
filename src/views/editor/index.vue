@@ -59,7 +59,7 @@ function handleResized() {
                             </div>
                         </template>
                         <template #2>
-                            <n-split :default-size="0.75" :min="0.6" :max="0.75" @update:size="resize">
+                            <n-split default-size="calc(100% - 375px)" :min="0.6" :max="0.75" @update:size="resize">
                                 <template #1>
                                     <div class="webcut-editor-video-player-container">
                                         <WebCutPlayerScreen class="webcut-editor-video-player">
