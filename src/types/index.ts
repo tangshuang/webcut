@@ -191,6 +191,7 @@ export type WebCutRail = {
     id: string;
     type: WebCutThingType;
     segments: WebCutSegment[];
+    metadata?: Record<string, any>;
     /** 轨道上的转场效果列表 */
     transitions: WebCutTransitionData[];
     mute?: boolean;
@@ -385,6 +386,8 @@ export type WebCutSourceMeta = {
     autoFitRect?: 'contain' | 'cover' | 'contain_scale' | 'cover_scale';
     /** 添加到指定轨道 */
     withRailId?: string;
+    /** 为轨道打补丁信息，常用于绑定业务标识（如 chatId） */
+    withRailMetadata?: Record<string, any>;
     /** 用指定id作为新segment的id，主要用在恢复之前的历史记录时 */
     withSegmentId?: string;
 };

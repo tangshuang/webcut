@@ -797,7 +797,7 @@ export function useWebCutPlayer() {
             // 添加tickInterceptor，实现各种功能，如滤镜、转场、静音等
             syncSourceTickInterceptor(key);
 
-            const { withRailId, withSegmentId } = meta;
+            const { withRailId, withRailMetadata, withSegmentId } = meta;
             const segment = {
                 id: withSegmentId || createRandomString(16),
                 start: spr.time.offset,
@@ -808,6 +808,9 @@ export function useWebCutPlayer() {
             // 添加到指定rail
             if (withRailId && rails.value.some(item => item.id === withRailId)) {
                 const targetRail = rails.value.find(item => item.id === withRailId)!;
+                if (withRailMetadata && typeof withRailMetadata === 'object') {
+                    targetRail.metadata = Object.assign({}, targetRail.metadata || {}, clone(withRailMetadata));
+                }
                 targetRail.segments.push(segment);
                 railId = withRailId;
             }
@@ -823,6 +826,7 @@ export function useWebCutPlayer() {
                     rail = {
                         id: withRailId || createRandomString(16),
                         type: railType,
+                        metadata: withRailMetadata ? clone(withRailMetadata) : undefined,
                         segments: [],
                         transitions: [],
                     };
@@ -837,10 +841,14 @@ export function useWebCutPlayer() {
                     rail = {
                         id: withRailId || createRandomString(16),
                         type: railType,
+                        metadata: withRailMetadata ? clone(withRailMetadata) : undefined,
                         segments: [],
                         transitions: [],
                     };
                     latestRails.push(rail);
+                }
+                else if (withRailMetadata && typeof withRailMetadata === 'object') {
+                    rail.metadata = Object.assign({}, rail.metadata || {}, clone(withRailMetadata));
                 }
                 rail.segments.push(segment);
 
