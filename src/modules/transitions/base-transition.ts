@@ -1,3 +1,5 @@
+import { createTrackedVideoFrame } from '../../libs/video-frame';
+
 /**
  * 转场配置接口
  */
@@ -57,7 +59,7 @@ export abstract class WebCutBaseTransition {
     timestamp: number,
     duration?: number
   ): VideoFrame {
-    return new VideoFrame(canvas, {
+    return createTrackedVideoFrame(canvas, {
       timestamp,
       duration: duration || undefined,
     });

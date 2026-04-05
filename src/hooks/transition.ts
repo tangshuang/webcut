@@ -4,6 +4,7 @@ import { ImgClip, MP4Clip, VisibleSprite } from '@webav/av-cliper';
 import { transitionManager } from '../modules/transitions';
 import { createRandomString } from 'ts-fns';
 import { markRaw } from 'vue';
+import { createTrackedVideoFrame, safeCloseFrame } from '../libs/video-frame';
 
 export function useWebCutTransition() {
     const {
@@ -12,6 +13,7 @@ export function useWebCutTransition() {
         unselectSegment,
         canvas,
     } = useWebCutContext();
+    const transitionResourceDisposers = new Map<string, () => void>();
 
     // TODO 监控segment变化，如果segment被移开，那么需要实时删除transition
 
@@ -45,6 +47,12 @@ export function useWebCutTransition() {
         const { name, config } = transition;
         const dur = transition.end - transition.start;
         const half = dur / 2;
+        const getTimestamp = (frame: VideoFrame | ImageBitmap, fallback: number) => {
+            if (frame instanceof VideoFrame) {
+                return frame.timestamp || fallback;
+            }
+            return fallback;
+        };
 
         const [tmp1, tranClip1] = await clip1.split(clip1.meta.duration - half);
         tmp1.destroy();
@@ -57,7 +65,7 @@ export function useWebCutTransition() {
 
         const { video: clip2FirstVideo } = await (tranClip2 as MP4Clip | ImgClip).tick(0);
         const clip2FirstImageBitmap = clip2FirstVideo && clip2FirstVideo instanceof ImageBitmap ? clip2FirstVideo : await createImageBitmap(clip2FirstVideo as VideoFrame);
-        clip2FirstVideo?.close();
+        safeCloseFrame(clip2FirstVideo as VideoFrame | ImageBitmap | null | undefined);
 
         let clip1LastVideo = (await (tranClip1 as MP4Clip | ImgClip).tick(tranClip1.meta.duration - 30e3)).video as VideoFrame;
         if (!clip1LastVideo) {
@@ -67,10 +75,21 @@ export function useWebCutTransition() {
                 lastTime -= 33e3;
             }
         }
+        if (!clip1LastVideo) {
+            safeCloseFrame(clip2FirstImageBitmap);
+            console.error('没有找到合适的最后一帧');
+            return;
+        }
         let clip1LastImageBitmap = clip1LastVideo instanceof ImageBitmap ? clip1LastVideo : await createImageBitmap(clip1LastVideo);
-        clip1LastVideo?.close();
+        safeCloseFrame(clip1LastVideo as VideoFrame | ImageBitmap | null | undefined);
+        transitionResourceDisposers.set(transition.id, () => {
+            safeCloseFrame(clip2FirstImageBitmap);
+            safeCloseFrame(clip1LastImageBitmap);
+        });
         if (!clip1LastImageBitmap) {
             console.error('没有找到合适的最后一帧');
+            transitionResourceDisposers.get(transition.id)?.();
+            transitionResourceDisposers.delete(transition.id);
             return;
         }
 
@@ -79,21 +98,36 @@ export function useWebCutTransition() {
             if (!clip1Video) {
                 return ret;
             }
-            const clip1Frame = clip1Video && clip1Video instanceof ImageBitmap ? new VideoFrame(clip1Video, { timestamp: Date.now() }) : clip1Video;
-            const progress = time / dur;
-            const clip2FirstFrame = new VideoFrame(clip2FirstImageBitmap, { timestamp: Date.now() });
-            const frame = await transitionManager.applyTransition(
-                clip1Frame,
-                clip2FirstFrame,
-                progress,
-                name,
-                config,
-            );
-            return {
-                video: frame,
-                audio: [],
-                state: ret.state,
-            } as any;
+            const temporaryFrames: VideoFrame[] = [];
+            const closeSourceFrame = clip1Video instanceof VideoFrame;
+            try {
+                const timestamp = getTimestamp(clip1Video, time);
+                const clip1Frame = clip1Video instanceof ImageBitmap ? createTrackedVideoFrame(clip1Video, { timestamp }) : clip1Video;
+                const clip2FirstFrame = createTrackedVideoFrame(clip2FirstImageBitmap, { timestamp });
+                if (clip1Frame instanceof VideoFrame && clip1Video instanceof ImageBitmap) {
+                    temporaryFrames.push(clip1Frame);
+                }
+                temporaryFrames.push(clip2FirstFrame);
+
+                const progress = time / dur;
+                const frame = await transitionManager.applyTransition(
+                    clip1Frame,
+                    clip2FirstFrame,
+                    progress,
+                    name,
+                    config,
+                );
+                return {
+                    video: frame,
+                    audio: [],
+                    state: ret.state,
+                } as any;
+            } finally {
+                if (closeSourceFrame) {
+                    safeCloseFrame(clip1Video);
+                }
+                temporaryFrames.forEach(frame => safeCloseFrame(frame));
+            }
         }
 
         tranClip2.tickInterceptor = async (time: number, ret: Awaited<ReturnType<MP4Clip["tick"]>>) => {
@@ -101,21 +135,36 @@ export function useWebCutTransition() {
             if (!clip2Video) {
                 return ret;
             }
-            const clip2Frame = clip2Video && clip2Video instanceof ImageBitmap ? new VideoFrame(clip2Video, { timestamp: Date.now() }) : clip2Video;
-            const progress = (half + time) / dur;
-            const clip1LastFrame = new VideoFrame(clip1LastImageBitmap, { timestamp: Date.now() });
-            const frame = await transitionManager.applyTransition(
-                clip1LastFrame,
-                clip2Frame,
-                progress,
-                name,
-                config,
-            );
-            return {
-                video: frame,
-                audio: [],
-                state: ret.state,
-            } as any;
+            const temporaryFrames: VideoFrame[] = [];
+            const closeSourceFrame = clip2Video instanceof VideoFrame;
+            try {
+                const timestamp = getTimestamp(clip2Video, half + time);
+                const clip2Frame = clip2Video instanceof ImageBitmap ? createTrackedVideoFrame(clip2Video, { timestamp }) : clip2Video;
+                const clip1LastFrame = createTrackedVideoFrame(clip1LastImageBitmap, { timestamp });
+                if (clip2Frame instanceof VideoFrame && clip2Video instanceof ImageBitmap) {
+                    temporaryFrames.push(clip2Frame);
+                }
+                temporaryFrames.push(clip1LastFrame);
+
+                const progress = (half + time) / dur;
+                const frame = await transitionManager.applyTransition(
+                    clip1LastFrame,
+                    clip2Frame,
+                    progress,
+                    name,
+                    config,
+                );
+                return {
+                    video: frame,
+                    audio: [],
+                    state: ret.state,
+                } as any;
+            } finally {
+                if (closeSourceFrame) {
+                    safeCloseFrame(clip2Video);
+                }
+                temporaryFrames.forEach(frame => safeCloseFrame(frame));
+            }
         }
 
         const tranSpr1 = new VisibleSprite(tranClip1);
@@ -210,6 +259,8 @@ export function useWebCutTransition() {
         const transitionIndex = rail.transitions.findIndex(t => t.id === transitionId);
         if (transitionIndex > -1) {
             const transition = rail.transitions[transitionIndex];
+            transitionResourceDisposers.get(transitionId)?.();
+            transitionResourceDisposers.delete(transitionId);
             transition.sourceKeys?.forEach(key => {
                 const source = sources.value.get(key);
                 if (source) {
@@ -217,6 +268,7 @@ export function useWebCutTransition() {
                     canvas.value?.removeSprite(sprite);
                     sprite.destroy();
                     clip.destroy();
+                    sources.value.delete(key);
                 }
             });
             rail.transitions.splice(transitionIndex, 1);

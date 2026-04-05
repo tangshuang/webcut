@@ -8,7 +8,7 @@ import { downloadBlob } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutHistory } from '../../../hooks/history';
-import { mp4ClipToFramesData, createImageFromVideoFrame, exportBlobOffscreen } from '../../../libs';
+import { mp4ClipToFramesData, createImageFromVideoFrame, exportBlobOffscreen, safeCloseFrame } from '../../../libs';
 import AudioShape from '../../../components/audio-shape/index.vue';
 import { useScrollBox } from '../../../components/scroll-box';
 import { PerformanceMark, mark, measure } from '../../../libs/performance';
@@ -116,7 +116,7 @@ async function initThumbnailsAndAudioWave() {
                 offset,
             };
             sourceFrames.value[index] = markRaw(frame);
-            video.close(); // 关闭VideoFrame
+            safeCloseFrame(video); // 关闭VideoFrame
 
             // 第一次加载在载入缩略图
             let currEndPx = 0;

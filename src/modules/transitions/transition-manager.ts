@@ -1,4 +1,5 @@
 import { WebCutBaseTransition, WebCutTransitionConfig } from './base-transition';
+import { createTrackedVideoFrame } from '../../libs/video-frame';
 
 /**
  * 转场管理器类
@@ -140,7 +141,7 @@ export class TransitionManager {
 
     ctx.globalAlpha = 1;
 
-    return new VideoFrame(canvas, {
+    return createTrackedVideoFrame(canvas, {
       timestamp: frame1.timestamp,
       duration: frame1.duration || undefined,
     });

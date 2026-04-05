@@ -1,4 +1,5 @@
 import { WebCutBaseTransition, WebCutTransitionConfig } from './base-transition';
+import { createTrackedVideoFrame } from '../../libs/video-frame';
 
 /**
  * WebGL转场效果基类
@@ -205,7 +206,7 @@ export class FadeTransition extends WebGLTransition {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // 创建输出帧
-    const outputFrame = new VideoFrame(this.canvas!, {
+    const outputFrame = createTrackedVideoFrame(this.canvas!, {
       timestamp: frame1.timestamp,
       duration: frame1.duration || undefined,
     });
@@ -344,7 +345,7 @@ export class SlideTransition extends WebGLTransition {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // 创建输出帧
-    const outputFrame = new VideoFrame(this.canvas!, {
+    const outputFrame = createTrackedVideoFrame(this.canvas!, {
       timestamp: frame1.timestamp,
       duration: frame1.duration || undefined,
     });
@@ -500,7 +501,7 @@ export class ZoomTransition extends WebGLTransition {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // 创建输出帧
-    const outputFrame = new VideoFrame(this.canvas!, {
+    const outputFrame = createTrackedVideoFrame(this.canvas!, {
       timestamp: frame1.timestamp,
       duration: frame1.duration || undefined,
     });
@@ -650,7 +651,7 @@ export class BlindsTransition extends WebGLTransition {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // 创建输出帧
-    const outputFrame = new VideoFrame(this.canvas!, {
+    const outputFrame = createTrackedVideoFrame(this.canvas!, {
       timestamp: frame1.timestamp,
       duration: frame1.duration || undefined,
     });
@@ -773,7 +774,7 @@ export class DissolveTransition extends WebGLTransition {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // 创建输出帧
-    const outputFrame = new VideoFrame(this.canvas!, {
+    const outputFrame = createTrackedVideoFrame(this.canvas!, {
       timestamp: frame1.timestamp,
       duration: frame1.duration || undefined,
     });

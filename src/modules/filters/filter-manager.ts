@@ -1,4 +1,5 @@
 import { WebCutBaseFilter, WebCutFilterParams } from './base-filter';
+import { safeCloseFrame, trackVideoFrameCreated } from '../../libs/video-frame';
 
 /**
  * 滤镜管理器类
@@ -73,7 +74,7 @@ export class FilterManager {
                     const newFrame = await filter.apply(currentFrame, config);
 
                     if (!isOriginalFrame) {
-                        currentFrame.close();
+                        safeCloseFrame(currentFrame);
                     }
 
                     currentFrame = newFrame;
@@ -85,9 +86,11 @@ export class FilterManager {
         } catch (error) {
             console.error('Error applying filters:', error);
             if (!isOriginalFrame) {
-                currentFrame.close();
+                safeCloseFrame(currentFrame);
             }
-            return frame.clone();
+            const clonedFrame = frame.clone();
+            trackVideoFrameCreated(clonedFrame);
+            return clonedFrame;
         }
     }
 

@@ -7,6 +7,16 @@ import { blobToFile, downloadBlob } from "./file";
 import toWav from 'audiobuffer-to-wav';
 import { PerformanceMark, mark } from './performance';
 import { aspectRatioMap } from "../constants";
+import { safeCloseFrame } from './video-frame';
+export {
+    createTrackedVideoFrame,
+    closeTrackedVideoFrame,
+    safeCloseFrame,
+    withVideoFrame,
+    trackVideoFrameCreated,
+    trackVideoFrameClosed,
+    getVideoFrameStats,
+} from './video-frame';
 
 /**
  * 将文本渲染为 {@link ImageBitmap}，用来创建 {@link ImgClip}
@@ -878,12 +888,14 @@ export async function mp4BlobToWavBlob(mp4Blob: Blob): Promise<Blob> {
 export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
     iteratorCallback?: (data: { video: VideoFrame, ts: number, index: number }) => void | Promise<void>,
     step?: number, // step in microseconds, will be auto-calculated if not provided
-    pcmProgressCallback?: (pcm: [Float32Array, Float32Array]) => void // 渐进式返回 PCM 数据
+    pcmProgressCallback?: (pcm: [Float32Array, Float32Array]) => void, // 渐进式返回 PCM 数据
+    collectFrames?: boolean, // 是否返回并持有视频帧，默认false以降低内存占用
 }): Promise<{ pcm: [Float32Array, Float32Array]; frames: { video: VideoFrame, ts: number }[] }> {
     const {
         iteratorCallback,
         step,
         pcmProgressCallback,
+        collectFrames = false,
     } = options || {};
 
     mark(PerformanceMark.ConvertMP4ClipToFramesStart);
@@ -903,8 +915,6 @@ export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
         videoStep = Math.min(videoStep, 1000000); // 最大 1s
     }
 
-    // Extract all PCM data from the MP4Clip
-    const pcmData: Float32Array[][] = [];
     const frames: { video: VideoFrame, ts: number }[] = [];
 
     let videoIndex = 0;
@@ -949,7 +959,6 @@ export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
                 currentOffset += chunkLength;
             }
 
-            pcmData.push(audio);
             pcmUpdateCounter++;
 
             // 定期通过回调返回固定大小的 PCM 数组
@@ -962,16 +971,21 @@ export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
 
         // 只在特定时间点收集视频帧（稀疏采样）
         if (video && time >= nextVideoTime) {
-            frames.push({ video, ts: time });
+            if (collectFrames) {
+                frames.push({ video, ts: time });
+            }
             if (iteratorCallback) {
                 await iteratorCallback({ video, ts: time, index: videoIndex });
+            }
+            if (!collectFrames && !iteratorCallback) {
+                safeCloseFrame(video);
             }
             videoIndex++;
             nextVideoTime += videoStep;
             batchCount++;
         } else if (video) {
             // 不需要的视频帧立即关闭，释放资源
-            video.close();
+            safeCloseFrame(video);
         }
 
         // 每处理一批帧后，让出控制权给浏览器，避免长时间阻塞主线程
@@ -1131,7 +1145,7 @@ export async function progressiveClipToPCMData(
 }
 
 export async function mp4ClipToAudioClip(mp4Clip: MP4Clip): Promise<AudioClip> {
-    const { pcm } = await mp4ClipToFramesData(mp4Clip);
+    const { pcm } = await mp4ClipToFramesData(mp4Clip, { collectFrames: false });
 
     // Create AudioClip from the complete PCM data
     const audioClip = new AudioClip(pcm);

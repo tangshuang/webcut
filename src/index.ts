@@ -175,6 +175,13 @@ export {
     createImageFromVideoFrame,
     progressiveClipToPCMData,
     downloadOffscreen,
+    createTrackedVideoFrame,
+    closeTrackedVideoFrame,
+    safeCloseFrame,
+    withVideoFrame,
+    trackVideoFrameCreated,
+    trackVideoFrameClosed,
+    getVideoFrameStats,
 } from './libs';
 export {
     base64ToFile,

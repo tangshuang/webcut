@@ -9,6 +9,7 @@ import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutHistory } from '../../../hooks/history';
 import { downloadBlob } from '../../../libs/file';
+import { safeCloseFrame } from '../../../libs';
 import { useWebCutTransition } from '../../../hooks/transition';
 
 const props = defineProps<{
@@ -59,27 +60,31 @@ async function handleSelectContextMenu(key: string) {
             const { video } = await clip.tick(1);
             if (!video) return;
 
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d')!;
-            if (video instanceof VideoFrame) {
-                // 从 VideoFrame 提取图像数据
-                canvas.width = video.codedWidth;
-                canvas.height = video.codedHeight;
-                ctx.drawImage(video, 0, 0);
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d')!;
+                if (video instanceof VideoFrame) {
+                    // 从 VideoFrame 提取图像数据
+                    canvas.width = video.codedWidth;
+                    canvas.height = video.codedHeight;
+                    ctx.drawImage(video, 0, 0);
+                }
+                else if (video instanceof ImageBitmap) {
+                    // 从 ImageBitmap 提取图像数据
+                    canvas.width = video.width;
+                    canvas.height = video.height;
+                    ctx.drawImage(video, 0, 0);
+                }
+                else {
+                    return;
+                }
+                canvas.toBlob((blob: Blob | null) => {
+                    if (!blob) return;
+                    downloadBlob(blob, `image-segment-${Date.now()}-${canvas.width}x${canvas.height}.png`);
+                }, 'image/png');
+            } finally {
+                safeCloseFrame(video as VideoFrame | ImageBitmap);
             }
-            else if (video instanceof ImageBitmap) {
-                // 从 ImageBitmap 提取图像数据
-                canvas.width = video.width;
-                canvas.height = video.height;
-                ctx.drawImage(video, 0, 0);
-            }
-            else {
-                return;
-            }
-            canvas.toBlob((blob: Blob | null) => {
-                if (!blob) return;
-                downloadBlob(blob, `image-segment-${Date.now()}-${canvas.width}x${canvas.height}.png`);
-            }, 'image/png');
         } catch (error) {
             console.error('导出失败:', error);
         }

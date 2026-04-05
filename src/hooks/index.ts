@@ -12,6 +12,7 @@ import { assignNotEmpty } from '../libs/object';
 import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-fns';
 import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
+import { safeCloseFrame, trackVideoFrameCreated } from '../libs';
 import { readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
 import { aspectRatioMap } from '../constants';
@@ -515,11 +516,12 @@ export function useWebCutPlayer() {
                         processedFrame = await filterManager.applyFilters(originalFrame, filterKeys, filterConfigs);
                     } else {
                         processedFrame = originalFrame.clone();
+                        trackVideoFrameCreated(processedFrame);
                     }
 
                     (result as any).video = processedFrame;
                 } finally {
-                    originalFrame.close();
+                    safeCloseFrame(originalFrame);
                 }
             }
 

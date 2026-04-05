@@ -1,4 +1,5 @@
 import { WebCutBaseFilter, type WebCutFilterParams } from './base-filter';
+import { createTrackedVideoFrame, trackVideoFrameCreated } from '../../libs/video-frame';
 
 /**
  * CSS滤镜类
@@ -29,7 +30,9 @@ export class WebCutCSSFilter extends WebCutBaseFilter {
 
     // 如果没有滤镜，直接返回原始帧的副本
     if (!filter) {
-      return frame.clone();
+      const clonedFrame = frame.clone();
+      trackVideoFrameCreated(clonedFrame);
+      return clonedFrame;
     }
 
     // 调整canvas大小以匹配帧大小
@@ -48,7 +51,7 @@ export class WebCutCSSFilter extends WebCutBaseFilter {
     this.ctx.filter = 'none'; // 重置滤镜
 
     // 创建新的VideoFrame
-    const filteredFrame = new VideoFrame(this.canvas, {
+    const filteredFrame = createTrackedVideoFrame(this.canvas, {
       timestamp: frame.timestamp,
       duration: frame.duration || undefined,
     });
