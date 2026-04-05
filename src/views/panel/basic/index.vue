@@ -15,7 +15,7 @@ const { syncSourceMeta } = useWebCutPlayer();
 const t = useT();
 
 // 节流保存历史记录，避免频繁操作时过度保存
-const throttledPushHistory = throttle(pushHistory, 500);
+const throttledPushHistory = throttle(() => pushHistory({ title: '调整基础属性' }), 500);
 
 const formData = ref<any>({
     x: 0,
@@ -93,7 +93,7 @@ async function handleFitSize(type?: 'contain' | 'cover' | 'contain_scale' | 'cov
     });
 
     // 保存到历史记录
-    await pushHistory();
+    await pushHistory({ title: '适配素材尺寸' });
 }
 
 async function handlePutCenter(type: 'x' | 'y') {
@@ -112,7 +112,7 @@ async function handlePutCenter(type: 'x' | 'y') {
     });
 
     // 保存到历史记录
-    await pushHistory();
+    await pushHistory({ title: '素材居中' });
 }
 </script>
 

@@ -2,10 +2,24 @@ import { onMounted, ref } from 'vue';
 import { useWebCutContext } from './index';
 import { useWebCutPlayer } from './index';
 import { HistoryMachine } from '../libs/history-machine';
-import { WebCutSourceData, WebCutSource, WebCutSegment, WebCutProjectHistoryState } from '../types';
+import {
+    WebCutProjectHistoryData,
+    WebCutProjectHistoryPushPayload,
+    WebCutProjectHistoryState,
+    WebCutSegment,
+    WebCutSource,
+    WebCutSourceData,
+} from '../types';
 import { clone, isEqual } from 'ts-fns';
+import { applyHistoryPatch, createHistoryPatches } from '../libs/history-patch';
 
 const historyMachines = new Map<string, HistoryMachine>();
+
+type WebCutHistoryPushOptions = {
+    title?: string;
+    before?: WebCutProjectHistoryState | null;
+    after?: WebCutProjectHistoryState;
+};
 
 export function useWebCutHistory() {
     const {
@@ -25,6 +39,7 @@ export function useWebCutHistory() {
 
     // 是否有项目状态可以恢复
     const dataToRecover = ref<Awaited<ReturnType<HistoryMachine['init']>> | null>(null);
+    const historyList = ref<WebCutProjectHistoryData[]>([]);
 
     // 初始化历史记录
     onMounted(async () => {
@@ -36,6 +51,7 @@ export function useWebCutHistory() {
 
         const savedData = await historyMachine.init();
         await historyMachine.ready();
+        historyList.value = await historyMachine.getHistoryList();
         if (savedData?.state) {
             dataToRecover.value = savedData;
             canRecover.value = true;
@@ -44,6 +60,8 @@ export function useWebCutHistory() {
             if (aspectRatio) {
                 updateByAspectRatio(aspectRatio);
             }
+            // 页面刷新后自动恢复到最近一次历史镜像
+            await recover();
         }
     });
 
@@ -70,6 +88,39 @@ export function useWebCutHistory() {
                 visible: source.sprite.visible,
                 interactable: source.sprite.interactable,
             },
+        };
+    }
+
+    async function refreshHistoryList() {
+        historyList.value = await historyMachine.getHistoryList();
+    }
+
+    function snapshot(): WebCutProjectHistoryState {
+        const railsData = clone(rails.value);
+        const sourcesData: Record<string, WebCutSourceData> = {};
+        for (const [key, source] of sources.value.entries()) {
+            sourcesData[key] = convertSource(source);
+        }
+        return {
+            rails: railsData,
+            sources: sourcesData,
+        };
+    }
+
+    async function createEntry(options: WebCutHistoryPushOptions = {}): Promise<WebCutProjectHistoryPushPayload> {
+        await historyMachine.ready();
+
+        const afterState = options.after || snapshot();
+        const fallbackBefore = await historyMachine.getCurrentState();
+        const beforeState = options.before !== undefined ? options.before : fallbackBefore;
+        const { patch, undoPatch } = createHistoryPatches(beforeState, afterState);
+
+        return {
+            title: options.title || '编辑变更',
+            patch,
+            undoPatch,
+            snapshot: afterState,
+            state: afterState,
         };
     }
 
@@ -312,6 +363,28 @@ export function useWebCutHistory() {
             canRecover.value = false;
             canUndo.value = historyMachine.canUndo();
             canRedo.value = historyMachine.canRedo();
+            await refreshHistoryList();
+        } finally {
+            loading.value = false;
+        }
+    }
+
+    async function recoverToHistory(historyId: string) {
+        if (!historyId) {
+            return;
+        }
+
+        loading.value = true;
+        try {
+            const target = await historyMachine.moveTo(historyId);
+            if (!target) {
+                return;
+            }
+            const targetState = target.snapshot || target.state;
+            await recoverHistory(targetState);
+            canRecover.value = false;
+            dataToRecover.value = null;
+            await refreshHistoryList();
         } finally {
             loading.value = false;
         }
@@ -321,11 +394,21 @@ export function useWebCutHistory() {
     async function undo() {
         loading.value = true;
         try {
-            const state = await historyMachine.undo();
-            if (!state) {
+            const beforeState = snapshot();
+            const currentHistory = await historyMachine.getCurrentHistory();
+            const history = await historyMachine.undo();
+            if (!history) {
                 return;
             }
-            await recoverHistory(state);
+            if (currentHistory?.undoPatch?.operations?.length) {
+                const nextState = applyHistoryPatch(beforeState, currentHistory.undoPatch);
+                await recoverHistory(nextState);
+            }
+            else {
+                const state = history.snapshot || history.state;
+                await recoverHistory(state);
+            }
+            await refreshHistoryList();
         } finally {
             loading.value = false;
         }
@@ -335,11 +418,20 @@ export function useWebCutHistory() {
     async function redo() {
         loading.value = true;
         try {
-            const state = await historyMachine.redo();
-            if (!state) {
+            const beforeState = snapshot();
+            const history = await historyMachine.redo();
+            if (!history) {
                 return;
             }
-            await recoverHistory(state);
+            if (history.patch?.operations?.length) {
+                const nextState = applyHistoryPatch(beforeState, history.patch);
+                await recoverHistory(nextState);
+            }
+            else {
+                const state = history.snapshot || history.state;
+                await recoverHistory(state);
+            }
+            await refreshHistoryList();
         } finally {
             loading.value = false;
         }
@@ -352,9 +444,10 @@ export function useWebCutHistory() {
         canRedo.value = historyMachine.canRedo();
         canRecover.value = false;
         dataToRecover.value = null;
+        historyList.value = [];
     }
 
-    async function push() {
+    async function push(options: WebCutHistoryPushOptions = {}) {
         await historyMachine.ready();
 
         // 如果有项目状态可以恢复，先清除历史记录
@@ -362,21 +455,36 @@ export function useWebCutHistory() {
             await historyMachine.clear();
         }
 
-        const railsData = clone(rails.value);
-        const sourcesData: any = {};
-        for (const [key, source] of sources.value.entries()) {
-            const meta = convertSource(source);
-            sourcesData[key] = meta;
+        const entry = await createEntry(options);
+        if (!entry.patch?.operations.length && !entry.undoPatch?.operations.length) {
+            canUndo.value = historyMachine.canUndo();
+            canRedo.value = historyMachine.canRedo();
+            return;
         }
-        await historyMachine.push({ rails: railsData, sources: sourcesData });
+
+        await historyMachine.push(entry);
         canUndo.value = historyMachine.canUndo();
         canRedo.value = historyMachine.canRedo();
         canRecover.value = false;
         dataToRecover.value = null;
+        await refreshHistoryList();
+    }
+
+    async function withHistory<T>(title: string, action: () => Promise<T> | T) {
+        const before = snapshot();
+        const result = await action();
+        await push({ title, before });
+        return result;
     }
 
     return {
         push,
+        snapshot,
+        createEntry,
+        withHistory,
+        historyList,
+        refreshHistoryList,
+        recoverToHistory,
         undo,
         redo,
         clear,

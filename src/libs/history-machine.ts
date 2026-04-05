@@ -1,10 +1,18 @@
-import { WebCutProjectHistoryData, WebCutProjectHistoryState } from '../types';
-import { pushProjectHistory, getProjectHistory, clearProjectHistory, moveProjectHistoryTo, getProjectState } from '../db';
+import { WebCutProjectHistoryData, WebCutProjectHistoryPushPayload, WebCutProjectHistoryState } from '../types';
+import {
+    pushProjectHistoryEntry,
+    getProjectHistory,
+    clearProjectHistory,
+    moveProjectHistoryTo,
+    moveProjectHistoryToId,
+    getProjectState,
+} from '../db';
 import { aspectRatioMap } from '../constants';
 
 // 历史记录管理器类
 export class HistoryMachine {
     private currentHistoryId: string | null = null;
+    private currentHistoryData: WebCutProjectHistoryData | null = null;
     private currentIndex: number = -1;
     private historyLength: number = 0;
 
@@ -24,11 +32,13 @@ export class HistoryMachine {
         this.historyLength = history.length;
         const index = history.findIndex(item => item.id === historyId);
         this.currentIndex = index;
-        return history[index];
+        this.currentHistoryData = index !== -1 ? history[index] : null;
+        return this.currentHistoryData;
     }
 
     private resetCurrent() {
         this.currentHistoryId = null;
+        this.currentHistoryData = null;
         this.currentIndex = -1;
         this.historyLength = 0;
     }
@@ -47,11 +57,13 @@ export class HistoryMachine {
             if (savedState) {
                 const { aspectRatio, historyAt } = savedState;
                 currentHistory = await this.updateCurrent(historyAt);
-                const state = currentHistory.state;
-                this.isReadyResolve({
-                    aspectRatio,
-                    state,
-                });
+                if (currentHistory) {
+                    const state = currentHistory.snapshot || currentHistory.state;
+                    this.isReadyResolve({
+                        aspectRatio,
+                        state,
+                    });
+                }
             }
         }
         catch (error) {}
@@ -86,17 +98,33 @@ export class HistoryMachine {
         return this.currentHistoryId;
     }
 
+    // 获取当前历史记录完整数据
+    async getCurrentHistory() {
+        return this.currentHistoryData;
+    }
+
+    // 获取当前历史记录对应的项目快照
+    async getCurrentState() {
+        if (!this.currentHistoryData) {
+            return null;
+        }
+        return this.currentHistoryData.snapshot || this.currentHistoryData.state;
+    }
+
     // 保存当前状态到历史记录
-    async push(state: WebCutProjectHistoryState): Promise<string> {
+    async push(payload: WebCutProjectHistoryPushPayload | WebCutProjectHistoryState): Promise<string> {
         await this.ready();
-        // 保存到数据库
-        const historyId = await pushProjectHistory(this.projectId, state);
+        const data: WebCutProjectHistoryPushPayload = 'state' in payload
+            ? payload
+            : { state: payload };
+
+        const historyId = await pushProjectHistoryEntry(this.projectId, data);
         await this.updateCurrent(historyId);
         return historyId!;
     }
 
     // 撤销操作
-    async undo(): Promise<WebCutProjectHistoryData['state'] | null> {
+    async undo(): Promise<WebCutProjectHistoryData | null> {
         await this.ready();
 
         // 移动历史记录指针
@@ -105,14 +133,14 @@ export class HistoryMachine {
             return null;
         }
 
-        const { id, state } = historyData;
+        const { id } = historyData;
         await this.updateCurrent(id);
 
-        return state;
+        return historyData;
     }
 
     // 重做操作
-    async redo(): Promise<WebCutProjectHistoryData['state'] | null> {
+    async redo(): Promise<WebCutProjectHistoryData | null> {
         await this.ready();
 
         // 移动历史记录指针
@@ -121,16 +149,27 @@ export class HistoryMachine {
             return null;
         }
 
-        const { id, state } = historyData;
+        const { id } = historyData;
         await this.updateCurrent(id);
 
-        return state;
+        return historyData;
+    }
+
+    async moveTo(historyId: string): Promise<WebCutProjectHistoryData | null> {
+        await this.ready();
+        const historyData = await moveProjectHistoryToId(this.projectId, historyId);
+        if (!historyData) {
+            return null;
+        }
+        await this.updateCurrent(historyData.id);
+        return historyData;
     }
 
     // 清除历史记录
     async clear(): Promise<void> {
         await clearProjectHistory(this.projectId);
         this.currentHistoryId = null;
+        this.currentHistoryData = null;
         this.currentIndex = -1;
         this.historyLength = 0;
     }

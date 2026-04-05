@@ -20,7 +20,7 @@ const selectedNav = ref<any>(null);
 
 async function handleAdd() {
   await push('text', t('默认文本'));
-  await pushHistory();
+  await pushHistory({ title: '添加文本素材' });
 }
 </script>
 

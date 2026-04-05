@@ -91,7 +91,7 @@ async function toggleFilter(filterName: string) {
     }
 
     updateFilters(newFilters);
-    await pushHistory();
+    await pushHistory({ title: '调整滤镜' });
 }
 
 // 更新滤镜参数
@@ -106,7 +106,7 @@ async function updateFilterParams(paramName: string, value: number) {
     });
 
     updateFilters(newFilters);
-    await pushHistory();
+    await pushHistory({ title: '调整滤镜' });
 }
 
 // 更新滤镜到素材meta

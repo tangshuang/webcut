@@ -9,7 +9,7 @@ import FlipH from '../../tools/flip-h/index.vue';
 import Concat from '../../tools/concat/index.vue';
 import Undo from '../../tools/undo/index.vue';
 import Redo from '../../tools/redo/index.vue';
-import HistoryRecover from '../../tools/history-recover/index.vue';
+import HistoryList from '../../tools/history-list/index.vue';
 import { DividerTall16Regular } from '@vicons/fluent';
 import Loading from '../../loading/index.vue';
 import { NIcon } from 'naive-ui';
@@ -28,7 +28,7 @@ const props = defineProps<{
             <Loading size="1.2em"></Loading>
         </div>
         <div class="webcut-manager-tools-bar-right">
-            <HistoryRecover />
+            <HistoryList />
             <Undo></Undo>
             <Redo></Redo>
             <n-icon :component="DividerTall16Regular" class="webcut-divider-icon"></n-icon>

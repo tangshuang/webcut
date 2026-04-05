@@ -15,7 +15,7 @@ const volume = ref(1);
 const isSyncing = ref(false);
 
 // 节流保存历史记录
-const throttledPushHistory = throttle(pushHistory, 500);
+const throttledPushHistory = throttle(() => pushHistory({ title: '调整音频音量' }), 500);
 
 // 同步音量数据
 function syncVolumeToForm() {

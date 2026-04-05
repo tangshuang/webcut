@@ -45,7 +45,7 @@ async function handleSplit() {
     try {
         const { segment, rail } = currentSelected.value;
         await splitSegment({ segment, rail, keep: 'right' });
-        await pushHistory();
+        await pushHistory({ title: '分割并保留右侧' });
     }
     catch (e) {
         console.error(e);

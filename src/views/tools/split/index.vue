@@ -45,7 +45,7 @@ async function handleSplit() {
     try {
         const { segment, rail } = currentSelected.value;
         await splitSegment({ segment, rail });
-        await pushHistory();
+        await pushHistory({ title: '分割片段' });
     }
     catch (e) {
         console.error(e);

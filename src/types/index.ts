@@ -439,12 +439,50 @@ export type WebCutProjectHistoryState = {
     sources: Record<string, WebCutSourceData>;
 };
 
+export type WebCutProjectHistoryPatchOperation =
+    | {
+        type: 'setRails';
+        rails: WebCutRail[];
+    }
+    | {
+        type: 'upsertSource';
+        sourceKey: string;
+        source: WebCutSourceData;
+    }
+    | {
+        type: 'removeSource';
+        sourceKey: string;
+    };
+
+export type WebCutProjectHistoryPatch = {
+    operations: WebCutProjectHistoryPatchOperation[];
+};
+
 export type WebCutProjectHistoryData = {
     id: string;
     projectId: string;
     timestamp: number;
+    /** 是否是当前指针位置 */
+    current?: boolean;
+    /** 历史标题，用于 UI 展示 */
+    title: string;
+    /** 本次变更（同样也是 redo patch） */
+    patch: WebCutProjectHistoryPatch;
+    /** 撤销本次变更所需 patch */
+    undoPatch: WebCutProjectHistoryPatch;
+    /** 本次变更后的完整快照 */
+    snapshot: WebCutProjectHistoryState;
+    /** 兼容旧版本字段 */
     state: WebCutProjectHistoryState;
 }
+
+export type WebCutProjectHistoryPushPayload = {
+    title?: string;
+    state: WebCutProjectHistoryState;
+    patch?: WebCutProjectHistoryPatch;
+    undoPatch?: WebCutProjectHistoryPatch;
+    snapshot?: WebCutProjectHistoryState;
+};
 
 export interface WebCutColors {
     primaryColor: string,

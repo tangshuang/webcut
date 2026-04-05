@@ -12,7 +12,7 @@ const t = useT();
 async function handleClear() {
     selected.value = [];
     current.value = null;
-    await pushHistory();
+    await pushHistory({ title: '清除选中' });
 }
 </script>
 

@@ -56,7 +56,7 @@ async function onMaterialAdd(material: WebCutMaterial) {
     const { id, type } = material;
     const finalType = type.split('/')[0] as WebCutMaterialType;
     await push(finalType, `file:${id}`);
-    await pushHistory();
+    await pushHistory({ title: '添加素材到轨道' });
   }
   catch (e) {
     console.error(e);

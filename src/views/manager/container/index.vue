@@ -156,7 +156,7 @@ function handleMoveRelease(segment: WebCutSegment, rail: WebCutRail) {
     moveState.value = {};
     resetSegmentTime(segment);
     syncTransitions(rail);
-    pushHistory();
+    pushHistory({ title: '调整片段时长' });
     emit('resize', { segment, rail });
 }
 
@@ -369,7 +369,7 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
     syncTransitions(rail);
     syncTransitions(targetRail);
     resort();
-    pushHistory();
+    pushHistory({ title: '移动片段' });
     emit('resize', { segment, rail: targetRail });
 }
 

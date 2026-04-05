@@ -37,7 +37,7 @@ async function handleFlip() {
   }
   currentSource.value.meta.flip = next as any;
 
-  await pushHistory();
+  await pushHistory({ title: '水平翻转' });
 }
 </script>
 

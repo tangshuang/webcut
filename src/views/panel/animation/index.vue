@@ -31,7 +31,7 @@ const animationDefaults = animationManager.getAnimationDefaults();
 const animationPresets = Object.values(animationDefaults);
 
 // 节流保存历史记录
-const throttledPushHistory = throttle(pushHistory, 500);
+const throttledPushHistory = throttle(() => pushHistory({ title: '调整动画' }), 500);
 
 const selectedAnimationType = ref<WebCutAnimationType | string>(WebCutAnimationType.Enter);
 
@@ -100,7 +100,7 @@ async function handleToggleAnimation(animationName: string) {
     if (!animationName) {
         usedAnimation.value = null;
         await applyAnimation(currentSegment.value?.sourceKey!, null);
-        pushHistory();
+        pushHistory({ title: '移除动画' });
         return;
     }
 
@@ -125,7 +125,7 @@ async function handleToggleAnimation(animationName: string) {
         name: animationName,
         ...animRet,
     };
-    pushHistory();
+    pushHistory({ title: '应用动画' });
     nextTick(() => {
         isSyncing = false;
     });

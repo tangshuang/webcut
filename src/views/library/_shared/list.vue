@@ -166,7 +166,7 @@ async function handleBatchAdd() {
         }
 
         // 保存历史记录
-        await pushHistory();
+        await pushHistory({ title: '批量添加素材' });
 
         // 清空选中状态
         selectedFiles.value.clear();
@@ -190,7 +190,7 @@ async function handleAdd(material: any) {
         await push(props.materialType, `file:${id}`, {
             thingType: props.thingType,
         });
-        await pushHistory();
+        await pushHistory({ title: '添加素材到轨道' });
         emit('added', material);
     }
     catch (e) {

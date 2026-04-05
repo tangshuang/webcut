@@ -27,10 +27,10 @@ const AlignIcons: any = {
 
 const throttleUpdateText = throttle(async (sourceKey: string, data: any) => {
     await updateText(sourceKey, data);
-    await pushHistory();
+    await pushHistory({ title: '编辑文本' });
 }, 200);
 // 节流保存历史记录，避免频繁操作时过度保存
-const throttledPushHistory = throttle(pushHistory, 200);
+const throttledPushHistory = throttle(() => pushHistory({ title: '调整文本位置' }), 200);
 
 let isSyncing = false;
 watch(currentSource, () => {
@@ -120,7 +120,7 @@ async function handleSetVerticalMiddle() {
     isSyncing = false;
 
     // 保存到历史记录
-    await pushHistory();
+    await pushHistory({ title: '文本垂直居中' });
 }
 
 async function handleSetVerticalBottom() {
@@ -138,7 +138,7 @@ async function handleSetVerticalBottom() {
     isSyncing = false;
 
     // 保存到历史记录
-    await pushHistory();
+    await pushHistory({ title: '文本贴底' });
 }
 
 function handleActiveTextEdit() {

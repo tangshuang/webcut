@@ -16,7 +16,8 @@ const playbackRate = ref(1);
 const isSyncing = ref(false);
 
 // 节流保存历史记录
-const throttledPushHistory = throttle(pushHistory, 500);
+const throttledPushVideoVolumeHistory = throttle(() => pushHistory({ title: '调整视频音量' }), 500);
+const throttledPushPlaybackRateHistory = throttle(() => pushHistory({ title: '调整播放速度' }), 500);
 
 // 同步音量数据
 function syncVolumeToForm() {
@@ -63,7 +64,7 @@ watch(volume, (newVolume) => {
   syncSourceTickInterceptor(currentSource.value.key);
 
   // 保存历史记录
-  throttledPushHistory();
+  throttledPushVideoVolumeHistory();
 });
 
 // 监听播放速度变化
@@ -76,7 +77,7 @@ watch(playbackRate, (newRate) => {
   });
 
   // 保存历史记录
-  throttledPushHistory();
+  throttledPushPlaybackRateHistory();
 });
 
 // 重置音量

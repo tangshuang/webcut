@@ -47,7 +47,7 @@ async function handleSelectContextMenu(key: string) {
     if (key === 'delete') {
         deleteSegment({ segment: props.segment, rail: props.rail });
         syncTransitions(props.rail);
-        await pushHistory();
+        await pushHistory({ title: '删除片段' });
     } else if (key === 'export') {
         try {
             const sourceInfo = sources.value.get(props.segment.sourceKey);

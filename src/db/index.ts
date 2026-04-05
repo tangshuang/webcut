@@ -6,11 +6,14 @@ import { getFileMd5 } from '../libs/file';
 import { AsyncQueue } from '../libs/async-queue';
 import {
     WebCutProjectHistoryData,
+    WebCutProjectHistoryPushPayload,
+    WebCutProjectHistoryPatch,
     WebCutProjectHistoryState,
     WebCutProjectState,
     WebCutProjectData,
     WebCutMaterial,
 } from '../types';
+import { createEmptyPatch } from '../libs/history-patch';
 
 const queue = new AsyncQueue();
 
@@ -263,11 +266,11 @@ export async function updateProjectState(projectId: string, state: Partial<WebCu
 
     let neeedToUpdate = false;
     const data: any = {};
-    if (state.historyAt) {
+    if ('historyAt' in state) {
         data.historyAt = state.historyAt;
         neeedToUpdate = true;
     }
-    if (state.aspectRatio) {
+    if ('aspectRatio' in state) {
         data.aspectRatio = state.aspectRatio;
         neeedToUpdate = true;
     }
@@ -278,6 +281,29 @@ export async function updateProjectState(projectId: string, state: Partial<WebCu
             ...prevState,
             ...data,
         });
+    }
+}
+
+async function updateProjectHistoryCurrent(projectId: string, historyId: string | null) {
+    const projectHistory = await getProjectHistory(projectId);
+    if (!projectHistory.length) {
+        return;
+    }
+
+    const actions: Promise<any>[] = [];
+    for (const item of projectHistory) {
+        const nextCurrent = !!historyId && item.id === historyId;
+        if (!!item.current === nextCurrent) {
+            continue;
+        }
+        actions.push(historyStorage.put({
+            ...item,
+            current: nextCurrent,
+        }));
+    }
+
+    if (actions.length) {
+        await Promise.all(actions);
     }
 }
 
@@ -312,7 +338,27 @@ export async function moveProjectHistoryTo(projectId: string, to: -1 | 1) {
 
     const { id } = targetHistory;
     await updateProjectState(projectId, { historyAt: id });
+    await updateProjectHistoryCurrent(projectId, id);
 
+    return targetHistory;
+}
+
+/**
+ * 将项目历史指针移动到指定历史记录
+ */
+export async function moveProjectHistoryToId(projectId: string, historyId: string) {
+    if (!projectId || !historyId) {
+        return null;
+    }
+
+    const projectHistory = await getProjectHistory(projectId);
+    const targetHistory = projectHistory.find(item => item.id === historyId) || null;
+    if (!targetHistory) {
+        return null;
+    }
+
+    await updateProjectState(projectId, { historyAt: historyId });
+    await updateProjectHistoryCurrent(projectId, historyId);
     return targetHistory;
 }
 
@@ -352,11 +398,72 @@ export async function pushProjectHistory(projectId: string, historyState: WebCut
         id: historyId,
         projectId,
         timestamp: Date.now(),
+        current: true,
+        title: '编辑变更',
+        patch: createEmptyPatch(),
+        undoPatch: createEmptyPatch(),
+        snapshot: historyState,
         state: historyState,
     };
     await historyStorage.put(historyData);
     await updateProjectState(projectId, { historyAt: historyId });
+    await updateProjectHistoryCurrent(projectId, historyId);
 
+    return historyId;
+}
+
+/**
+ * 使用完整历史结构写入一条历史记录
+ * @param projectId 项目ID
+ * @param payload 完整历史数据（含 patch/title/snapshot）
+ * @returns 历史记录ID
+ */
+export async function pushProjectHistoryEntry(projectId: string, payload: WebCutProjectHistoryPushPayload) {
+    if (!projectId) {
+        return null;
+    }
+
+    const projectState = await getProjectState(projectId);
+    if (projectState?.historyAt) {
+        const { historyAt } = projectState;
+        const projectHistory: any[] = await getProjectHistory(projectId);
+        const closest = projectHistory.find((item: any) => item.id === historyAt);
+        if (closest) {
+            const sortedHistory = projectHistory.sort((a: any, b: any) => a.timestamp - b.timestamp);
+            const deleteAfterItems = sortedHistory
+                .filter((item: any) => item.timestamp > closest.timestamp)
+                .map(({ id }) => id);
+            if (deleteAfterItems.length) {
+                await historyStorage.delete(deleteAfterItems);
+            }
+            const beforeItems = sortedHistory.filter((item: any) => item.timestamp <= closest.timestamp);
+            if (beforeItems.length > 50) {
+                const deleteBeforeItems = beforeItems.slice(0, beforeItems.length - 50).map(({ id }) => id);
+                await historyStorage.delete(deleteBeforeItems);
+            }
+        }
+    }
+
+    const state = payload.snapshot || payload.state;
+    const patch: WebCutProjectHistoryPatch = payload.patch || createEmptyPatch();
+    const undoPatch: WebCutProjectHistoryPatch = payload.undoPatch || createEmptyPatch();
+
+    const historyId = createRandomString(16);
+    const historyData: WebCutProjectHistoryData = {
+        id: historyId,
+        projectId,
+        timestamp: Date.now(),
+        current: true,
+        title: payload.title || '编辑变更',
+        patch,
+        undoPatch,
+        snapshot: state,
+        state, // 兼容字段
+    };
+
+    await historyStorage.put(historyData);
+    await updateProjectState(projectId, { historyAt: historyId });
+    await updateProjectHistoryCurrent(projectId, historyId);
     return historyId;
 }
 
@@ -381,6 +488,9 @@ export async function clearProjectHistory(projectId: string) {
         const actions = projectHistory.map(({ id }) => id);
         await historyStorage.delete(actions);
     }
+    await updateProjectState(projectId, {
+        historyAt: '',
+    });
 }
 
 export async function getProjectState(projectId: string): Promise<WebCutProjectState> {

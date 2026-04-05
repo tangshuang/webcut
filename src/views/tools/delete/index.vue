@@ -26,11 +26,13 @@ async function handleDelete() {
     }
 
     const source = sources.value.get(segment.sourceKey);
-    if (source) {
-        await pushHistory();
-    }
-
     deleteSegment({ segment, rail });
+
+    if (source) {
+        await pushHistory({
+            title: '删除片段',
+        });
+    }
 }
 </script>
 
