@@ -157,7 +157,7 @@ export async function removeFileFromProject(projectId: string, fileId: string): 
 
 export async function writeFile(f: File): Promise<string> {
     const fileId = await getFileMd5(f);
-    const opfsFilePath = `/webcut/file/${fileId}`;
+    const opfsFilePath = `/file/${fileId}`;
 
 
     if (await file(opfsFilePath).exists()) {
@@ -179,7 +179,7 @@ export async function writeFile(f: File): Promise<string> {
 }
 
 export async function readFile(fileId: string): Promise<File | null> {
-    const opfsFilePath = `/webcut/file/${fileId}`;
+    const opfsFilePath = `/file/${fileId}`;
     const fileCtx = file(opfsFilePath);
     if (await fileCtx.exists()) {
         // 兼容 opfs-tools 新旧版本：
