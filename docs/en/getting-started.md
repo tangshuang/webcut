@@ -42,7 +42,7 @@ const player = useWebCutPlayer()
 
 // push a video from URL
 await player.push('video', 'https://example.com/demo.mp4', {
-  autoFitRect: 'contain',
+  autoFitSize: 'contain',
   time: { start: 0, duration: 5e6 }, // 5 seconds in nanoseconds
 })
 

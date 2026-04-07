@@ -8,6 +8,11 @@ import toWav from 'audiobuffer-to-wav';
 import { PerformanceMark, mark } from './performance';
 import { aspectRatioMap } from "../constants";
 import { safeCloseFrame } from './video-frame';
+
+function isUserAbortError(error: unknown) {
+    const err = error as any;
+    return err?.name === 'AbortError' || err?.code === 20;
+}
 export {
     createTrackedVideoFrame,
     closeTrackedVideoFrame,
@@ -818,6 +823,10 @@ export async function downloadOffscreen(clips: Array<MP4Clip | ImgClip | AudioCl
             com.destroy();
             return;
         } catch (error) {
+            if (isUserAbortError(error)) {
+                com.destroy();
+                return;
+            }
             console.error('使用showSaveFilePicker导出失败:', error);
             // 如果失败，回退到blob方式
             com.destroy();
@@ -848,11 +857,16 @@ export async function saveAsFile(source: Blob | ReadableStream, meta: { type: st
             await writable.close();
             return;
         }
-        catch (e) {}
+        catch (e) {
+            if (isUserAbortError(e)) {
+                return;
+            }
+        }
     }
 
     if (source instanceof Blob) {
         await downloadBlob(source, meta.name);
+        return;
     }
 
     throw new Error('下载文件失败');

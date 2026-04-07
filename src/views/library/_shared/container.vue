@@ -120,7 +120,7 @@ function onResetNav() {
           :thingType="props.thingType"
           :materialType="props.materialType"
           :enableMultipleSelect="props.enableMultipleSelect"
-          disableContextMenu
+          deleteFromAll
           enableAddToProject
           @clickItem="emit('clickListItem', $event)"
           @leaveItem="emit('leaveListItem', $event)"

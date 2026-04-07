@@ -88,6 +88,7 @@ export default {
   "导入": "Import",
   "全部": "All",
   "删除": "Delete",
+  "从所有素材中删除": "Delete from All Materials",
   "拖拽视频到这里": "Drag video here",
   "拖拽音频到这里": "Drag audio here",
   "拖拽图片到这里": "Drag image here",

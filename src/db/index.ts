@@ -155,6 +155,44 @@ export async function removeFileFromProject(projectId: string, fileId: string): 
     return projectData;
 }
 
+export async function removeFileEverywhere(fileId: string) {
+    if (!fileId) {
+        return;
+    }
+
+    // 1) 从所有项目里移除该素材引用
+    const projects = await projectsStorage.all();
+    const actions: Promise<any>[] = [];
+    for (const projectData of projects || []) {
+        if (!projectData) {
+            continue;
+        }
+        // 兼容旧版本
+        if (!projectData.files && projectData.fileIds) {
+            projectData.files = projectData.fileIds.map((id: string) => ({ id, time: Date.now() }));
+            delete projectData.fileIds;
+        }
+        const prevLen = (projectData.files || []).length;
+        projectData.files = (projectData.files || []).filter((item: any) => item?.id !== fileId);
+        if (projectData.files.length !== prevLen) {
+            actions.push(projectsStorage.put(projectData));
+        }
+    }
+    if (actions.length) {
+        await Promise.all(actions);
+    }
+
+    // 2) 删除素材元数据
+    await filesStorage.delete([fileId]);
+
+    // 3) 删除 OPFS 文件
+    const opfsFilePath = `/file/${fileId}`;
+    const fileCtx = file(opfsFilePath);
+    if (await fileCtx.exists()) {
+        await fileCtx.remove();
+    }
+}
+
 export async function writeFile(f: File): Promise<string> {
     const fileId = await getFileMd5(f);
     const opfsFilePath = `/file/${fileId}`;

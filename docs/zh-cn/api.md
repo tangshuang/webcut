@@ -262,7 +262,7 @@
 - `video?`：`{ volume? }`
 - `text?`：`{ css?, highlights? }`（文本渲染）
 - `zIndex?`：图层顺序
-- `autoFitRect?`：`'contain'|'cover'|'contain_scale'|'cover_scale'`
+- `autoFitSize?`：`'contain'|'cover'|'contain_scale'|'cover_scale'`
 - `withRailId?`、`withSegmentId?`：放入指定轨/片段（用于历史恢复）
 
 #### useWebCutManager()

@@ -40,8 +40,8 @@ const { push, pushSeries } = useWebCutPlayer();
  * @param meta - 元数据配置
  */
 async function push(
-  type: WebCutMaterialType, 
-  source: string | File, 
+  type: WebCutMaterialType,
+  source: string | File,
   meta?: WebCutSourceMeta
 ): Promise<string>  // 返回 sourceKey
 ```
@@ -61,25 +61,25 @@ interface WebCutSourceMeta {
   opacity?: number;
   flip?: { horizontal?: boolean; vertical?: boolean };
   visible?: boolean;
-  
+
   // 时间信息
   time?: {
     start?: number;      // 开始时间（纳秒）
     duration?: number;   // 持续时间（纳秒）
     playbackRate?: number; // 播放速率
   };
-  
+
   // 音频/视频特定
   audio?: { volume?: number; offset?: number; loop?: boolean };
   video?: { volume?: number; offset?: number };
-  
+
   // 文本特定
   text?: { css?: object; highlights?: WebCutHighlightOfText[] };
-  
+
   // 滤镜与动画
   filters?: WebCutFilterData[];
   animation?: WebCutAnimationData;
-  
+
   // 轨道控制
   withRailId?: string;     // 指定添加到哪个轨道
   withSegmentId?: string;  // 指定 segment ID
@@ -195,18 +195,18 @@ await addFileToProject(projectId, fileId);
 ```typescript
 async function importWithOptions(resources, options) {
   const { loadFile, addToLibrary } = options;
-  
+
   for (const resource of resources) {
     // 1. 获取文件
     const fileData = await loadFile(resource.id);
     const file = new File([fileData], resource.name, { type: fileData.type });
-    
+
     // 2. 写入 OPFS（返回 MD5-based fileId，自动去重）
     const fileId = await writeFile(file);
-    
+
     // 3. 添加到时间轴（使用 file:{fileId} 格式）
     const sourceKey = await push(resource.type, `file:${fileId}`);
-    
+
     // 4. 添加到媒体库（自动检查去重）
     if (addToLibrary) {
       await addFileToProject(projectId, fileId);  // 内部已做好去重
@@ -283,17 +283,17 @@ const newProjectId = await createNewProject('my-custom-id');  // 指定 ID
 function openEditorWithResources(resourceIds, timelineConfig) {
   // 1. 生成全新的项目 ID（UUID）
   const projectId = crypto.randomUUID();
-  
+
   // 2. 准备数据
   const resources = resourceIds.map(id => ({ id, type: getResourceType(id) }));
-  
+
   // 3. 写入 sessionStorage（包含 projectId）
   sessionStorage.setItem('webcut_project_id', projectId);
   sessionStorage.setItem('webcut_resources', JSON.stringify(resources));
   if (timelineConfig) {
     sessionStorage.setItem('webcut_timeline', JSON.stringify(timelineConfig));
   }
-  
+
   // 4. 跳转
   window.location.href = `/editor?projectId=${projectId}`;
 }
@@ -327,7 +327,7 @@ interface ExternalImportData {
 // sessionStorage 键名
 const STORAGE_KEYS = {
   PROJECT_ID: 'webcut_project_id',
-  RESOURCES: 'webcut_resources', 
+  RESOURCES: 'webcut_resources',
   TIMELINE: 'webcut_timeline',
   CLEAR_ON_LOAD: 'webcut_clear_on_load'
 };
@@ -364,7 +364,7 @@ const timeline = {
       ]
     },
     {
-      id: 'rail-2', 
+      id: 'rail-2',
       type: 'audio',
       segments: [
         { id: 'seg-2', sourceKey: 'src-2', start: 0, end: 10000000 }
@@ -445,9 +445,9 @@ export function useExternalImport() {
       const resourcesStr = sessionStorage.getItem('webcut_resources');
       const timelineStr = sessionStorage.getItem('webcut_timeline');
       const clearOnLoad = sessionStorage.getItem('webcut_clear_on_load') === 'true';
-      
+
       if (!projectId || !resourcesStr) return null;
-      
+
       return {
         projectId,
         resources: JSON.parse(resourcesStr),
@@ -502,20 +502,20 @@ export function useExternalImport() {
       // 2. 读取所有文件并写入 WebCut 的 OPFS
       // 关键：writeFile() 会计算文件的 MD5 并返回作为 fileId
       const fileIdMap: Record<string, string> = {};  // externalId -> webcutFileId
-      
+
       for (const resource of resources) {
         try {
           const fileData = await loadFile(resource.id);
-          
+
           // 将 Blob/File 转换为标准 File 对象（如果需要）
-          const file = fileData instanceof Blob 
+          const file = fileData instanceof Blob
             ? new File([fileData], resource.name || `${resource.id}`, { type: fileData.type })
             : fileData;
-            
+
           // 写入 WebCut 的 OPFS，返回 MD5-based fileId
           const webcutFileId = await writeFile(file as File);
           fileIdMap[resource.id] = webcutFileId;
-          
+
         } catch (e) {
           console.warn(`Failed to load file: ${resource.id}`, e);
         }
@@ -529,7 +529,7 @@ export function useExternalImport() {
         try {
           // 使用 file:{fileId} 格式，push 会从 OPFS 读取
           const sourceKey = await push(
-            resource.type as any, 
+            resource.type as any,
             `file:${webcutFileId}` as any
           );
           keys.push(sourceKey);
@@ -542,7 +542,7 @@ export function useExternalImport() {
           console.warn(`Failed to push resource: ${resource.id}`, e);
         }
       }
-      
+
       return keys;
     } catch (e: any) {
       error.value = e.message;
@@ -583,7 +583,7 @@ export function useExternalImport() {
     try {
       // 第一步：导入所有资源并建立映射
       const keyMapping: Record<string, string> = {};
-      
+
       // 收集所有唯一的文件 ID
       const fileIds = new Set<string>();
       for (const source of Object.values(timeline.sources)) {
@@ -625,8 +625,8 @@ export function useExternalImport() {
         };
 
         const newKey = await push(
-          source.type as any, 
-          fileData as any, 
+          source.type as any,
+          fileData as any,
           meta
         );
         keyMapping[oldKey] = newKey;
@@ -635,7 +635,7 @@ export function useExternalImport() {
       // 第二步：更新轨道的 sourceKey 映射
       // 注意：由于 push() 会自动创建 segment，我们只需要确保时间正确
       // 如果需要精确控制 segment，需要直接操作 rails
-      
+
     } catch (e: any) {
       error.value = e.message;
       throw e;
@@ -674,10 +674,10 @@ export function useExternalImport() {
 
       // 2. 使用 pushSeries 按顺序添加素材，保持时间连续性
       // 这里需要根据 timeline 中定义的 segment 顺序来添加
-      
+
       // 或者更简单地：直接操作 context.rails
       // 但这需要确保 sources 已正确创建
-      
+
     } finally {
       isLoading.value = false;
     }
@@ -713,10 +713,10 @@ const props = defineProps<{
 // 用于控制编辑器使用哪个 projectId
 const editorProjectId = ref<string | undefined>(undefined);
 
-const { 
-  getExternalData, 
+const {
+  getExternalData,
   getProjectId,
-  clearExternalData, 
+  clearExternalData,
   importWithOptions,
   initNewProject
 } = useExternalImport();
@@ -725,10 +725,10 @@ onMounted(async () => {
   // 1. 获取外部传入的项目 ID
   const urlParams = new URLSearchParams(window.location.search);
   const urlProjectId = urlParams.get('projectId');
-  
+
   // 2. 优先使用 URL 参数，否则使用 sessionStorage，否则创建新的
   let projectId = urlProjectId || getProjectId();
-  
+
   if (projectId) {
     // 确保项目存在
     await createNewProject(projectId);
@@ -736,12 +736,12 @@ onMounted(async () => {
     // 创建全新项目
     projectId = await initNewProject();
   }
-  
+
   editorProjectId.value = projectId;
-  
+
   // 3. 检查是否有外部数据需要导入
   const externalData = getExternalData();
-  
+
   if (!externalData) {
     console.log('No external data found');
     return;
@@ -835,13 +835,13 @@ onMounted(async () => {
     "duration": 10000000
   },
   {
-    "id": "file-002", 
+    "id": "file-002",
     "type": "audio",
     "name": "音频1.mp3"
   },
   {
     "id": "file-003",
-    "type": "image", 
+    "type": "image",
     "name": "图片1.png"
   }
 ]
@@ -864,7 +864,7 @@ onMounted(async () => {
           "end": 5000000
         },
         {
-          "id": "seg-2", 
+          "id": "seg-2",
           "sourceKey": "src-3",
           "start": 5000000,
           "end": 8000000
@@ -903,10 +903,10 @@ onMounted(async () => {
       }
     },
     "src-3": {
-      "fileId": "file-003", 
+      "fileId": "file-003",
       "type": "image",
       "meta": {
-        "autoFitRect": "contain"
+        "autoFitSize": "contain"
       }
     }
   }
@@ -924,23 +924,23 @@ onMounted(async () => {
 function openEditorWithResources(resourceIds, timelineConfig = null) {
   // 1. 【关键】生成全新的项目 ID（UUID），避免数据污染
   const projectId = crypto.randomUUID();
-  
+
   // 2. 准备资源列表
   const resources = resourceIds.map(id => ({
     id,
     type: getResourceType(id), // video/audio/image
     name: getResourceName(id)  // 可选，用于媒体库显示
   }));
-  
+
   // 3. 写入 sessionStorage（必须包含 projectId）
   sessionStorage.setItem('webcut_project_id', projectId);
   sessionStorage.setItem('webcut_resources', JSON.stringify(resources));
   sessionStorage.setItem('webcut_clear_on_load', 'true');  // 每次都先清空
-  
+
   if (timelineConfig) {
     sessionStorage.setItem('webcut_timeline', JSON.stringify(timelineConfig));
   }
-  
+
   // 4. 【关键】URL 也需要传递 projectId（作为备份）
   window.location.href = `/webcut-editor?projectId=${projectId}`;
 }
@@ -974,11 +974,11 @@ const props = defineProps<{
 
 const emit = defineEmits(['import-complete', 'import-error']);
 
-const { 
-  getExternalData, 
-  clearExternalData, 
-  importResources, 
-  importTimeline 
+const {
+  getExternalData,
+  clearExternalData,
+  importResources,
+  importTimeline
 } = useExternalImport();
 
 onMounted(async () => {
@@ -1070,7 +1070,7 @@ interface EditorParams {
 // 导出编辑结果
 function exportToExternal(): ExternalTimeline {
   const { sources, rails } = useWebCutContext();
-  
+
   // 将 sources 和 rails 序列化为外部格式
   return {
     rails: rails.value,
@@ -1171,7 +1171,7 @@ const nanoseconds = seconds * 1e6;
     │                                             │ 读取 sessionStorage
     │                                             │
     │                                             │ createNewProject(projectId)
-    │                                             │ 
+    │                                             │
     │                                             │ for each resource:
     │                                             │   loadFile(id) → 获取文件
     │                                             │   push(type, file) → 添加到时间轴+画布
@@ -1190,8 +1190,8 @@ openEditor(['file-001', 'file-002'], timeline);
 
 // ============ WebCut 组件 ============
 <template>
-  <WebCutEditor 
-    :project-id="projectId" 
+  <WebCutEditor
+    :project-id="projectId"
     @created="onEditorReady"
   />
 </template>
@@ -1205,13 +1205,13 @@ onMounted(async () => {
     projectId.value = await createNewProject();
     return;
   }
-  
+
   await createNewProject(data.projectId);
   projectId.value = data.projectId;
-  
+
   // loadFile 从外部获取文件
   await importWithOptions(data.resources, { loadFile, addToLibrary: true });
-  
+
   clearExternalData();
 });
 </script>

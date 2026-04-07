@@ -234,7 +234,6 @@ export function useWebCutManager() {
                 const material = source.fileId ? `file:${source.fileId}` : source.url as string;
                 const prevVideoMeta = source.meta.video || {};
                 const key = await push('video', material, {
-                    autoFitRect: 'contain',
                     time: {
                         start: cursorTime.value,
                         duration: end - cursorTime.value,

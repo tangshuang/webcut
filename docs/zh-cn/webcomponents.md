@@ -82,18 +82,18 @@ const editor = document.querySelector('webcut-editor');
 editor.addEventListener('webcut-ready', async () => {
   // 访问播放器API
   const player = editor.player;
-  
+
   // 添加视频
   await player.push('video', 'https://example.com/video.mp4', {
-    autoFitRect: 'contain',
+    autoFitSize: 'contain',
     time: { start: 0, duration: 5000000 } // 5秒，以纳秒为单位
   });
-  
+
   // 播放控制
   player.play();
   player.pause();
   player.moveTo(1000); // 移动到1秒位置
-  
+
   // 导出
   const blob = await player.exportBlob();
   player.download('my-export');
@@ -164,21 +164,21 @@ editor.addEventListener('webcut-export-complete', (event) => {
       const editor = document.getElementById('editor');
       const addVideoBtn = document.getElementById('add-video');
       const exportBtn = document.getElementById('export');
-      
+
       editor.addEventListener('webcut-ready', () => {
         console.log('编辑器已准备就绪');
-        
+
         addVideoBtn.addEventListener('click', async () => {
           try {
             await editor.player.push('video', 'https://example.com/sample.mp4', {
-              autoFitRect: 'contain',
+              autoFitSize: 'contain',
               time: { start: 0, duration: 10000000 } // 10秒
             });
           } catch (error) {
             console.error('添加视频失败:', error);
           }
         });
-        
+
         exportBtn.addEventListener('click', async () => {
           try {
             await editor.player.exportBlob();

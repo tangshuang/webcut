@@ -127,7 +127,6 @@ push 历史时若 current 不在尾部，删除 current 之后历史，保留 cu
 - `recoverToHistory(historyId)`
 - `snapshot()`
 - `createEntry({ title, before, after })`
-- `withHistory(title, action)`
 
 ### 7.2 push 逻辑
 

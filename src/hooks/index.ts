@@ -22,7 +22,7 @@ import { Evt } from '../libs/evt';
 import { mergeLangPkg } from '../i18n/core';
 
 let context: WebCutContext | null | undefined = null;
-export function useWebCutContext(providedContext?: () => Partial<WebCutContext> | undefined | null) {
+export function useWebCutContext(provideContext?: () => Partial<WebCutContext> | undefined | null) {
     const defaultContext: WebCutContext = {
         id: 'default',
         width: 1440,
@@ -37,6 +37,8 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         duration: 0,
         disableSelectSprite: false,
         autoResetWhenStop: false,
+        disableRecoverHistory: false,
+        autoFitSize: undefined,
         fps: 30,
         scale: 70,
         scroll1: null,
@@ -57,15 +59,22 @@ export function useWebCutContext(providedContext?: () => Partial<WebCutContext> 
         memory: markRaw({}),
     };
 
-    const providedContextValue = providedContext?.();
+    const parentContext = inject('WEBCUT_CONTEXT', context);
+    const providedContextValue = provideContext?.();
     if (providedContextValue) {
-        const next = { ...defaultContext, ...providedContextValue };
-        // @ts-ignore
-        context = reactive(next);
+        if (parentContext) {
+            Object.assign(parentContext, providedContextValue);
+            context = parentContext;
+        }
+        else {
+            const next = { ...defaultContext, ...providedContextValue };
+            // @ts-ignore
+            context = reactive(next);
+        }
     }
     if (!context) {
         // @ts-ignore
-        context = inject('WEBCUT_CONTEXT', null);
+        context = parentContext;
     }
     if (!context) {
         // 如果没有找到上下文，创建一个默认的
@@ -292,6 +301,7 @@ export function useWebCutPlayer() {
         currentSource,
         loading,
         modules,
+        autoFitSize,
         updateDuration,
     } = refs;
 
@@ -714,24 +724,27 @@ export function useWebCutPlayer() {
 
             const spr = new VisibleSprite(clip!);
 
-            // 处理rect
-            if (meta.rect) {
-                assignNotEmpty(spr.rect, meta.rect);
-            }
             // 自动适配
-            else if (meta.autoFitRect && ['image', 'video'].includes(type)) {
+            if ((meta.autoFitSize || (meta as any).autoFitRect || autoFitSize?.value) && ['image', 'video'].includes(type)) {
                 const src = (file || url) as string;
                 const size = type === 'image' ? await measureImageSize(src) : await measureVideoSize(src);
                 const canvasSize = {
                     width: width.value,
                     height: height.value,
                 };
-                const { w, h, x, y } = autoFitRect(canvasSize, size, meta.autoFitRect);
+                const fitType = (meta.autoFitSize || (meta as any).autoFitRect || autoFitSize?.value)!;
+                const { w, h, x, y } = autoFitRect(canvasSize, size, fitType);
                 spr.rect.w = w;
                 spr.rect.h = h;
                 spr.rect.x = x;
                 spr.rect.y = y;
                 spr.rect.angle = 0;
+                segMeta.autoFitSize = fitType;
+                delete (segMeta as any).autoFitRect;
+            }
+            // 处理rect
+            else if (meta.rect && Object.keys(meta.rect).length > 0) {
+                assignNotEmpty(spr.rect, meta.rect);
             }
             if (type === 'audio') {
                 spr.rect.y = -1000000000;
@@ -1303,7 +1316,7 @@ export function useWebCutPlayer() {
     }
 
     async function download(filename = `webcut-${Date.now()}`) {
-        if (typeof window.showSaveFilePicker !== 'function') {
+        if (typeof window.showSaveFilePicker === 'function') {
             try {
                 const fileHandle = await window.showSaveFilePicker({
                     suggestedName: `webcut-${Date.now()}.mp4`,
@@ -1322,10 +1335,14 @@ export function useWebCutPlayer() {
                 await writable.close();
                 return;
             }
-            catch (error) {}
+            catch (error: any) {
+                if (error?.name === 'AbortError' || error?.code === 20) {
+                    return;
+                }
+            }
         }
         const blob = await exportBlob();
-        downloadBlob(blob, filename + '.mp4');
+        await downloadBlob(blob, filename + '.mp4');
     }
 
     function resize() {

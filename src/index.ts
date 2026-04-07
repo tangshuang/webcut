@@ -241,6 +241,7 @@ export {
     createNewProject,
     addFileToProject,
     removeFileFromProject,
+    removeFileEverywhere,
     writeFile,
     readFile,
     addFile,
@@ -252,6 +253,7 @@ export {
     pushProjectHistoryEntry,
     getProjectHistory,
     clearProjectHistory,
+    clearProjectHistory as clearWebCutHistory,
     getProjectState,
     updateProjectState,
 } from './db';

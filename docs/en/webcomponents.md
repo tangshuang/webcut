@@ -82,18 +82,18 @@ const editor = document.querySelector('webcut-editor');
 editor.addEventListener('webcut-ready', async () => {
   // Access the player API
   const player = editor.player;
-  
+
   // Push a video
   await player.push('video', 'https://example.com/video.mp4', {
-    autoFitRect: 'contain',
+    autoFitSize: 'contain',
     time: { start: 0, duration: 5000000 } // 5 seconds in nanoseconds
   });
-  
+
   // Playback control
   player.play();
   player.pause();
   player.moveTo(1000); // Move to 1 second
-  
+
   // Export
   const blob = await player.exportBlob();
   player.download('my-export');
@@ -164,21 +164,21 @@ Here's a complete example using the Web Components:
       const editor = document.getElementById('editor');
       const addVideoBtn = document.getElementById('add-video');
       const exportBtn = document.getElementById('export');
-      
+
       editor.addEventListener('webcut-ready', () => {
         console.log('Editor is ready');
-        
+
         addVideoBtn.addEventListener('click', async () => {
           try {
             await editor.player.push('video', 'https://example.com/sample.mp4', {
-              autoFitRect: 'contain',
+              autoFitSize: 'contain',
               time: { start: 0, duration: 10000000 } // 10 seconds
             });
           } catch (error) {
             console.error('Failed to add video:', error);
           }
         });
-        
+
         exportBtn.addEventListener('click', async () => {
           try {
             await editor.player.exportBlob();

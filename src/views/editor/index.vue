@@ -29,11 +29,14 @@ const props = defineProps<{
     packs?: (new () => WebCutExtensionPack)[];
 }>();
 
-const { registerExtensionPack } = useWebCutContext(() => props.projectId ? { id: props.projectId } : undefined);
+const { registerExtensionPack, id } = useWebCutContext();
 useWebCutThemeColors(() => props.colors);
 useWebCutDarkMode(darkMode);
 useWebCutLocale(language);
 
+if (props.projectId) {
+    id.value = props.projectId;
+}
 if (props.packs) {
     props.packs.forEach(mod => registerExtensionPack(mod));
 }

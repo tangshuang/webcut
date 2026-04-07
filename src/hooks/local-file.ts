@@ -26,6 +26,7 @@ export function useWebCutLocalFile() {
         try {
             const file = await readFile(fileId);
             if (!file) {
+                delete fileCacheSet.value[fileId];
                 reject!(new Error('File not found'));
                 return;
             }
@@ -44,7 +45,7 @@ export function useWebCutLocalFile() {
         if (fileCache?.url) {
             return fileCache.url;
         }
-        applyFileUrl(fileId);
+        applyFileUrl(fileId).catch(() => {});
     }
 
     return {

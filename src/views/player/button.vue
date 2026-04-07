@@ -48,6 +48,7 @@ function skipForward() {
     justify-content: center;
     gap: 16px;
     position: relative;
+    z-index: 10;
 
     .webcut-box + & {
         margin-top: 8px;

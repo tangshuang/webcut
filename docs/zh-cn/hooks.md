@@ -61,7 +61,7 @@ await player.init()
 
 // 添加视频素材
 await player.push('video', 'https://example.com/video.mp4', {
-  autoFitRect: 'contain',
+  autoFitSize: 'contain',
   time: { start: 0, duration: 5000000 } // 5秒，以纳秒为单位
 })
 

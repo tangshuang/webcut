@@ -1,5 +1,5 @@
 import { computed, watch } from 'vue';
-import { getProject, addFile, addFileToProject, removeFileFromProject, getAllFiles, addFileTags } from '../db';
+import { getProject, addFile, addFileToProject, removeFileFromProject, removeFileEverywhere, getAllFiles, addFileTags } from '../db';
 import { useWebCutContext } from './index';
 import { source } from 'fods';
 import { useSource } from 'fods-vue';
@@ -76,6 +76,17 @@ export function useWebCutLibrary() {
         }
     }
 
+    async function removeFileFromAll(fileId: string) {
+        loading.value = true;
+        try {
+            await removeFileEverywhere(fileId);
+            await refreshProjectData();
+            await refreshFiles();
+        } finally {
+            loading.value = false;
+        }
+    }
+
     async function addExistingFileToProject(fileId: string) {
     try {
         // 检查文件是否已经存在于项目中
@@ -92,6 +103,11 @@ export function useWebCutLibrary() {
     }
 }
 
+    async function refresh() {
+        await refreshProjectData();
+        await refreshFiles();
+    }
+
     return {
         projectId,
         projectData,
@@ -99,6 +115,8 @@ export function useWebCutLibrary() {
         files,
         addNewFile,
         removeFile,
+        removeFileFromAll,
         addExistingFileToProject,
+        refresh,
     };
 }

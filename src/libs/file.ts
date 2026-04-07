@@ -1,6 +1,11 @@
 // @ts-ignore
 import BFM from 'browser-md5-file';
 
+function isUserAbortError(error: unknown) {
+    const err = error as any;
+    return err?.name === 'AbortError' || err?.code === 20;
+}
+
 /**
  * 将 base64 数据转换为 File 对象
  * @param base64 base64 数据
@@ -92,7 +97,12 @@ export async function downloadBlob(data: Blob | ReadableStream<Uint8Array>, file
 
             await writable.close();
             return;
-        } catch (error) {}
+        } catch (error) {
+            // 用户取消保存时，不应再走回退逻辑触发二次弹窗
+            if (isUserAbortError(error)) {
+                return;
+            }
+        }
     }
 
     // 回退到传统方式

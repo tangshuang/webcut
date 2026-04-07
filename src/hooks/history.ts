@@ -1,6 +1,5 @@
 import { onMounted, ref } from 'vue';
-import { useWebCutContext } from './index';
-import { useWebCutPlayer } from './index';
+import { useWebCutContext, useWebCutPlayer } from './index';
 import { HistoryMachine } from '../libs/history-machine';
 import {
     WebCutProjectHistoryData,
@@ -12,6 +11,7 @@ import {
 } from '../types';
 import { clone, isEqual } from 'ts-fns';
 import { applyHistoryPatch, createHistoryPatches } from '../libs/history-patch';
+import { useT } from '../i18n/hooks';
 
 const historyMachines = new Map<string, HistoryMachine>();
 
@@ -23,12 +23,24 @@ type WebCutHistoryPushOptions = {
 
 export function useWebCutHistory() {
     const {
-        id: projectId, rails, sources, canUndo, canRedo, canRecover, canvas, selected, current, clips, sprites,
+        id: projectId,
+        rails,
+        sources,
+        clips,
+        sprites,
+        canUndo,
+        canRedo,
+        canRecover,
+        canvas,
+        selected,
+        current,
         updateByAspectRatio,
         loading,
         memory,
+        disableRecoverHistory,
     } = useWebCutContext();
     const { push: pushToPlayer } = useWebCutPlayer();
+    const t = useT();
 
     // 创建历史记录管理器实例
     let historyMachine = historyMachines.get(projectId.value)!;
@@ -53,6 +65,12 @@ export function useWebCutHistory() {
         await historyMachine.ready();
         historyList.value = await historyMachine.getHistoryList();
         if (savedData?.state) {
+            // 禁止在刷新页面时，恢复历史记录中时间最近的一条记录, 则不执行恢复操作
+            if (disableRecoverHistory.value) {
+                canRecover.value = false;
+                dataToRecover.value = null;
+                return;
+            }
             dataToRecover.value = savedData;
             canRecover.value = true;
             // 恢复一些视频基础配置
@@ -128,9 +146,12 @@ export function useWebCutHistory() {
         const { sourceKey } = segment;
         const { type, fileId, url, text, sprite, meta } = source;
         const src = fileId ? `file:${fileId}` : url || text || '';
+        const metaRect = clone(meta.rect);
+        const hasRect = !!metaRect && Object.keys(metaRect).length > 0;
         await pushToPlayer(type as any, src, {
             id: sourceKey,
-            rect: clone(meta.rect), // 使用meta.rect，因为animation可能改变sprite.rect
+            // 仅在有明确 rect 时传入，避免空对象覆盖 autoFitSize 分支
+            rect: hasRect ? metaRect : undefined,
             time: {
                 start: sprite.time.offset,
                 duration: sprite.time.duration,
@@ -146,7 +167,7 @@ export function useWebCutHistory() {
             // TODO text的处理比较复杂，需进一步研究，可能需要从seg上获取
             text: clone(meta.text),
             animation: clone(meta.animation),
-            autoFitRect: meta.autoFitRect,
+            autoFitSize: meta.autoFitSize || (meta as any).autoFitRect,
             withRailId: railId,
             withSegmentId: segment.id,
         });
@@ -221,6 +242,11 @@ export function useWebCutHistory() {
         current.meta = clone(target.meta);
     }
 
+    /**
+     * 使用完整的历史记录状态恢复项目状态。
+     * 本质上，它是直接覆盖当前的历史记录，而不是追加。
+     * @param historyState
+     */
     async function recoverHistory(historyState: WebCutProjectHistoryState) {
         const targetSourcesMap = historyState.sources;
         const currentSourceKeys = new Set(sources.value.keys());
@@ -459,29 +485,54 @@ export function useWebCutHistory() {
         if (!entry.patch?.operations.length && !entry.undoPatch?.operations.length) {
             canUndo.value = historyMachine.canUndo();
             canRedo.value = historyMachine.canRedo();
-            return;
+            return null;
         }
 
-        await historyMachine.push(entry);
+        const historyId = await historyMachine.push(entry);
         canUndo.value = historyMachine.canUndo();
         canRedo.value = historyMachine.canRedo();
         canRecover.value = false;
         dataToRecover.value = null;
         await refreshHistoryList();
+        return historyId;
     }
 
-    async function withHistory<T>(title: string, action: () => Promise<T> | T) {
-        const before = snapshot();
-        const result = await action();
-        await push({ title, before });
-        return result;
+    /**
+     * 替换当前项目状态为指定状态。注意，该操作可以清空所有历史记录。
+     * @param state 新状态
+     * @param title 操作标题
+     * @returns
+     */
+    async function replaceWithState(state: WebCutProjectHistoryState, title?: string) {
+        loading.value = true;
+        try {
+            // 清空所有历史记录
+            await clear();
+
+            // 以当前运行态重新快照，避免外部构建 state 与运行时属性（如 rect）不一致
+            await recoverHistory(state);
+            canRecover.value = false;
+            dataToRecover.value = null;
+            const nextState = snapshot();
+
+            // 推送新的历史记录
+            const historyId = await push({
+                title: title || t('Replace history'),
+                before: null,
+                after: nextState,
+            });
+
+            return historyId;
+        } finally {
+            loading.value = false;
+        }
     }
 
     return {
         push,
         snapshot,
         createEntry,
-        withHistory,
+        replaceWithState,
         historyList,
         refreshHistoryList,
         recoverToHistory,

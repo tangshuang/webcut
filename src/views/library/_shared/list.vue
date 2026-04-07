@@ -20,6 +20,8 @@ const props = defineProps<{
     thingType: WebCutThingType;
     materialType: WebCutMaterialType;
     disableContextMenu?: boolean;
+    /** 删除时是否从全部素材库中彻底删除 */
+    deleteFromAll?: boolean;
     /** 是否开启添加素材时，如果当前项目没有选中素材，则自动添加到当前项目素材列表中 */
     enableAddToProject?: boolean;
     /** 是否开启多选模式 */
@@ -29,7 +31,7 @@ const props = defineProps<{
 const t = useT();
 
 const { push, pushSeries } = useWebCutPlayer();
-const { removeFile, addExistingFileToProject } = useWebCutLibrary();
+const { projectFiles, removeFile, removeFileFromAll, addExistingFileToProject } = useWebCutLibrary();
 const { push: pushHistory } = useWebCutHistory();
 const { id: projectId, cursorTime } = useWebCutContext();
 
@@ -46,8 +48,11 @@ const isMultiSelectMode = ref(false); // 是否处于多选模式
 // 右键菜单选项
 const options = computed(() => [
     {
-        label: t('删除'),
-        key: 'delete'
+        label: props.deleteFromAll ? t('从所有素材中删除') : t('删除'),
+        key: 'delete',
+        disabled: !!props.deleteFromAll
+            && !!currentFile.value
+            && projectFiles.value.some((item: any) => item.id === currentFile.value.id),
     }
 ]);
 
@@ -68,10 +73,20 @@ function handleContextMenu(e: MouseEvent, file: any) {
 }
 
 // 处理菜单项选择
-function handleSelect(key: string | number) {
+async function handleSelect(key: string | number) {
     showDropdown.value = false;
     if (key === 'delete' && currentFile.value) {
-        removeFile(currentFile.value.id);
+        const shouldDisableDeleteFromAll = !!props.deleteFromAll
+            && projectFiles.value.some((item: any) => item.id === currentFile.value.id);
+        if (shouldDisableDeleteFromAll) {
+            return;
+        }
+        if (props.deleteFromAll) {
+            await removeFileFromAll(currentFile.value.id);
+        }
+        else {
+            await removeFile(currentFile.value.id);
+        }
         emit('deleted', currentFile.value);
     }
 }

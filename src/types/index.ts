@@ -34,6 +34,10 @@ export type WebCutContext = {
     disableSelectSprite: boolean;
     // 当结束停止时，自动reset为第一帧
     autoResetWhenStop: boolean;
+    // 禁止在刷新页面时，恢复历史记录中时间最近的一条记录
+    disableRecoverHistory: boolean;
+    // 推入图片/视频素材时的默认自适配方式（当素材未显式设置 rect 时生效）
+    autoFitSize?: 'contain' | 'cover' | 'contain_scale' | 'cover_scale';
 
     // 帧率
     fps: number;
@@ -383,6 +387,8 @@ export type WebCutSourceMeta = {
     filters?: WebCutFilterData[];
 
     /** 自动调整视频尺寸到容器内，仅对视频和图片有效，带_scale后缀表示当图片小于视频视口时，会把图片放大以撑满整个视口 */
+    autoFitSize?: 'contain' | 'cover' | 'contain_scale' | 'cover_scale';
+    /** @deprecated 使用 autoFitSize */
     autoFitRect?: 'contain' | 'cover' | 'contain_scale' | 'cover_scale';
     /** 添加到指定轨道 */
     withRailId?: string;

@@ -164,7 +164,7 @@ This is a detailed reference for all exports from `src/index.ts`. It explains re
   - `resize()` triggers PlayerScreen box fitting (`src/hooks/index.ts:783–785`).
 - Exporting (`src/hooks/index.ts:330–351`): `exportBlob()` streams MP4 from canvas combinator; `exportAsWavBlob()` converts MP4 to WAV via `mp4BlobToWavBlob`.
 - Materials (`src/hooks/index.ts:353–564`):
-  - `push(type, source, meta)` supports `video|audio|image|text` with sources: `File`, `data:URL`, `file:<id>`, `http(s)`. Handles audio volume options, autoFitRect for image/video, default durations for image/text (2s), zIndex, time offsets.
+  - `push(type, source, meta)` supports `video|audio|image|text` with sources: `File`, `data:URL`, `file:<id>`, `http(s)`. Handles audio volume options, autoFitSize for image/video, default durations for image/text (2s), zIndex, time offsets.
   - Creates `VisibleSprite`, sets `sources` map entry including `fileId/url/text/segmentId/railId/meta` (`src/hooks/index.ts:547–559`).
   - Rail assignment: auto create rail per type, mark `video` rail `main`, avoid overlap by creating new rail when segments intersect, reorder rails (`src/hooks/index.ts:508–545`).
   - `remove(key)`, `clear()`, `destroy()` tear down sprites/clips and global state (`src/hooks/index.ts:566–633`).
@@ -185,7 +185,7 @@ Parameters:
 - `video?`: `{ volume? }`
 - `text?`: `{ css?, highlights? }` for text rendering
 - `zIndex?`: number
-- `autoFitRect?`: `'contain'|'cover'|'contain_scale'|'cover_scale'`
+- `autoFitSize?`: `'contain'|'cover'|'contain_scale'|'cover_scale'`
 - `withRailId?`, `withSegmentId?`: place into a specific rail or segment id (used in history recovery)
 
 #### useWebCutData()
