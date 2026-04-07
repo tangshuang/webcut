@@ -77,6 +77,111 @@ const historyStorage = idb.use('project_history');
 
 const projectStateStorage = idb.use('project_state');
 
+const LEGACY_OPFS_FILE_PREFIX = '/webcut/file/';
+const CURRENT_OPFS_FILE_PREFIX = '/file/';
+const OPFS_MIGRATION_REPORT_KEY = 'WEBCUT_OPFS_MIGRATION_REPORT_V1';
+let opfsMigrationPromise: Promise<void> | null = null;
+
+const getLocalStorageSafe = (key: string) => {
+    try {
+        return localStorage.getItem(key);
+    } catch {
+        return null;
+    }
+};
+
+const setLocalStorageSafe = (key: string, value: string) => {
+    try {
+        localStorage.setItem(key, value);
+    } catch {}
+};
+
+async function migrateSingleLegacyFile(fileId: string): Promise<'migrated' | 'skipped' | 'failed'> {
+    if (!fileId) {
+        return 'skipped';
+    }
+
+    const currentPath = `${CURRENT_OPFS_FILE_PREFIX}${fileId}`;
+    const legacyPath = `${LEGACY_OPFS_FILE_PREFIX}${fileId}`;
+    const currentCtx = file(currentPath);
+    if (await currentCtx.exists()) {
+        return 'skipped';
+    }
+
+    const legacyCtx = file(legacyPath);
+    if (!await legacyCtx.exists()) {
+        return 'skipped';
+    }
+
+    try {
+        // @ts-ignore
+        await queue.push(async () => write(currentPath, await legacyCtx.stream(), { overwrite: true }));
+        if (await currentCtx.exists()) {
+            await legacyCtx.remove();
+            return 'migrated';
+        }
+        return 'failed';
+    } catch {
+        return 'failed';
+    }
+}
+
+async function runOpfsPathMigration() {
+    const candidateIds = new Set<string>();
+
+    // 1) 从外层文件系统元数据中收集 fileId
+    try {
+        const localMetaRaw = getLocalStorageSafe('LOCAL_FILE_META');
+        const localMeta = localMetaRaw ? JSON.parse(localMetaRaw) : {};
+        for (const fileId of Object.keys(localMeta || {})) {
+            if (fileId) {
+                candidateIds.add(fileId);
+            }
+        }
+    } catch {}
+
+    // 2) 从 webcut 的 file 表收集 fileId
+    try {
+        const files = await filesStorage.all();
+        for (const item of files || []) {
+            if (item?.id) {
+                candidateIds.add(String(item.id));
+            }
+        }
+    } catch {}
+
+    let migrated = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    for (const fileId of candidateIds) {
+        const ret = await migrateSingleLegacyFile(fileId);
+        if (ret === 'migrated') migrated += 1;
+        else if (ret === 'failed') failed += 1;
+        else skipped += 1;
+    }
+
+    setLocalStorageSafe(OPFS_MIGRATION_REPORT_KEY, JSON.stringify({
+        at: Date.now(),
+        candidateCount: candidateIds.size,
+        migrated,
+        failed,
+        skipped,
+    }));
+}
+
+export function ensureWebCutOpfsPathMigration() {
+    if (typeof window === 'undefined') {
+        return Promise.resolve();
+    }
+    if (!opfsMigrationPromise) {
+        opfsMigrationPromise = runOpfsPathMigration().catch((error) => {
+            console.warn('[webcut] OPFS path migration failed:', error);
+        });
+    }
+    return opfsMigrationPromise;
+}
+
 export async function getProject(projectId: string): Promise<WebCutProjectData | null> {
     if (!projectId) {
         return null;
@@ -219,6 +324,10 @@ export async function writeFile(f: File): Promise<string> {
 export async function readFile(fileId: string): Promise<File | null> {
     const opfsFilePath = `/file/${fileId}`;
     const fileCtx = file(opfsFilePath);
+    if (!await fileCtx.exists()) {
+        // 兜底迁移：若新路径缺失但旧路径存在，读取前即时迁移
+        await migrateSingleLegacyFile(fileId);
+    }
     if (await fileCtx.exists()) {
         // 兼容 opfs-tools 新旧版本：
         // - 旧版本存在 getOriginFile()

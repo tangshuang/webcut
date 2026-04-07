@@ -13,7 +13,7 @@ import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-f
 import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { safeCloseFrame, trackVideoFrameCreated } from '../libs';
-import { readFile, updateProjectState, writeFile } from '../db';
+import { ensureWebCutOpfsPathMigration, readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
 import { aspectRatioMap } from '../constants';
 import { filterManager } from '../modules/filters';
@@ -23,6 +23,10 @@ import { mergeLangPkg } from '../i18n/core';
 
 let context: WebCutContext | null | undefined = null;
 export function useWebCutContext(provideContext?: () => Partial<WebCutContext> | undefined | null) {
+    // 每次启动触发一次 OPFS 旧路径迁移（/webcut/file/* -> /file/*）
+    // 不阻塞初始化，读取流程里还有按需迁移兜底
+    void ensureWebCutOpfsPathMigration();
+
     const defaultContext: WebCutContext = {
         id: 'default',
         width: 1440,
