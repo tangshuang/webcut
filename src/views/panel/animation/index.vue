@@ -281,7 +281,7 @@ function readAnimationTitle(name: string) {
     font-size: var(--webcut-font-size-small) !important;
 }
 .webcut-animation-type-radio-group :deep(.n-radio-button--checked) {
-    background-color: var(--webcut-grey-color);
+    background-color: var(--webcut-theme-opacity-color);
     color: var(--text-color);
 }
 .webcut-animation-type-radio-button--has-selected {

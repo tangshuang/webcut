@@ -99,7 +99,7 @@ const thingTabs = computed(() => railExtensionPack.value?.panelConfig?.tabs || [
   cursor: pointer;
 }
 .webcut-panel-tab--active {
-  background-color: var(--webcut-rail-hover-bg-color);
+  background-color: var(--webcut-theme-opacity-color);
 }
 
 .webcut-panel :deep(.webcut-panel-form) {
