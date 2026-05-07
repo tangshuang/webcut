@@ -236,10 +236,10 @@ function toggleMultiSelectMode() {
                 {{ t('多选') }}
             </span>
             <span v-if="isMultiSelectMode" style="margin-right: auto;">{{ t('已选{size}个', { size: selectedFiles.size }) }}</span>
-            <n-button size="tiny" @click="handleBatchAdd" type="primary" :disabled="selectedFiles.size === 0" v-if="isMultiSelectMode">
+            <n-button class="webcut-multiselect-action-btn" size="tiny" @click="handleBatchAdd" type="primary" :disabled="selectedFiles.size === 0" v-if="isMultiSelectMode">
                 {{ t('按顺序添加') }}
             </n-button>
-            <n-button size="tiny" secondary @click="clearSelectionAndExit" v-if="isMultiSelectMode">
+            <n-button class="webcut-multiselect-action-btn" size="tiny" secondary @click="clearSelectionAndExit" v-if="isMultiSelectMode">
                 {{ t('退出多选') }}
             </n-button>
         </div>

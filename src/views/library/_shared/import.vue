@@ -24,6 +24,10 @@ const props = defineProps<{
     thingType: WebCutThingType;
     accept: string;
     supportsDirectoryUpload?: boolean;
+    importTools?: {
+        key: string;
+        component: any;
+    }[];
 }>();
 
 // 定义进度事件类型
@@ -277,6 +281,18 @@ async function importVideo(file: File) {
             <n-button type="default" @click="handleImportFolder" :disabled="isTranscoding" text size="small">
                 <small>{{ t('导入文件夹') }}</small>
             </n-button>
+        </div>
+
+        <div style="margin-top: 12px;" v-if="props.importTools?.length">
+            <component
+                v-for="tool in props.importTools"
+                :is="tool.component"
+                :key="tool.key"
+                :thingType="props.thingType"
+                :accept="props.accept"
+                :isTranscoding="isTranscoding"
+                :importOneFile="importOneFile"
+            ></component>
         </div>
     </div>
 </template>

@@ -114,13 +114,24 @@ export interface WebCutExtensionPack {
     /** 素材库配置 */
     libraryConfig?: {
         /** 在素材库中注册新的导航项 */
-        navs: {
+        navs?: {
             /** 目标素材，可以是自定义的素材 */
             targetThing: WebCutThingType;
             /** 插入位置 */
             insertBeforeIndex: number;
             key: string;
             label: string;
+            component: Component;
+        }[];
+        /** 在素材库导入面板中注册扩展工具项 */
+        importTools?: {
+            /** 目标素材类型 */
+            targetThing: WebCutThingType;
+            /** 工具标识 */
+            key: string;
+            /** 插入位置，不传则追加在末尾 */
+            insertBeforeIndex?: number;
+            /** 工具组件 */
             component: Component;
         }[];
     };

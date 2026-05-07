@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { useWebCutLibrary } from '../../../hooks/library';
 import ScrollBox from '../../../components/scroll-box/index.vue';
-import { useWebCutPlayer } from '../../../hooks';
+import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 import { WebCutThingType, WebCutMaterialType, WebCutMaterial } from '../../../types';
 
@@ -33,6 +33,7 @@ const props = defineProps<{
 const { push } = useWebCutPlayer();
 const { projectFiles, files, addNewFile } = useWebCutLibrary();
 const { push: pushHistory } = useWebCutHistory();
+const { modules } = useWebCutContext();
 
 const allFileList = computed(() => {
   const items = files.value.filter((file) => file.type.startsWith(props.thingType)).sort((a, b) => (b.time || 0) - (a.time || 0));
@@ -41,6 +42,29 @@ const allFileList = computed(() => {
 const projectFileList = computed(() => {
   const items = projectFiles.value.filter((file) => file.type.startsWith(props.thingType)).sort((a, b) => (b.time || 0) - (a.time || 0));
   return items;
+});
+
+const importTools = computed(() => {
+  const realTools: { key: string; component: any }[] = [];
+  const extensions = [...modules.value.values()].filter(item => item.libraryConfig?.importTools?.length);
+  extensions.forEach((ext) => {
+    const tools = ext.libraryConfig?.importTools || [];
+    tools.forEach((tool) => {
+      if (tool.targetThing !== props.thingType) {
+        return;
+      }
+      const entry = {
+        key: tool.key,
+        component: tool.component,
+      };
+      if (typeof tool.insertBeforeIndex === 'number') {
+        realTools.splice(tool.insertBeforeIndex, 0, entry);
+      } else {
+        realTools.push(entry);
+      }
+    });
+  });
+  return realTools;
 });
 
 const navKey = ref<string>('');
@@ -90,6 +114,7 @@ function onResetNav() {
         v-model:current="navKey"
         :thingType="props.thingType"
         :accept="props.accept"
+        :importTools="importTools"
         :supportsDirectoryUpload="props.supportsDirectoryUpload"
         @fileImport="asideRef?.resetToFirstNav"
         @dirImport="asideRef?.resetToFirstNav"

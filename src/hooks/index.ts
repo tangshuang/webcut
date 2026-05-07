@@ -240,8 +240,9 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         const inst = new mod();
         const { materialConfig } = inst;
 
-        // 检查thingType合法性
-        if ([...[...modules.value.values()].map(item => item.materialConfig?.thingType), 'video', 'audio', 'image', 'text'].some(item => item === materialConfig?.thingType)) {
+        // 仅在声明了 materialConfig.thingType 时检查唯一性
+        // 没有 materialConfig 的 pack（例如只扩展 library nav/import tools）应允许共存
+        if (materialConfig?.thingType && [...[...modules.value.values()].map(item => item.materialConfig?.thingType), 'video', 'audio', 'image', 'text'].some(item => item === materialConfig.thingType)) {
             return;
         }
 
