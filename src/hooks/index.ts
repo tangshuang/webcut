@@ -7,12 +7,13 @@ import {
   MP4Clip,
   VisibleSprite,
 } from '@webav/av-cliper';
-import { base64ToFile, downloadBlob } from '../libs/file';
+import { base64ToFile, blobToFile, downloadBlob } from '../libs/file';
 import { assignNotEmpty } from '../libs/object';
 import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-fns';
-import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
+import { exportAsWavBlobOffscreen, measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { safeCloseFrame, trackVideoFrameCreated } from '../libs';
+import { execFFmpeg } from '../libs/ffmpeg';
 import { ensureWebCutOpfsPathMigration, readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
 import { aspectRatioMap } from '../constants';
@@ -1233,6 +1234,97 @@ export function useWebCutPlayer() {
     }
 
     /**
+     * 修复变速后的音调：将当前音频片段按 playbackRate 做 time-stretch，
+     * 生成新音频并替换当前片段（不加入媒体库）
+     */
+    async function repairAudioPitchByPlaybackRate(sourceKey: string) {
+        const source = sources.value.get(sourceKey);
+        if (!source || source.type !== 'audio') {
+            return;
+        }
+        const rate = source.meta.time?.playbackRate ?? 1;
+        if (!Number.isFinite(rate) || rate <= 0 || rate === 1) {
+            return;
+        }
+
+        loading.value = true;
+        try {
+            const oldSprite = source.sprite;
+            const oldClip = source.clip as AudioClip;
+            await oldClip.ready;
+
+            const wavBlob = await exportAsWavBlobOffscreen([oldClip]);
+            const inputFile = blobToFile(wavBlob, 'audio.wav');
+            const { buffer } = await execFFmpeg({
+                input: inputFile,
+                inputFormat: 'wav',
+                outputFormat: 'wav',
+                command: ({ input, output }) => [
+                    '-i', input,
+                    '-filter:a', `atempo=${rate}`,
+                    '-acodec', 'pcm_s16le',
+                    output,
+                ],
+            });
+
+            const outBlob = new Blob([buffer], { type: 'audio/wav' });
+            const outFile = blobToFile(outBlob, `audio-pitch-fixed-${Date.now()}.wav`);
+            const newFileId = await writeFile(outFile);
+            const newClip = new AudioClip(outFile.stream(), source.meta.audio || {});
+            await newClip.ready;
+
+            const newSprite = new VisibleSprite(newClip);
+            newSprite.time.offset = oldSprite.time.offset;
+            newSprite.time.playbackRate = 1;
+            newSprite.time.duration = Math.round((await measureAudioDuration(outFile)) * 1e6);
+            newSprite.zIndex = oldSprite.zIndex;
+            newSprite.opacity = oldSprite.opacity;
+            newSprite.flip = oldSprite.flip;
+            newSprite.visible = oldSprite.visible;
+            newSprite.interactable = oldSprite.interactable;
+            newSprite.rect.x = oldSprite.rect.x;
+            newSprite.rect.y = oldSprite.rect.y;
+            newSprite.rect.w = oldSprite.rect.w;
+            newSprite.rect.h = oldSprite.rect.h;
+            newSprite.rect.angle = oldSprite.rect.angle;
+
+            await canvas.value!.addSprite(newSprite);
+            clips.value.push(markRaw(newClip));
+            sprites.value.push(markRaw(newSprite));
+
+            source.clip = newClip;
+            source.sprite = newSprite;
+            source.fileId = newFileId;
+            source.url = undefined;
+            source.meta.time = source.meta.time || {};
+            source.meta.time.playbackRate = 1;
+            source.meta.time.duration = newSprite.time.duration;
+            source.meta.time.originalDuration = newSprite.time.duration;
+
+            const rail = rails.value.find(r => r.id === source.railId);
+            if (rail) {
+                const segment = rail.segments.find(s => s.id === source.segmentId);
+                if (segment) {
+                    segment.end = segment.start + newSprite.time.duration;
+                }
+            }
+
+            canvas.value!.removeSprite(oldSprite);
+            oldSprite.destroy();
+            oldClip.destroy();
+            clips.value.splice(clips.value.indexOf(oldClip), 1);
+            sprites.value.splice(sprites.value.indexOf(oldSprite), 1);
+            canvas.value!.activeSprite = newSprite;
+
+            syncSourceTickInterceptor(sourceKey);
+            updateDuration();
+        }
+        finally {
+            loading.value = false;
+        }
+    }
+
+    /**
      * 移动到指定时间，展示对应的画面
      * @param time 时间，单位：纳秒
      */
@@ -1446,6 +1538,7 @@ export function useWebCutPlayer() {
         destroy,
         initTextMaterial,
         updateText,
+        repairAudioPitchByPlaybackRate,
         captureImage,
         readSources,
         download,

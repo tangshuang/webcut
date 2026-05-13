@@ -192,6 +192,8 @@ export default {
   "请先选择视频片段": "Por favor, seleccione primero un segmento de video",
   "请先选择音频片段": "Por favor, seleccione primero un segmento de audio",
   "重置": "Restablecer",
+  "声调修复": "Corregir tono",
+  "处理中...": "Procesando...",
 
   // Advanced Export
   "高级导出": "Exportación avanzada",
