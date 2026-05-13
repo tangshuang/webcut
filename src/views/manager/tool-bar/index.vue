@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import WebCutManagerScaler from '../scaler/index.vue';
+import AddRailButton from '../add-rail-button.vue';
 import RefreshTool from '../../tools/refresh/index.vue';
 import ClearTool from '../../tools/clear/index.vue';
 import DeleteTool from '../../tools/delete/index.vue';
@@ -26,6 +27,8 @@ const props = defineProps<{
         '--webcut-manager-aside-width': props.asideWidth && typeof props.asideWidth === 'number' ? props.asideWidth + 'px' : props.asideWidth,
     }">
         <div class="webcut-manager-tools-bar-left">
+            <span style="margin-left:2px"></span>
+            <AddRailButton />
             <span style="margin:auto"></span>
             <Loading size="1.2em"></Loading>
             <span style="margin-right:2px"></span>
