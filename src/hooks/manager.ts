@@ -2,6 +2,9 @@ import { computed, watchEffect, watch } from 'vue';
 import { useWebCutContext, useWebCutPlayer } from './index';
 import { getGridFrame, getGridPixel } from '../libs/timeline';
 import { WebCutSegment, WebCutRail } from '../types';
+import { exportAsWavBlobOffscreen, exportBlobOffscreen } from '../libs';
+import { blobToFile } from '../libs/file';
+import { addFileToProject, writeFile } from '../db';
 
 export function useWebCutManager() {
     const {
@@ -20,6 +23,7 @@ export function useWebCutManager() {
         unselectSegment,
         loading,
         rails,
+        id: projectId,
         enableMainVideoMagnet: contextEnableMainVideoMagnet,
     } = useWebCutContext();
     const { pause, push, syncSourceTickInterceptor } = useWebCutPlayer();
@@ -188,7 +192,7 @@ export function useWebCutManager() {
         }
     }
 
-    function deleteSegment({ segment, rail }: { segment: WebCutSegment; rail: WebCutRail }) {
+    function deleteSegment({ segment, rail, skipMagnet }: { segment: WebCutSegment; rail: WebCutRail; skipMagnet?: boolean }) {
         const { sourceKey } = segment;
         const source = sources.value.get(sourceKey);
         if (source) {
@@ -209,7 +213,9 @@ export function useWebCutManager() {
 
         // 强制取消选中
         unselectSegment(segment.id, rail.id);
-        applyMainVideoMagnet(rail);
+        if (!skipMagnet) {
+            applyMainVideoMagnet(rail);
+        }
     }
 
     async function splitSegment({ segment, rail, keep }: { segment: WebCutSegment; rail: WebCutRail; keep?: 'left' | 'right' | 'both' }) {
@@ -244,55 +250,110 @@ export function useWebCutManager() {
                 }
             };
 
+            const createAndStoreSplitFile = async (direction: 'left' | 'right') => {
+                const clipPart = direction === 'left' ? (await clip.split(splitTime))[0] : (await clip.split(splitTime))[1];
+                try {
+                    if (type === 'video') {
+                        const blob = await exportBlobOffscreen([clipPart], { type: 'video/mp4' });
+                        const file = blobToFile(blob, `split-video-${direction}-${Date.now()}.mp4`);
+                        const fileId = await writeFile(file);
+                        await addFileToProject(projectId.value, fileId);
+                        return { fileId };
+                    }
+                    if (type === 'audio') {
+                        const blob = await exportAsWavBlobOffscreen([clipPart as any]);
+                        const file = blobToFile(blob, `split-audio-${direction}-${Date.now()}.wav`);
+                        const fileId = await writeFile(file);
+                        await addFileToProject(projectId.value, fileId);
+                        return { fileId };
+                    }
+                    return null;
+                } finally {
+                    clipPart.destroy();
+                }
+            };
+
             // 通过切分，获得右侧部分时需要注意，
             // 新的clip需要复制原来的tickInterceptor
 
-            // 如果只是保留左侧，直接更新segment时间即可
-            if (keep === 'left') {
-                splitToKeepLeft();
-            }
-            else if (type === 'video') {
-                if (keep !== 'right') {
-                    splitToKeepLeft();
-                }
-                const material = source.fileId ? `file:${source.fileId}` : source.url as string;
+            if (type === 'video') {
                 const prevVideoMeta = source.meta.video || {};
-                const key = await push('video', material, {
-                    time: {
-                        start: cursorTime.value,
-                        duration: end - cursorTime.value,
-                    },
-                    video: {
-                        ...prevVideoMeta,
-                        offset: splitTime + (prevVideoMeta.offset || 0),
-                    },
-                    withRailId: rail.id,
-                });
-                onAfterGen(key);
-                if (keep === 'right') {
-                    deleteSegment({ segment, rail });
+                const leftDuration = cursorTime.value - start;
+                const rightDuration = end - cursorTime.value;
+                const shouldKeepLeft = keep !== 'right';
+                const shouldKeepRight = keep !== 'left';
+
+                const leftFile = shouldKeepLeft ? await createAndStoreSplitFile('left') : null;
+                const rightFile = shouldKeepRight ? await createAndStoreSplitFile('right') : null;
+
+                deleteSegment({ segment, rail, skipMagnet: true });
+
+                if (shouldKeepLeft && leftFile) {
+                    const leftKey = await push('video', `file:${leftFile.fileId}`, {
+                        time: {
+                            start,
+                            duration: leftDuration,
+                        },
+                        video: {
+                            ...prevVideoMeta,
+                        },
+                        withRailId: rail.id,
+                    });
+                    onAfterGen(leftKey);
+                }
+
+                if (shouldKeepRight && rightFile) {
+                    const rightKey = await push('video', `file:${rightFile.fileId}`, {
+                        time: {
+                            start: cursorTime.value,
+                            duration: rightDuration,
+                        },
+                        video: {
+                            ...prevVideoMeta,
+                        },
+                        withRailId: rail.id,
+                    });
+                    onAfterGen(rightKey);
                 }
             }
             else if (type === 'audio') {
-                if (keep !== 'right') {
-                    splitToKeepLeft();
-                }
-                const material = source.fileId ? `file:${source.fileId}` : source.url as string;
                 const prevAudioMeta = source.meta.audio || {};
-                const key = await push('audio', material, {
-                    time: {
-                        start: cursorTime.value,
-                        duration: end - cursorTime.value,
-                    },
-                    audio: {
-                        ...prevAudioMeta,
-                        offset: splitTime + (prevAudioMeta.offset || 0),
-                    },
-                    withRailId: rail.id,
-                });
-                onAfterGen(key);
-                if (keep === 'right') {
-                    deleteSegment({ segment, rail });
+                const leftDuration = cursorTime.value - start;
+                const rightDuration = end - cursorTime.value;
+                const shouldKeepLeft = keep !== 'right';
+                const shouldKeepRight = keep !== 'left';
+
+                const leftFile = shouldKeepLeft ? await createAndStoreSplitFile('left') : null;
+                const rightFile = shouldKeepRight ? await createAndStoreSplitFile('right') : null;
+
+                deleteSegment({ segment, rail, skipMagnet: true });
+
+                if (shouldKeepLeft && leftFile) {
+                    const leftKey = await push('audio', `file:${leftFile.fileId}`, {
+                        time: {
+                            start,
+                            duration: leftDuration,
+                        },
+                        audio: {
+                            ...prevAudioMeta,
+                        },
+                        withRailId: rail.id,
+                    });
+                    onAfterGen(leftKey);
+                }
+
+                if (shouldKeepRight && rightFile) {
+                    const rightKey = await push('audio', `file:${rightFile.fileId}`, {
+                        time: {
+                            start: cursorTime.value,
+                            duration: rightDuration,
+                        },
+                        audio: {
+                            ...prevAudioMeta,
+                        },
+                        withRailId: rail.id,
+                    });
+                    onAfterGen(rightKey);
                 }
             }
             // 如果是图片，则不需要进行实际的切分，只需要调整segment的时间，并创建一个新的segment
