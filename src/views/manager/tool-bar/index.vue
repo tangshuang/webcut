@@ -10,6 +10,7 @@ import Concat from '../../tools/concat/index.vue';
 import Undo from '../../tools/undo/index.vue';
 import Redo from '../../tools/redo/index.vue';
 import HistoryList from '../../tools/history-list/index.vue';
+import MagnetTool from '../../tools/magnet/index.vue';
 import { DividerTall16Regular } from '@vicons/fluent';
 import Loading from '../../loading/index.vue';
 import { NIcon } from 'naive-ui';
@@ -44,6 +45,7 @@ const props = defineProps<{
             <slot name="middle"></slot>
             <span style="margin:auto"></span>
             <slot name="right"></slot>
+            <MagnetTool></MagnetTool>
             <WebCutManagerScaler></WebCutManagerScaler>
         </div>
     </div>
@@ -57,15 +59,15 @@ const props = defineProps<{
     border-bottom: 1px solid var(--webcut-line-color);
 }
 .webcut-manager-tools-bar-left {
-    width: calc(var(--webcut-manager-aside-width) - 8px);
+    width: var(--webcut-manager-aside-width);
     height: 100%;
-    padding: 0 4px;
+    padding: 0;
     border-right: 1px solid var(--webcut-line-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 2px;
-    box-sizing: content-box;
+    box-sizing: border-box;
 }
 .webcut-manager-tools-bar-right {
     flex: 1;

@@ -44,6 +44,8 @@ export type WebCutContext = {
 
     // 时间轴缩放比例, [0, 100], step:10
     scale: number;
+    // 是否默认开启主轨视频磁吸
+    enableMainVideoMagnet: boolean;
 
     /** 时间轴滚动条1 */
     scroll1: null | any;

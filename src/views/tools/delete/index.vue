@@ -5,10 +5,14 @@ import { useWebCutContext } from '../../../hooks';
 import { useWebCutManager } from '../../../hooks/manager';
 import { useWebCutHistory } from '../../../hooks/history';
 import { useT } from '../../../i18n/hooks';
+import { useWebCutTransition } from '../../../hooks/transition';
+import { useWebCutPlayer } from '../../../hooks';
 
 const { rails, current, sources } = useWebCutContext();
 const { deleteSegment } = useWebCutManager();
 const { push: pushHistory } = useWebCutHistory();
+const { syncTransitions } = useWebCutTransition();
+const { resort } = useWebCutPlayer();
 const t = useT();
 
 async function handleDelete() {
@@ -27,6 +31,8 @@ async function handleDelete() {
 
     const source = sources.value.get(segment.sourceKey);
     deleteSegment({ segment, rail });
+    syncTransitions(rail);
+    resort();
 
     if (source) {
         await pushHistory({

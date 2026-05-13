@@ -135,6 +135,8 @@ export default {
   "位置 X": "Posición X",
   "位置 Y": "Posición Y",
   "缩放": "Escala",
+  "磁吸": "磁吸",
+  "主轨视频片段首尾连续吸附": "主轨视频片段首尾连续吸附",
   "旋转角度": "Rotación",
   "不透明度": "Opacidad",
 

@@ -44,7 +44,7 @@ const props = defineProps<WebCutManagerProps>();
 const { rails, manager, selected, current, sources, toggleSegment, unselectSegment, selectSegment, modules } = useWebCutContext();
 const { resort } = useWebCutPlayer();
 const slots = useSlots();
-const { scroll1, scroll2, totalPx, timeToPx, pxToTime, pxOf1Frame, resetSegmentTime } = useWebCutManager();
+const { scroll1, scroll2, totalPx, timeToPx, pxToTime, pxOf1Frame, resetSegmentTime, applyMainVideoMagnet } = useWebCutManager();
 const t = useT();
 const { push: pushHistory } = useWebCutHistory();
 const { syncTransitions } = useWebCutTransition();
@@ -155,6 +155,7 @@ function handleMoveRelease(segment: WebCutSegment, rail: WebCutRail) {
     segment.end = pxToTime(end);
     moveState.value = {};
     resetSegmentTime(segment);
+    applyMainVideoMagnet();
     syncTransitions(rail);
     pushHistory({ title: '调整片段时长' });
     emit('resize', { segment, rail });
@@ -366,6 +367,7 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
     highlightedRailId.value = null;
 
     resetSegmentTime(segment);
+    applyMainVideoMagnet();
     syncTransitions(rail);
     syncTransitions(targetRail);
     resort();

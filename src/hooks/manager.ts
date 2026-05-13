@@ -20,8 +20,10 @@ export function useWebCutManager() {
         unselectSegment,
         loading,
         rails,
+        enableMainVideoMagnet: contextEnableMainVideoMagnet,
     } = useWebCutContext();
     const { pause, push, syncSourceTickInterceptor } = useWebCutPlayer();
+    const enableMainVideoMagnet = contextEnableMainVideoMagnet;
 
     // 同步两边scroll的滚动情况
     watchEffect(() => {
@@ -131,6 +133,27 @@ export function useWebCutManager() {
         updateDuration();
     }
 
+    function applyMainVideoMagnet(targetRail?: WebCutRail) {
+        if (!enableMainVideoMagnet.value) {
+            return;
+        }
+
+        const mainRail = targetRail || rails.value.find(rail => rail.main && rail.type === 'video');
+        if (!mainRail || !mainRail.main || mainRail.type !== 'video' || !mainRail.segments.length) {
+            return;
+        }
+
+        const sortedSegments = [...mainRail.segments].sort((a, b) => a.start - b.start);
+        let cursor = 0;
+        for (const segment of sortedSegments) {
+            const duration = Math.max(0, segment.end - segment.start);
+            segment.start = cursor;
+            segment.end = cursor + duration;
+            cursor = segment.end;
+            resetSegmentTime(segment);
+        }
+    }
+
     function resizeManagerMaxHeight(h: number) {
         manager.value?.resizeManagerMaxHeight(h);
     }
@@ -186,6 +209,7 @@ export function useWebCutManager() {
 
         // 强制取消选中
         unselectSegment(segment.id, rail.id);
+        applyMainVideoMagnet(rail);
     }
 
     async function splitSegment({ segment, rail, keep }: { segment: WebCutSegment; rail: WebCutRail; keep?: 'left' | 'right' | 'both' }) {
@@ -310,6 +334,7 @@ export function useWebCutManager() {
 
             // 更新总时长
             updateDuration();
+            applyMainVideoMagnet(rail);
         } finally {
             loading.value = false;
         }
@@ -331,6 +356,8 @@ export function useWebCutManager() {
         pxToTime,
         pxOf1Frame,
         timeOf1Frame,
+        enableMainVideoMagnet,
+        applyMainVideoMagnet,
         scroll1,
         scroll2,
         ruler,

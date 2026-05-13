@@ -45,6 +45,7 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         autoFitSize: undefined,
         fps: 30,
         scale: 70,
+        enableMainVideoMagnet: true,
         scroll1: null,
         scroll2: null,
         ruler: null,

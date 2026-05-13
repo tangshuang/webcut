@@ -26,6 +26,8 @@ const props = defineProps<{
     colors?: Partial<WebCutColors>;
     /** 是否禁用顶部右侧栏 */
     disableRightTopBar?: boolean;
+    /** 是否默认开启主轨视频磁吸 */
+    enableMainVideoMagnet?: boolean;
     packs?: (new () => WebCutExtensionPack)[];
 }>();
 
@@ -50,7 +52,7 @@ function handleResized() {
 </script>
 
 <template>
-    <WebCutProvider>
+    <WebCutProvider :data="{ enableMainVideoMagnet: props.enableMainVideoMagnet ?? true }">
         <slot name="header"></slot>
         <div class="webcut-editor">
             <n-split direction="vertical" :default-size="0.8" min="400px" :max="0.8" @update:size="handleResized">

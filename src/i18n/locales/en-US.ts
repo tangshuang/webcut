@@ -138,6 +138,8 @@ export default {
   "位置 X": "Position X",
   "位置 Y": "Position Y",
   "缩放": "Scale",
+  "磁吸": "Magnet",
+  "主轨视频片段首尾连续吸附": "Snap main video segments end-to-end",
   "旋转角度": "Rotation",
   "不透明度": "Opacity",
 
