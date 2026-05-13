@@ -39,7 +39,7 @@ export function useWebCutHistory() {
         memory,
         disableRecoverHistory,
     } = useWebCutContext();
-    const { push: pushToPlayer } = useWebCutPlayer();
+    const { push: pushToPlayer, clear: clearPlayer } = useWebCutPlayer();
     const t = useT();
 
     // 创建历史记录管理器实例
@@ -528,11 +528,27 @@ export function useWebCutHistory() {
         }
     }
 
+    /**
+     * 基于当前状态进行一次全量重建渲染。
+     * 不变更历史记录，仅用于修复视图渲染不一致问题。
+     */
+    async function refreshRender() {
+        loading.value = true;
+        try {
+            const state = snapshot();
+            clearPlayer();
+            await recoverHistory(state);
+        } finally {
+            loading.value = false;
+        }
+    }
+
     return {
         push,
         snapshot,
         createEntry,
         replaceWithState,
+        refreshRender,
         historyList,
         refreshHistoryList,
         recoverToHistory,

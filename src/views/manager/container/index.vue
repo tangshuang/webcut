@@ -239,11 +239,13 @@ function handleDragging(data: AdjustEventData, segment: WebCutSegment, rail: Web
     // 获取当前轨道中是否存在与新位置有重叠的segment，如果有，则不允许移动，保持当前位置，从而避免重叠
     const currentRail = rails.value.find(r => r.segments.includes(segment));
     if (currentRail) {
-        const index = currentRail.segments.indexOf(segment);
+        // 注意：segments 数组顺序可能和时间顺序不一致，必须按时间排序后再找邻居
+        const sortedSegments = [...currentRail.segments].sort((a, b) => a.start - b.start);
+        const index = sortedSegments.indexOf(segment);
 
         // 检查与左侧segment的重叠
         if (index > 0) {
-            const prev = currentRail.segments[index - 1];
+            const prev = sortedSegments[index - 1];
             const prevEnd = timeToPx(prev.end);
             if (newStart < prevEnd) {
                 newStart = prevEnd;
@@ -252,8 +254,8 @@ function handleDragging(data: AdjustEventData, segment: WebCutSegment, rail: Web
         }
 
         // 检查与右侧segment的重叠
-        if (index < currentRail.segments.length - 1) {
-            const next = currentRail.segments[index + 1];
+        if (index < sortedSegments.length - 1) {
+            const next = sortedSegments[index + 1];
             const nextStart = timeToPx(next.start);
             if (newEnd > nextStart) {
                 newEnd = nextStart;
@@ -294,6 +296,13 @@ function handleDragging(data: AdjustEventData, segment: WebCutSegment, rail: Web
 
 function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebCutRail) {
     if (dragState.value.segment !== segment) {
+        return;
+    }
+
+    // 纯点击或极小抖动不应触发位置提交，避免误改位置
+    if (Math.abs(data.offsetX) < 1 && Math.abs(data.offsetY) < 1) {
+        dragState.value = {};
+        highlightedRailId.value = null;
         return;
     }
 

@@ -334,7 +334,7 @@ function calcImgWidth(thumb: { left: number }, index: number) {
         <div class="webcut-video-segment" @contextmenu.capture.stop="showContextMenus" :style="{ '--segment-total-width': totalWidth + 'px', '--thumb-img-height': IMAGE_HEIGHT + 'px', '--audio-wave-height': AUDIO_HEIGHT + 'px' }">
             <div
                 v-for="thumbnail,index in thumbnails.filter(Boolean)"
-                :key="thumbnail.left"
+                :key="`${props.segment.sourceKey}-${index}-${thumbnail.left}`"
                 :style="{
                     left: `${thumbnail.left}px`,
                     backgroundImage: `url(${thumbnail.url})`,

@@ -228,18 +228,22 @@ export function useWebCutManager() {
             }
 
             const { type, clip } = source;
+            const splitAt = cursorTime.value;
+            if (splitAt <= start || splitAt >= end) {
+                return;
+            }
             // 计算分割点（纳秒）
-            const splitTime = cursorTime.value - start;
+            const splitTime = splitAt - start;
 
             // 将原始segment作为左侧部分
             const splitToKeepLeft = () => {
-                segment.end = cursorTime.value;
+                segment.end = splitAt;
                 resetSegmentTime(segment);
             };
 
             // 将原始segment作为右侧部分
             const splitToKeepRight = () => {
-                segment.start = cursorTime.value;
+                segment.start = splitAt;
                 resetSegmentTime(segment);
             };
 
@@ -278,8 +282,8 @@ export function useWebCutManager() {
 
             if (type === 'video') {
                 const prevVideoMeta = source.meta.video || {};
-                const leftDuration = cursorTime.value - start;
-                const rightDuration = end - cursorTime.value;
+                const leftDuration = splitAt - start;
+                const rightDuration = end - splitAt;
                 const shouldKeepLeft = keep !== 'right';
                 const shouldKeepRight = keep !== 'left';
 
@@ -305,7 +309,7 @@ export function useWebCutManager() {
                 if (shouldKeepRight && rightFile) {
                     const rightKey = await push('video', `file:${rightFile.fileId}`, {
                         time: {
-                            start: cursorTime.value,
+                            start: splitAt,
                             duration: rightDuration,
                         },
                         video: {
@@ -318,8 +322,8 @@ export function useWebCutManager() {
             }
             else if (type === 'audio') {
                 const prevAudioMeta = source.meta.audio || {};
-                const leftDuration = cursorTime.value - start;
-                const rightDuration = end - cursorTime.value;
+                const leftDuration = splitAt - start;
+                const rightDuration = end - splitAt;
                 const shouldKeepLeft = keep !== 'right';
                 const shouldKeepRight = keep !== 'left';
 
@@ -345,7 +349,7 @@ export function useWebCutManager() {
                 if (shouldKeepRight && rightFile) {
                     const rightKey = await push('audio', `file:${rightFile.fileId}`, {
                         time: {
-                            start: cursorTime.value,
+                            start: splitAt,
                             duration: rightDuration,
                         },
                         audio: {
@@ -367,8 +371,8 @@ export function useWebCutManager() {
                     const src = fileId ? `file:${fileId}` : url as string;
                     const key = await push('image', src, {
                         time: {
-                            start: cursorTime.value,
-                            duration: end - cursorTime.value,
+                            start: splitAt,
+                            duration: end - splitAt,
                         },
                         withRailId: rail.id,
                     });
@@ -384,8 +388,8 @@ export function useWebCutManager() {
                     const { text } = source;
                     const key = await push('text', text as string, {
                         time: {
-                            start: cursorTime.value,
-                            duration: end - cursorTime.value,
+                            start: splitAt,
+                            duration: end - splitAt,
                         },
                         withRailId: rail.id,
                     });

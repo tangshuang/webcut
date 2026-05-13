@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import WebCutManagerScaler from '../scaler/index.vue';
+import RefreshTool from '../../tools/refresh/index.vue';
 import ClearTool from '../../tools/clear/index.vue';
 import DeleteTool from '../../tools/delete/index.vue';
 import SplitTool from '../../tools/split/index.vue';
@@ -30,6 +31,7 @@ const props = defineProps<{
             <span style="margin-right:2px"></span>
         </div>
         <div class="webcut-manager-tools-bar-right">
+            <RefreshTool></RefreshTool>
             <HistoryList />
             <Undo></Undo>
             <Redo></Redo>
