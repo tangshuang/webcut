@@ -56,6 +56,26 @@ const dataList = ref<WebCutRail[]>([]);
 const moveState = ref<any>({});
 const dragState = ref<any>({});
 const highlightedRailId = ref<string | null>(null);
+const dragPreview = ref<{
+    active: boolean;
+    segment?: WebCutSegment;
+    railId?: string;
+    start?: number;
+    width?: number;
+    invalid?: boolean;
+}>({ active: false });
+const DRAG_ACTIVATE_DISTANCE_PX = 4;
+
+function resetDragPreview() {
+    dragPreview.value = {
+        active: false,
+        segment: undefined,
+        railId: undefined,
+        start: undefined,
+        width: undefined,
+        invalid: false,
+    };
+}
 
 watch(() => rails.value?.length, (next, prev) => {
     if (next !== prev) {
@@ -217,12 +237,62 @@ function handleDragStart(segment: WebCutSegment) {
         start: timeToPx(segment.start),
         end: timeToPx(segment.end),
         width: timeToPx(segment.end - segment.start),
+        activated: false,
     };
+    resetDragPreview();
+}
+
+function findBestSlotStartPx(targetSegments: WebCutSegment[], widthPx: number, proposedStartPx: number) {
+    const slots: Array<{ min: number; max: number; preferred: number; }> = [];
+    let prevEnd = 0;
+    const sorted = [...targetSegments].sort((a, b) => a.start - b.start);
+
+    for (const seg of sorted) {
+        const segStart = timeToPx(seg.start);
+        const segEnd = timeToPx(seg.end);
+        const maxStart = segStart - widthPx;
+        if (maxStart >= prevEnd) {
+            slots.push({
+                min: prevEnd,
+                max: maxStart,
+                preferred: Math.min(Math.max(proposedStartPx, prevEnd), maxStart),
+            });
+        }
+        prevEnd = Math.max(prevEnd, segEnd);
+    }
+
+    slots.push({
+        min: prevEnd,
+        max: Number.POSITIVE_INFINITY,
+        preferred: Math.max(proposedStartPx, prevEnd),
+    });
+
+    if (!slots.length) {
+        return null;
+    }
+
+    let best = slots[0];
+    let bestDist = Math.abs(best.preferred - proposedStartPx);
+    for (let i = 1; i < slots.length; i++) {
+        const dist = Math.abs(slots[i].preferred - proposedStartPx);
+        if (dist < bestDist) {
+            best = slots[i];
+            bestDist = dist;
+        }
+    }
+    return best.preferred;
 }
 
 function handleDragging(data: AdjustEventData, segment: WebCutSegment, rail: WebCutRail) {
     if (dragState.value.segment !== segment) {
         return;
+    }
+    if (!dragState.value.activated) {
+        const movedDistance = Math.hypot(data.offsetX || 0, data.offsetY || 0);
+        if (movedDistance < DRAG_ACTIVATE_DISTANCE_PX) {
+            return;
+        }
+        dragState.value.activated = true;
     }
 
     const { offsetX, pageY } = data;
@@ -236,37 +306,8 @@ function handleDragging(data: AdjustEventData, segment: WebCutSegment, rail: Web
     newStart = Math.max(0, newStart);
     newEnd = newStart + segmentWidth;
 
-    // 获取当前轨道中是否存在与新位置有重叠的segment，如果有，则不允许移动，保持当前位置，从而避免重叠
-    const currentRail = rails.value.find(r => r.segments.includes(segment));
-    if (currentRail) {
-        // 注意：segments 数组顺序可能和时间顺序不一致，必须按时间排序后再找邻居
-        const sortedSegments = [...currentRail.segments].sort((a, b) => a.start - b.start);
-        const index = sortedSegments.indexOf(segment);
-
-        // 检查与左侧segment的重叠
-        if (index > 0) {
-            const prev = sortedSegments[index - 1];
-            const prevEnd = timeToPx(prev.end);
-            if (newStart < prevEnd) {
-                newStart = prevEnd;
-                newEnd = newStart + segmentWidth;
-            }
-        }
-
-        // 检查与右侧segment的重叠
-        if (index < sortedSegments.length - 1) {
-            const next = sortedSegments[index + 1];
-            const nextStart = timeToPx(next.start);
-            if (newEnd > nextStart) {
-                newEnd = nextStart;
-                newStart = newEnd - segmentWidth;
-            }
-        }
-    }
-    dragState.value.start = newStart;
-    dragState.value.end = newEnd;
-
-    // 悬停到新轨道时，高亮新轨道
+    // 计算悬停轨道
+    let targetRail: WebCutRail | null = rail;
     const railsContainer = container.value.querySelector('.webcute__manager__main__rails');
     if (railsContainer) {
         const railsElements = container.value.querySelectorAll('.webcute__manager__main__rail');
@@ -287,15 +328,52 @@ function handleDragging(data: AdjustEventData, segment: WebCutSegment, rail: Web
         // 更新高亮轨道
         if (targetRailId) {
             highlightedRailId.value = targetRailId;
+            targetRail = rails.value.find(r => r.id === targetRailId) || null;
         }
         else {
             highlightedRailId.value = null;
+            targetRail = rail;
         }
     }
+
+    if (!targetRail || targetRail.type !== rail.type) {
+        dragPreview.value = {
+            active: true,
+            segment,
+            railId: highlightedRailId.value || rail.id,
+            start: newStart,
+            width: segmentWidth,
+            invalid: true,
+        };
+        return;
+    }
+
+    const targetSegments = targetRail.segments.filter(s => s !== segment);
+    const bestStart = findBestSlotStartPx(targetSegments, segmentWidth, newStart);
+    const invalid = bestStart === null || !Number.isFinite(bestStart);
+    const finalStart = invalid ? newStart : bestStart!;
+    const finalEnd = finalStart + segmentWidth;
+
+    dragState.value.start = finalStart;
+    dragState.value.end = finalEnd;
+    dragPreview.value = {
+        active: true,
+        segment,
+        railId: targetRail.id,
+        start: finalStart,
+        width: segmentWidth,
+        invalid,
+    };
 }
 
 function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebCutRail) {
     if (dragState.value.segment !== segment) {
+        return;
+    }
+    if (!dragState.value.activated) {
+        dragState.value = {};
+        highlightedRailId.value = null;
+        resetDragPreview();
         return;
     }
 
@@ -303,6 +381,7 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
     if (Math.abs(data.offsetX) < 1 && Math.abs(data.offsetY) < 1) {
         dragState.value = {};
         highlightedRailId.value = null;
+        resetDragPreview();
         return;
     }
 
@@ -315,23 +394,11 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
     const isSegmentSelected = selected.value.some(item => item.segmentId === segment.id);
 
     // 检查是否需要移动到新轨道
-    const targetRailId = highlightedRailId.value;
+    const targetRailId = dragPreview.value.railId || highlightedRailId.value;
     const newTargetRail = rails.value.find(r => r.id === targetRailId);
     // 只有相同类型的rail才允许移动
-    if (targetRailId && newTargetRail && targetRailId !== rail.id && newTargetRail.type === rail.type) {
-        // 获取假如需要放到新rail中时，该segment的位置，通过shadow盒子与轨道位置的对比，找到新位置起点
-        const { width, left } = data;
-        const boxLeft = container.value.querySelector('.webcute__manager__main__rails')?.getBoundingClientRect().left || 0;
-        const newStart = left - boxLeft;
-        const newEnd = newStart + width;
-        // 检查与新轨道中其他segment的重叠
-        const targetSegments = [...newTargetRail.segments.filter(s => s !== segment)].sort((a, b) => a.start - b.start);
-        // 检查是否存在重叠
-        const newStartTime = pxToTime(newStart);
-        const newEndTime = pxToTime(newEnd);
-        const overlap = targetSegments.some(seg => !(newStartTime >= seg.end || newEndTime <= seg.start));
-        // 只有当新轨道中的segment没有与当前segment存在重叠时，才可以移到新轨道
-        if (!overlap && newTargetRail) {
+    if (targetRailId && newTargetRail && newTargetRail.type === rail.type) {
+        if (!dragPreview.value.invalid && newTargetRail) {
             // 先取消选中，避免在移动之后其rail与真实的rail对应不上
             if (isSegmentSelected) {
                 unselectSegment(segment.id, rail.id);
@@ -363,8 +430,8 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
             //     rails.value.splice(railIndex, 1);
             // }
 
-            finalStart = newStart;
-            finalEnd = newEnd;
+            finalStart = start;
+            finalEnd = end;
         }
     }
     // 更新segment时间信息
@@ -374,6 +441,7 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
     // 重置状态
     dragState.value = {};
     highlightedRailId.value = null;
+    resetDragPreview();
 
     resetSegmentTime(segment);
     applyMainVideoMagnet();
@@ -491,9 +559,10 @@ manager.value = exposes;
                             :class="{
                                 'webcute__manager__main__rail-segment--selected': selected.some(i => i.segmentId === item.id && i.railId === rail.id),
                                 'webcute__manager__main__rail-segment--current': current?.segmentId === item.id && current?.railId === rail.id,
+                                'webcute__manager__main__rail-segment--drag-origin': dragPreview.active && dragPreview.segment === item,
                             }"
                             :style="{
-                                '--segment-left': moveState.segment === item ? moveState.start + 'px' : (dragState.segment === item ? dragState.start + 'px' : timeToPx(item.start) + 'px'),
+                                '--segment-left': moveState.segment === item ? moveState.start + 'px' : timeToPx(item.start) + 'px',
                                 '--segment-width': moveState.segment === item ? moveState.width + 'px' : (dragState.segment === item ? dragState.width + 'px' : timeToPx(item.end - item.start) + 'px')
                             }"
                             @left-move-start="handleMoveStart(item)"
@@ -534,6 +603,15 @@ manager.value = exposes;
                         </div>
 
                         <slot name="mainRailEnd" :rail="rail" :railIndex="railIndex"></slot>
+                        <div
+                            v-if="dragPreview.active && !!dragPreview.segment && !!dragPreview.railId && dragPreview.railId === rail.id"
+                            class="webcute__manager__main__rail-segment webcute__manager__main__rail-segment--drag-preview"
+                            :class="{ 'webcute__manager__main__rail-segment--drag-preview-invalid': dragPreview.invalid }"
+                            :style="{
+                                '--segment-left': (dragPreview.start || 0) + 'px',
+                                '--segment-width': (dragPreview.width || 0) + 'px',
+                            }"
+                        ></div>
                     </div>
                     <div class="webcute__manager__main__rail webcute__manager__main__rail--empty" v-if="!props.disableEmptyRail && rails.length === 0">
                         <div class="webcute__manager__main__rail--empty__text">
@@ -662,6 +740,32 @@ manager.value = exposes;
     :deep(.webcut-adjustable-box-handler) {
         background-color: var(--webcut-manager-segment-handler-color);
     }
+}
+.webcute__manager__main__rail-segment--drag-origin {
+    opacity: .45;
+    filter: saturate(.9);
+}
+.webcute__manager__main__rail-segment--drag-origin::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    pointer-events: none;
+}
+.webcute__manager__main__rail-segment--drag-preview {
+    z-index: 1200;
+    pointer-events: none;
+    border-style: dashed;
+    border-width: 2px;
+    background-color: rgba(0, 180, 162, 0.18);
+    border-color: rgba(0, 180, 162, 0.75);
+    box-shadow: 0 0 0 1px rgba(0, 180, 162, 0.15) inset;
+}
+.webcute__manager__main__rail-segment--drag-preview-invalid {
+    background-color: rgba(255, 120, 120, 0.18);
+    border-color: rgba(255, 120, 120, 0.8);
+    box-shadow: 0 0 0 1px rgba(255, 120, 120, 0.2) inset;
 }
 .webcute__manager__main__rail-segment--selected {
     border-color: var(--primary-color);
