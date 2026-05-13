@@ -21,6 +21,7 @@ const globalFFmpegScripts = {};
  */
 export function setFFmpegScripts(scripts: Record<string, string>) {
     Object.assign(globalFFmpegScripts, scripts);
+    console.log('[webcut setFFmpegScripts]', scripts);
 }
 
 const createFFmpegLoader = (config: () => (FFMessageLoadConfig & { onLoaded?: (ffmpeg: FFmpeg) => void })) => {
@@ -61,6 +62,7 @@ const createFFmpegLoader = (config: () => (FFMessageLoadConfig & { onLoaded?: (f
         isLoaded = 0;
         try {
             const { onLoaded, ...sources } = config();
+            console.log('[webcut loadFFmpeg]', sources);
             await ffmpeg.load(sources);
             isLoaded = 1;
             setReady(ffmpeg);

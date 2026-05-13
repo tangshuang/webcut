@@ -27,6 +27,7 @@ const props = defineProps<{
         <div class="webcut-manager-tools-bar-left">
             <span style="margin:auto"></span>
             <Loading size="1.2em"></Loading>
+            <span style="margin-right:2px"></span>
         </div>
         <div class="webcut-manager-tools-bar-right">
             <HistoryList />
