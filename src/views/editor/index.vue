@@ -82,11 +82,13 @@ function handleResized() {
                                 <template #2>
                                     <div class="webcut-editor-right-side">
                                         <div class="webcut-editor-right-side-top-bar" v-if="!props.disableRightTopBar">
-                                            <ThemeSwitch></ThemeSwitch>
-                                            <span style="margin: auto;"></span>
-                                            <LangSwitch></LangSwitch>
-                                            <ExportButton></ExportButton>
-                                            <AdvancedExport></AdvancedExport>
+                                            <slot name="rightTopBar">
+                                                <ThemeSwitch></ThemeSwitch>
+                                                <span style="margin: auto;"></span>
+                                                <LangSwitch></LangSwitch>
+                                                <ExportButton></ExportButton>
+                                                <AdvancedExport></AdvancedExport>
+                                            </slot>
                                         </div>
                                         <div class="webcut-editor-right-side-main">
                                             <Panel></Panel>
@@ -163,6 +165,7 @@ function handleResized() {
     top: 50%;
     transform: translateY(-50%);
     opacity: .6;
+    z-index: 10;
 }
 .webcut-editor-video-player-buttons-right {
     right: 0;
