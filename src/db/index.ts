@@ -238,6 +238,17 @@ export async function addFileToProject(projectId: string, fileId: string): Promi
         delete projectData.fileIds;
     }
 
+    projectData.files = (projectData.files || []).filter((item: any, index: number, arr: any[]) => {
+        if (!item?.id) {
+            return false;
+        }
+        return arr.findIndex((entry: any) => entry?.id === item.id) === index;
+    });
+
+    if (projectData.files.some((item: any) => item.id === fileId)) {
+        return projectData;
+    }
+
     projectData.files.push({
         id: fileId,
         time: Date.now(),

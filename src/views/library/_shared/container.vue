@@ -35,13 +35,28 @@ const { projectFiles, files, addNewFile } = useWebCutLibrary();
 const { push: pushHistory } = useWebCutHistory();
 const { modules } = useWebCutContext();
 
+function dedupeById<T extends { id: string }>(items: T[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (!item?.id || seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
+  });
+}
+
 const allFileList = computed(() => {
-  const items = files.value.filter((file) => file.type.startsWith(props.thingType)).sort((a, b) => (b.time || 0) - (a.time || 0));
-  return items;
+  const items = files.value
+    .filter((file) => file.type.startsWith(props.thingType))
+    .sort((a, b) => (b.time || 0) - (a.time || 0));
+  return dedupeById(items);
 });
 const projectFileList = computed(() => {
-  const items = projectFiles.value.filter((file) => file.type.startsWith(props.thingType)).sort((a, b) => (b.time || 0) - (a.time || 0));
-  return items;
+  const items = projectFiles.value
+    .filter((file) => file.type.startsWith(props.thingType))
+    .sort((a, b) => (b.time || 0) - (a.time || 0));
+  return dedupeById(items);
 });
 
 const importTools = computed(() => {
