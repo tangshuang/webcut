@@ -199,6 +199,7 @@ export {
     transcodeToMP4ByFFmpeg,
     sliceByFFmpeg,
     extractAudioFromVideo,
+    setFFmpegScripts,
 } from './libs/ffmpeg';
 
 // transitions

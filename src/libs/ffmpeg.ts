@@ -14,8 +14,17 @@ import wasmURL from '../../ffmpeg.wasm/ffmpeg-core.wasm?url';
 // const classWorkerURL = new URL('./ffmpeg.wasm/ffmpeg.worker.js', import.meta.url).href;
 // const wasmURL = new URL('./ffmpeg.wasm/ffmpeg-core.wasm', import.meta.url).href;
 
-const createFFmpegLoader = (config: FFMessageLoadConfig & { onLoaded?: (ffmpeg: FFmpeg) => void }) => {
-    const { onLoaded, ...sources } = config;
+const globalFFmpegScripts = {};
+
+/**
+ * 设置FFmpeg脚本地址
+ */
+export function setFFmpegScripts(scripts: Record<string, string>) {
+    Object.assign(globalFFmpegScripts, scripts);
+}
+
+const createFFmpegLoader = (config: () => (FFMessageLoadConfig & { onLoaded?: (ffmpeg: FFmpeg) => void })) => {
+    const { onLoaded, ...sources } = config();
     const ffmpeg = new FFmpeg();
     let isLoaded = -1; // -1: not loaded, 0: loading, 1: loaded
     let setReady: (ffmpeg: FFmpeg) => void;
@@ -95,16 +104,18 @@ const createFFmpegLoader = (config: FFMessageLoadConfig & { onLoaded?: (ffmpeg: 
 // });
 
 let isLoaded = false;
-export const loadFFmpeg = createFFmpegLoader({
-    // coreURL: await toBlobURL(`${BASE_URL}/ffmpeg-core.js`, 'text/javascript'),
-    // wasmURL: await toBlobURL(`${BASE_URL}/ffmpeg-core.wasm`, 'application/wasm'),
-    // classWorkerURL: await toBlobURL(`${BASE_URL}/ffmpeg.worker.js`, 'text/javascript'),
-    coreURL,
-    wasmURL,
-    classWorkerURL,
-    onLoaded: () => {
-        isLoaded = true;
-    },
+export const loadFFmpeg = createFFmpegLoader(() => {
+    return {
+        // coreURL: await toBlobURL(`${BASE_URL}/ffmpeg-core.js`, 'text/javascript'),
+        // wasmURL: await toBlobURL(`${BASE_URL}/ffmpeg-core.wasm`, 'application/wasm'),
+        // classWorkerURL: await toBlobURL(`${BASE_URL}/ffmpeg.worker.js`, 'text/javascript'),
+        coreURL: globalFFmpegScripts.coreURL || coreURL,
+        wasmURL: globalFFmpegScripts.wasmURL || wasmURL,
+        classWorkerURL: globalFFmpegScripts.classWorkerURL || classWorkerURL,
+        onLoaded: () => {
+            isLoaded = true;
+        },
+    };
 });
 
 export function isFFmpegLoaded() {
