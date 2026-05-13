@@ -13,7 +13,7 @@ import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-f
 import { exportAsWavBlobOffscreen, measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { safeCloseFrame, trackVideoFrameCreated } from '../libs';
-import { execFFmpeg } from '../libs/ffmpeg';
+import { execFFmpeg, extractAudioFromVideo } from '../libs/ffmpeg';
 import { ensureWebCutOpfsPathMigration, readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
 import { aspectRatioMap } from '../constants';
@@ -1325,6 +1325,134 @@ export function useWebCutPlayer() {
     }
 
     /**
+     * 将视频的画面与声音分离：
+     * 1. 原轨道替换为无声视频
+     * 2. 新建音频轨道并放入时间对齐的音频片段
+     */
+    async function separateAudioFromVideo(sourceKey: string) {
+        const source = sources.value.get(sourceKey);
+        if (!source || source.type !== 'video') {
+            return;
+        }
+
+        const oldClip = source.clip as MP4Clip;
+        const oldSprite = source.sprite;
+        const oldSegmentDuration = oldSprite.time.duration;
+        const oldSegmentOffset = oldSprite.time.offset;
+        const oldPlaybackRate = oldSprite.time.playbackRate;
+        const oldTimeMeta = source.meta.time || {};
+        const oldVideoMeta = source.meta.video || {};
+
+        loading.value = true;
+        try {
+            let inputFile: File | null = null;
+            if (source.fileId) {
+                inputFile = await readFile(source.fileId);
+            } else if (source.url) {
+                const res = await fetch(source.url);
+                const blob = await res.blob();
+                inputFile = blobToFile(blob, `video-source-${Date.now()}.mp4`);
+            }
+            if (!inputFile) {
+                return;
+            }
+
+            const [audioBuffer, muteVideoResult] = await Promise.all([
+                extractAudioFromVideo(inputFile),
+                execFFmpeg({
+                    input: inputFile,
+                    inputFormat: 'mp4',
+                    outputFormat: 'mp4',
+                    command: ({ input, output }) => [
+                        '-i', input,
+                        '-c:v', 'copy',
+                        '-an',
+                        '-movflags', 'faststart',
+                        output,
+                    ],
+                }),
+            ]);
+
+            const audioFile = blobToFile(new Blob([audioBuffer], { type: 'audio/mpeg' }), `separated-audio-${Date.now()}.mp3`);
+            const muteVideoFile = blobToFile(new Blob([muteVideoResult.buffer], { type: 'video/mp4' }), `mute-video-${Date.now()}.mp4`);
+
+            const audioFileId = await writeFile(audioFile);
+            const muteVideoFileId = await writeFile(muteVideoFile);
+
+            // 1) 替换当前视频为无声视频（保持同一轨道/同一segment）
+            const muteVideoClip = new MP4Clip(muteVideoFile.stream(), { audio: false });
+            const newVideoSprite = new VisibleSprite(muteVideoClip);
+            newVideoSprite.time.offset = oldSegmentOffset;
+            newVideoSprite.time.duration = oldSegmentDuration;
+            newVideoSprite.time.playbackRate = oldPlaybackRate;
+            newVideoSprite.zIndex = oldSprite.zIndex;
+            newVideoSprite.opacity = oldSprite.opacity;
+            newVideoSprite.flip = oldSprite.flip;
+            newVideoSprite.visible = oldSprite.visible;
+            newVideoSprite.interactable = oldSprite.interactable;
+            newVideoSprite.rect.x = oldSprite.rect.x;
+            newVideoSprite.rect.y = oldSprite.rect.y;
+            newVideoSprite.rect.w = oldSprite.rect.w;
+            newVideoSprite.rect.h = oldSprite.rect.h;
+            newVideoSprite.rect.angle = oldSprite.rect.angle;
+
+            await canvas.value!.addSprite(newVideoSprite);
+            clips.value.push(markRaw(muteVideoClip));
+            sprites.value.push(markRaw(newVideoSprite));
+
+            source.clip = muteVideoClip;
+            source.sprite = newVideoSprite;
+            source.fileId = muteVideoFileId;
+            source.url = undefined;
+            source.meta.video = {
+                ...oldVideoMeta,
+                volume: 0,
+            };
+            source.meta.time = {
+                ...oldTimeMeta,
+                duration: oldSegmentDuration,
+                playbackRate: oldPlaybackRate,
+            };
+            // 触发依赖 source 引用的视图深度刷新（例如视频 segment 的音频波形）
+            sources.value.set(sourceKey, {
+                ...source,
+            });
+
+            canvas.value!.removeSprite(oldSprite);
+            oldSprite.destroy();
+            oldClip.destroy();
+            clips.value.splice(clips.value.indexOf(oldClip), 1);
+            sprites.value.splice(sprites.value.indexOf(oldSprite), 1);
+
+            // 2) 创建新音频轨道并插入时间对齐的片段
+            const audioRailId = createRandomString(16);
+            const audioSourceKey = await push('audio', `file:${audioFileId}`, {
+                withRailId: audioRailId,
+                time: {
+                    start: oldSegmentOffset,
+                    duration: oldSegmentDuration,
+                    playbackRate: oldPlaybackRate,
+                    originalDuration: oldTimeMeta.originalDuration || oldSegmentDuration,
+                },
+            });
+            const audioSource = sources.value.get(audioSourceKey);
+            if (audioSource) {
+                audioSource.meta.audio = {
+                    ...(audioSource.meta.audio || {}),
+                    volume: 1,
+                };
+            }
+
+            canvas.value!.activeSprite = newVideoSprite;
+            syncSourceTickInterceptor(sourceKey);
+            updateDuration();
+        }
+        finally {
+            loading.value = false;
+        }
+    }
+
+    /**
      * 移动到指定时间，展示对应的画面
      * @param time 时间，单位：纳秒
      */
@@ -1546,6 +1674,7 @@ export function useWebCutPlayer() {
         applyAnimation,
         syncSourceMeta,
         syncSourceTickInterceptor,
+        separateAudioFromVideo,
     };
 }
 

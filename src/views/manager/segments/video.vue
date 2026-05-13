@@ -2,7 +2,7 @@
 import { MP4Clip } from '@webav/av-cliper';
 import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, ref, watch, onMounted, markRaw } from 'vue';
-import { useWebCutContext } from '../../../hooks';
+import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { useT } from '../../../i18n/hooks';
 import { downloadBlob } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';
@@ -31,6 +31,7 @@ const props = defineProps<{
 const { sources } = useWebCutContext();
 const { timeToPx, deleteSegment } = useWebCutManager();
 const { push: pushHistory } = useWebCutHistory();
+const { separateAudioFromVideo } = useWebCutPlayer();
 const scrollBox = useScrollBox();
 const { syncTransitions } = useWebCutTransition();
 
@@ -50,6 +51,8 @@ const totalWidth = computed(() => {
 });
 
 const audioF32 = ref();
+const hasAudibleAudio = ref(false);
+let initToken = 0;
 
 watch(source, initThumbnailsAndAudioWave, { immediate: true });
 
@@ -70,8 +73,14 @@ const createImgUrl = (imgBlob: Blob) => {
 };
 
 async function initThumbnailsAndAudioWave() {
+    const token = ++initToken;
     const { loading } = useWebCutContext();
     loading.value = true;
+    // 先清空旧数据，避免替换视频后残留旧波形
+    audioF32.value = null;
+    hasAudibleAudio.value = false;
+    thumbnails.value = [];
+    sourceFrames.value = [];
     try {
         if (!source.value) {
             return;
@@ -97,7 +106,6 @@ async function initThumbnailsAndAudioWave() {
 
         mark(PerformanceMark.GenVideoSegmentFirstThumbStart);
         let isFirstThumbGen = false;
-        sourceFrames.value = [];
         // 通过iteratorCallback在迭代过程中逐一加载图片，从而提升首次渲染图片列表的性能
         const iteratorCallback = async (data: { video: VideoFrame, ts: number, index: number }) => {
             const { video, ts, index } = data;
@@ -148,6 +156,9 @@ async function initThumbnailsAndAudioWave() {
 
         // PCM 渐进式回调：实时更新音频波形图
         const pcmProgressCallback = (pcm: [Float32Array, Float32Array]) => {
+            if (token !== initToken) {
+                return;
+            }
             const [leftChannelPCM, rightChannelPCM] = pcm;
             if (leftChannelPCM) {
                 audioF32.value = leftChannelPCM;
@@ -157,15 +168,26 @@ async function initThumbnailsAndAudioWave() {
         };
 
         const { pcm } = await mp4ClipToFramesData(clip as MP4Clip, { iteratorCallback, pcmProgressCallback });
+        if (token !== initToken) {
+            return;
+        }
         const [leftChannelPCM, rightChannelPCM] = pcm;
+        const effectivePCM = leftChannelPCM || rightChannelPCM;
 
-        if (leftChannelPCM) {
-            audioF32.value = leftChannelPCM;
-        }
-        else if (rightChannelPCM) {
-            audioF32.value = rightChannelPCM;
-        }
-        else {
+        if (effectivePCM && effectivePCM.length > 0) {
+            let hasSignal = false;
+            // 抽样检测是否有可听信号，避免全静音时显示声形区域
+            const step = Math.max(1, Math.floor(effectivePCM.length / 2000));
+            for (let i = 0; i < effectivePCM.length; i += step) {
+                if (Math.abs(effectivePCM[i]) > 1e-4) {
+                    hasSignal = true;
+                    break;
+                }
+            }
+            hasAudibleAudio.value = hasSignal;
+            audioF32.value = hasSignal ? effectivePCM : null;
+        } else {
+            hasAudibleAudio.value = false;
             audioF32.value = null;
         }
 
@@ -183,9 +205,15 @@ async function initThumbnailsAndAudioWave() {
         }
     }
     catch (e) {
+        if (token === initToken) {
+            hasAudibleAudio.value = false;
+            audioF32.value = null;
+        }
         console.error(e);
     } finally {
-        loading.value = false;
+        if (token === initToken) {
+            loading.value = false;
+        }
     }
 }
 
@@ -231,6 +259,10 @@ const contextmenus = computed(() => [
         key: 'delete',
     },
     {
+        label: t('声音分离'),
+        key: 'separate-audio',
+    },
+    {
         label: t('导出'),
         key: 'export',
     },
@@ -241,6 +273,9 @@ async function handleSelectContextMenu(key: string) {
         deleteSegment({ segment: props.segment, rail: props.rail });
         syncTransitions(props.rail);
         await pushHistory({ title: '删除片段' });
+    } else if (key === 'separate-audio') {
+        await separateAudioFromVideo(props.segment.sourceKey);
+        await pushHistory({ title: '声音分离' });
     } else if (key === 'export') {
         try {
             const sourceInfo = sources.value.get(props.segment.sourceKey);
@@ -307,7 +342,7 @@ function calcImgWidth(thumb: { left: number }, index: number) {
                 }"
                 class="webcut-video-segment-thumbnail"
             ></div>
-            <div class="webcut-video-segment-bottom" v-if="!props.rail.mute && audioF32">
+            <div class="webcut-video-segment-bottom" v-if="!props.rail.mute && hasAudibleAudio && audioF32">
                 <audio-shape
                     :height="AUDIO_HEIGHT - 4"
                     :width="totalWidth"
