@@ -1324,6 +1324,122 @@ export function useWebCutPlayer() {
         }
     }
 
+    function buildAtempoFilterChain(playbackRate: number) {
+        const filters: string[] = [];
+        let rate = playbackRate;
+        while (rate < 0.5) {
+            filters.push('atempo=0.5');
+            rate = rate / 0.5;
+        }
+        while (rate > 2) {
+            filters.push('atempo=2');
+            rate = rate / 2;
+        }
+        filters.push(`atempo=${Number(rate.toFixed(6))}`);
+        return filters.join(',');
+    }
+
+    /**
+     * 修复视频变速后的音调：对视频音轨做 time-stretch（保音高）并替换当前视频片段
+     */
+    async function repairVideoPitchByPlaybackRate(sourceKey: string) {
+        const source = sources.value.get(sourceKey);
+        if (!source || source.type !== 'video') {
+            return;
+        }
+        const rate = source.meta.time?.playbackRate ?? 1;
+        if (!Number.isFinite(rate) || rate <= 0 || rate === 1) {
+            return;
+        }
+
+        loading.value = true;
+        try {
+            let inputFile: File | null = null;
+            if (source.fileId) {
+                inputFile = await readFile(source.fileId);
+            } else if (source.url) {
+                const res = await fetch(source.url);
+                const blob = await res.blob();
+                inputFile = blobToFile(blob, `video-source-${Date.now()}.mp4`);
+            }
+            if (!inputFile) {
+                return;
+            }
+
+            const filterChain = buildAtempoFilterChain(rate);
+            const { buffer } = await execFFmpeg({
+                input: inputFile,
+                inputFormat: 'mp4',
+                outputFormat: 'mp4',
+                command: ({ input, output }) => [
+                    '-i', input,
+                    '-filter:a', filterChain,
+                    '-c:v', 'copy',
+                    '-movflags', 'faststart',
+                    output,
+                ],
+            });
+
+            const outFile = blobToFile(new Blob([buffer], { type: 'video/mp4' }), `video-pitch-fixed-${Date.now()}.mp4`);
+            const newFileId = await writeFile(outFile);
+            const videoVolume = source.meta.video?.volume;
+            const newClipOptions = typeof videoVolume === 'number'
+                ? (videoVolume > 0 ? { audio: { volume: videoVolume } } : { audio: false })
+                : {};
+            const newClip = new MP4Clip(outFile.stream(), newClipOptions);
+            await newClip.ready;
+
+            const oldClip = source.clip as MP4Clip;
+            const oldSprite = source.sprite;
+            const oldDuration = oldSprite.time.duration;
+            const oldOffset = oldSprite.time.offset;
+
+            const newSprite = new VisibleSprite(newClip);
+            newSprite.time.offset = oldOffset;
+            newSprite.time.duration = oldDuration;
+            newSprite.time.playbackRate = 1;
+            newSprite.zIndex = oldSprite.zIndex;
+            newSprite.opacity = oldSprite.opacity;
+            newSprite.flip = oldSprite.flip;
+            newSprite.visible = oldSprite.visible;
+            newSprite.interactable = oldSprite.interactable;
+            newSprite.rect.x = oldSprite.rect.x;
+            newSprite.rect.y = oldSprite.rect.y;
+            newSprite.rect.w = oldSprite.rect.w;
+            newSprite.rect.h = oldSprite.rect.h;
+            newSprite.rect.angle = oldSprite.rect.angle;
+
+            await canvas.value!.addSprite(newSprite);
+            clips.value.push(markRaw(newClip));
+            sprites.value.push(markRaw(newSprite));
+
+            source.clip = newClip;
+            source.sprite = newSprite;
+            source.fileId = newFileId;
+            source.url = undefined;
+            source.meta.time = source.meta.time || {};
+            source.meta.time.playbackRate = 1;
+            source.meta.time.duration = oldDuration;
+            source.meta.time.originalDuration = oldDuration;
+            sources.value.set(sourceKey, {
+                ...source,
+            });
+
+            canvas.value!.removeSprite(oldSprite);
+            oldSprite.destroy();
+            oldClip.destroy();
+            clips.value.splice(clips.value.indexOf(oldClip), 1);
+            sprites.value.splice(sprites.value.indexOf(oldSprite), 1);
+            canvas.value!.activeSprite = newSprite;
+
+            syncSourceTickInterceptor(sourceKey);
+            updateDuration();
+        }
+        finally {
+            loading.value = false;
+        }
+    }
+
     /**
      * 将视频的画面与声音分离：
      * 1. 原轨道替换为无声视频
@@ -1667,6 +1783,7 @@ export function useWebCutPlayer() {
         initTextMaterial,
         updateText,
         repairAudioPitchByPlaybackRate,
+        repairVideoPitchByPlaybackRate,
         captureImage,
         readSources,
         download,

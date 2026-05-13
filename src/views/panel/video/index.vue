@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
 import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { NForm, NFormItem, NSlider, NInputNumber, NAlert, NButton } from 'naive-ui';
 import { useT } from '../../../i18n/hooks';
@@ -7,13 +7,15 @@ import { useWebCutHistory } from '../../../hooks/history';
 import { throttle } from 'ts-fns';
 
 const { currentSource } = useWebCutContext();
-const { syncSourceMeta, syncSourceTickInterceptor } = useWebCutPlayer();
+const { syncSourceMeta, repairVideoPitchByPlaybackRate, syncSourceTickInterceptor } = useWebCutPlayer();
 const { push: pushHistory } = useWebCutHistory();
 const t = useT();
 
 const volume = ref(1);
 const playbackRate = ref(1);
 const isSyncing = ref(false);
+const fixingPitch = ref(false);
+const canRepairPitch = computed(() => !!currentSource.value && Math.abs(playbackRate.value - 1) > 1e-6 && !fixingPitch.value);
 
 // 节流保存历史记录
 const throttledPushVideoVolumeHistory = throttle(() => pushHistory({ title: '调整视频音量' }), 500);
@@ -92,6 +94,18 @@ function resetPlaybackRate() {
   if (!currentSource.value) return;
   playbackRate.value = 1;
 }
+
+async function repairPitch() {
+  if (!currentSource.value || !canRepairPitch.value) return;
+  fixingPitch.value = true;
+  try {
+    await repairVideoPitchByPlaybackRate(currentSource.value.key);
+    playbackRate.value = 1;
+    await pushHistory({ title: t('声调修复') });
+  } finally {
+    fixingPitch.value = false;
+  }
+}
 </script>
 
 <template>
@@ -104,9 +118,14 @@ function resetPlaybackRate() {
         <n-button size="small" secondary @click="resetVolume" style="margin-left: 8px;">{{ t('重置') }}</n-button>
       </n-form-item>
       <n-form-item :label="t('速度')">
-        <n-slider v-model:value="playbackRate" :min="0.25" :max="4" :step="0.01"></n-slider>
-        <n-input-number v-model:value="playbackRate" :min="0.25" :max="4" :step="0.01" :precision="2"></n-input-number>
-        <n-button size="small" secondary @click="resetPlaybackRate" style="margin-left: 8px;">{{ t('重置') }}</n-button>
+        <div class="webcut-form-item-column">
+          <div class="webcut-form-item-speed">
+            <n-slider v-model:value="playbackRate" :min="0.25" :max="4" :step="0.01"></n-slider>
+            <n-input-number v-model:value="playbackRate" :min="0.25" :max="4" :step="0.01" :precision="2"></n-input-number>
+            <n-button size="small" secondary @click="resetPlaybackRate" style="margin-left: 8px;">{{ t('重置') }}</n-button>
+          </div>
+          <n-button type="primary" text :disabled="!canRepairPitch" @click="repairPitch">{{ fixingPitch ? t('处理中...') : t('声调修复') }}</n-button>
+        </div>
       </n-form-item>
     </template>
   </n-form>
@@ -118,5 +137,18 @@ function resetPlaybackRate() {
 }
 .webcut-message {
   margin-bottom: 8px;
+}
+.webcut-form-item-column {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.webcut-form-item-speed {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
 }
 </style>
