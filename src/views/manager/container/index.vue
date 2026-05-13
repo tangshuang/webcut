@@ -64,6 +64,12 @@ const dragPreview = ref<{
     width?: number;
     invalid?: boolean;
 }>({ active: false });
+const dragAssistPreview = ref<{
+    active: boolean;
+    railId?: string;
+    start?: number;
+    width?: number;
+}>({ active: false });
 const DRAG_ACTIVATE_DISTANCE_PX = 4;
 
 function resetDragPreview() {
@@ -75,6 +81,46 @@ function resetDragPreview() {
         width: undefined,
         invalid: false,
     };
+    dragAssistPreview.value = {
+        active: false,
+        railId: undefined,
+        start: undefined,
+        width: undefined,
+    };
+}
+
+function getAdjacentSnapStartPx(
+    segments: WebCutSegment[],
+    newStartPx: number,
+    widthPx: number,
+    movingRight: boolean
+) {
+    const sorted = [...segments].sort((a, b) => a.start - b.start);
+    const newEndPx = newStartPx + widthPx;
+    const overlaps = sorted.filter((seg) => {
+        const segStart = timeToPx(seg.start);
+        const segEnd = timeToPx(seg.end);
+        return !(newEndPx <= segStart || newStartPx >= segEnd);
+    });
+    if (!overlaps.length) {
+        return null;
+    }
+
+    if (movingRight) {
+        const blocker = overlaps.reduce((prev, cur) => {
+            const prevStart = timeToPx(prev.start);
+            const curStart = timeToPx(cur.start);
+            return curStart < prevStart ? cur : prev;
+        });
+        return Math.max(0, timeToPx(blocker.start) - widthPx);
+    }
+
+    const blocker = overlaps.reduce((prev, cur) => {
+        const prevEnd = timeToPx(prev.end);
+        const curEnd = timeToPx(cur.end);
+        return curEnd > prevEnd ? cur : prev;
+    });
+    return Math.max(0, timeToPx(blocker.end));
 }
 
 watch(() => rails.value?.length, (next, prev) => {
@@ -316,6 +362,22 @@ function handleDragging(data: AdjustEventData, segment: WebCutSegment, rail: Web
     const overlap = targetSegments.some(seg => !(newStartTime >= seg.end || newEndTime <= seg.start));
     invalid = overlap;
 
+    if (targetRail.id === rail.id && invalid) {
+        const assistStart = getAdjacentSnapStartPx(targetSegments, newStart, segmentWidth, (data.offsetX || 0) >= 0);
+        if (assistStart !== null) {
+            dragAssistPreview.value = {
+                active: true,
+                railId: targetRail.id,
+                start: assistStart,
+                width: segmentWidth,
+            };
+        } else {
+            dragAssistPreview.value = { active: false };
+        }
+    } else {
+        dragAssistPreview.value = { active: false };
+    }
+
     const finalEnd = finalStart + segmentWidth;
 
     dragState.value.start = finalStart;
@@ -351,9 +413,25 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
 
     // 目标位置无效（红框）时，不提交任何位置变更
     if (dragPreview.value.invalid) {
-        dragState.value = {};
-        highlightedRailId.value = null;
-        resetDragPreview();
+        // 同轨道存在绿色候选框时，允许吸附到该位置
+        if (dragAssistPreview.value.active && dragAssistPreview.value.railId === rail.id) {
+            segment.start = pxToTime(dragAssistPreview.value.start || 0);
+            segment.end = pxToTime((dragAssistPreview.value.start || 0) + (dragAssistPreview.value.width || 0));
+            dragState.value = {};
+            highlightedRailId.value = null;
+            resetDragPreview();
+            resetSegmentTime(segment);
+            applyMainVideoMagnet();
+            syncTransitions(rail);
+            resort();
+            pushHistory({ title: '移动片段' });
+            emit('resize', { segment, rail });
+        }
+        else {
+            dragState.value = {};
+            highlightedRailId.value = null;
+            resetDragPreview();
+        }
         return;
     }
 
@@ -585,6 +663,14 @@ manager.value = exposes;
                                 '--segment-width': (dragPreview.width || 0) + 'px',
                             }"
                         ></div>
+                        <div
+                            v-if="dragAssistPreview.active && !!dragAssistPreview.railId && dragAssistPreview.railId === rail.id"
+                            class="webcute__manager__main__rail-segment webcute__manager__main__rail-segment--drag-preview webcute__manager__main__rail-segment--drag-preview-assist"
+                            :style="{
+                                '--segment-left': (dragAssistPreview.start || 0) + 'px',
+                                '--segment-width': (dragAssistPreview.width || 0) + 'px',
+                            }"
+                        ></div>
                     </div>
                     <div class="webcute__manager__main__rail webcute__manager__main__rail--empty" v-if="!props.disableEmptyRail && rails.length === 0">
                         <div class="webcute__manager__main__rail--empty__text">
@@ -739,6 +825,11 @@ manager.value = exposes;
     background-color: rgba(255, 120, 120, 0.18);
     border-color: rgba(255, 120, 120, 0.8);
     box-shadow: 0 0 0 1px rgba(255, 120, 120, 0.2) inset;
+}
+.webcute__manager__main__rail-segment--drag-preview-assist {
+    background-color: rgba(40, 200, 130, 0.18);
+    border-color: rgba(40, 200, 130, 0.85);
+    box-shadow: 0 0 0 1px rgba(40, 200, 130, 0.22) inset;
 }
 .webcute__manager__main__rail-segment--selected {
     border-color: var(--primary-color);
