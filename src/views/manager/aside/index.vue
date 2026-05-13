@@ -114,10 +114,23 @@ function handleDeleteRail(railId: string) {
     }
 }
 .webcut-manager-webcut-manager-rail-left-side-type-icon {
-    opacity: .2;
+    opacity: .88;
+    width: 1.4em !important;
+    height: 1.4em !important;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(160, 160, 160, 0.25);
+    box-sizing: border-box;
+
+    :deep(.n-icon) {
+        font-size: 0.9em;
+    }
 }
 .webcut-manager-webcut-manager-rail-left-side-main-icon {
-    color: var(--primary-color);
+    color: #ff8a00;
+    background-color: rgba(160, 160, 160, 0.25);
 }
 .webcut-manager-webcut-manager-rail-left-side-action-icon {
     transition: color .2s;

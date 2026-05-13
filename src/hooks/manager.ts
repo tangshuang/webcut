@@ -192,7 +192,7 @@ export function useWebCutManager() {
         }
     }
 
-    function deleteSegment({ segment, rail, skipMagnet }: { segment: WebCutSegment; rail: WebCutRail; skipMagnet?: boolean }) {
+    function deleteSegment({ segment, rail, skipMagnet, keepRailWhenEmpty }: { segment: WebCutSegment; rail: WebCutRail; skipMagnet?: boolean; keepRailWhenEmpty?: boolean }) {
         const { sourceKey } = segment;
         const source = sources.value.get(sourceKey);
         if (source) {
@@ -206,7 +206,7 @@ export function useWebCutManager() {
         const segmentIndex = rail.segments.findIndex(s => s.id === segment.id);
         rail.segments.splice(segmentIndex, 1);
 
-        if (rail.segments.length === 0) {
+        if (rail.segments.length === 0 && !keepRailWhenEmpty) {
             const railIndex = rails.value.findIndex(r => r.id === rail.id);
             rails.value.splice(railIndex, 1);
         }
@@ -290,7 +290,7 @@ export function useWebCutManager() {
                 const leftFile = shouldKeepLeft ? await createAndStoreSplitFile('left') : null;
                 const rightFile = shouldKeepRight ? await createAndStoreSplitFile('right') : null;
 
-                deleteSegment({ segment, rail, skipMagnet: true });
+                deleteSegment({ segment, rail, skipMagnet: true, keepRailWhenEmpty: true });
 
                 if (shouldKeepLeft && leftFile) {
                     const leftKey = await push('video', `file:${leftFile.fileId}`, {
@@ -330,7 +330,7 @@ export function useWebCutManager() {
                 const leftFile = shouldKeepLeft ? await createAndStoreSplitFile('left') : null;
                 const rightFile = shouldKeepRight ? await createAndStoreSplitFile('right') : null;
 
-                deleteSegment({ segment, rail, skipMagnet: true });
+                deleteSegment({ segment, rail, skipMagnet: true, keepRailWhenEmpty: true });
 
                 if (shouldKeepLeft && leftFile) {
                     const leftKey = await push('audio', `file:${leftFile.fileId}`, {

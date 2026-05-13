@@ -242,47 +242,6 @@ function handleDragStart(segment: WebCutSegment) {
     resetDragPreview();
 }
 
-function findBestSlotStartPx(targetSegments: WebCutSegment[], widthPx: number, proposedStartPx: number) {
-    const slots: Array<{ min: number; max: number; preferred: number; }> = [];
-    let prevEnd = 0;
-    const sorted = [...targetSegments].sort((a, b) => a.start - b.start);
-
-    for (const seg of sorted) {
-        const segStart = timeToPx(seg.start);
-        const segEnd = timeToPx(seg.end);
-        const maxStart = segStart - widthPx;
-        if (maxStart >= prevEnd) {
-            slots.push({
-                min: prevEnd,
-                max: maxStart,
-                preferred: Math.min(Math.max(proposedStartPx, prevEnd), maxStart),
-            });
-        }
-        prevEnd = Math.max(prevEnd, segEnd);
-    }
-
-    slots.push({
-        min: prevEnd,
-        max: Number.POSITIVE_INFINITY,
-        preferred: Math.max(proposedStartPx, prevEnd),
-    });
-
-    if (!slots.length) {
-        return null;
-    }
-
-    let best = slots[0];
-    let bestDist = Math.abs(best.preferred - proposedStartPx);
-    for (let i = 1; i < slots.length; i++) {
-        const dist = Math.abs(slots[i].preferred - proposedStartPx);
-        if (dist < bestDist) {
-            best = slots[i];
-            bestDist = dist;
-        }
-    }
-    return best.preferred;
-}
-
 function handleDragging(data: AdjustEventData, segment: WebCutSegment, rail: WebCutRail) {
     if (dragState.value.segment !== segment) {
         return;
@@ -349,9 +308,14 @@ function handleDragging(data: AdjustEventData, segment: WebCutSegment, rail: Web
     }
 
     const targetSegments = targetRail.segments.filter(s => s !== segment);
-    const bestStart = findBestSlotStartPx(targetSegments, segmentWidth, newStart);
-    const invalid = bestStart === null || !Number.isFinite(bestStart);
-    const finalStart = invalid ? newStart : bestStart!;
+    let invalid = false;
+    const finalStart = newStart;
+    // 同轨道与跨轨道统一采用严格目标位置判定：放不下即无效，不自动吸附到其他空位
+    const newStartTime = pxToTime(newStart);
+    const newEndTime = pxToTime(newStart + segmentWidth);
+    const overlap = targetSegments.some(seg => !(newStartTime >= seg.end || newEndTime <= seg.start));
+    invalid = overlap;
+
     const finalEnd = finalStart + segmentWidth;
 
     dragState.value.start = finalStart;
@@ -379,6 +343,14 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
 
     // 纯点击或极小抖动不应触发位置提交，避免误改位置
     if (Math.abs(data.offsetX) < 1 && Math.abs(data.offsetY) < 1) {
+        dragState.value = {};
+        highlightedRailId.value = null;
+        resetDragPreview();
+        return;
+    }
+
+    // 目标位置无效（红框）时，不提交任何位置变更
+    if (dragPreview.value.invalid) {
         dragState.value = {};
         highlightedRailId.value = null;
         resetDragPreview();
@@ -434,7 +406,7 @@ function handleDragEnd(data: AdjustEventData, segment: WebCutSegment, rail: WebC
             finalEnd = end;
         }
     }
-    // 更新segment时间信息
+    // 更新segment时间信息（仅在有效拖放时提交）
     segment.start = pxToTime(finalStart);
     segment.end = pxToTime(finalEnd);
 
@@ -581,6 +553,7 @@ manager.value = exposes;
                             :can-move-right="e => canMoveRight(e, item, rail)"
                             :can-move="e => canMoveSegment(e, item, rail)"
                             :disabled="isDisableChangeTiming(rail)"
+                            :disable-middle-drag-shadow="true"
                         >
                             <slot name="mainSegment" :segment="item" :rail="rail" :segmentIndex="segmentIndex" :railIndex="railIndex" :segments="rail.segments"></slot>
                         </AdjustableBox>

@@ -19,6 +19,8 @@ const props = defineProps<{
     disabled?: boolean;
     /** 是否支持刻度级别的调整 */
     enableTickAdjust?: boolean;
+    /** 是否禁用内部拖拽影子（会搬运真实内容DOM） */
+    disableMiddleDragShadow?: boolean;
 }>();
 
 function canMoveMiddle(e: any) {
@@ -189,6 +191,10 @@ function handleMiddleMoveStart(e: any) {
 function handleMiddleMoving(e: DragEventData) {
     handleMoving(e);
 
+    if (props.disableMiddleDragShadow) {
+        return;
+    }
+
     const rect = box.value.getBoundingClientRect();
     if (e.pageY < rect.top || e.pageY > rect.bottom) {
         initDragShadow();
@@ -203,7 +209,9 @@ function handleMiddleMoving(e: DragEventData) {
 
 function handleMiddleMoveEnd(e: DragEventData) {
     handleMoveEnd(e);
-    hideDragShadow();
+    if (!props.disableMiddleDragShadow) {
+        hideDragShadow();
+    }
 
     // 当未发生位置偏移时，认为是点击事件
     const currentMouse = { x: e.pageX, y: e.pageY };
@@ -213,7 +221,9 @@ function handleMiddleMoveEnd(e: DragEventData) {
         handleSelect(e);
     }
 
-    destroyDragShadow();
+    if (!props.disableMiddleDragShadow) {
+        destroyDragShadow();
+    }
 }
 </script>
 
