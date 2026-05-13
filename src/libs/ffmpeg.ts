@@ -24,7 +24,6 @@ export function setFFmpegScripts(scripts: Record<string, string>) {
 }
 
 const createFFmpegLoader = (config: () => (FFMessageLoadConfig & { onLoaded?: (ffmpeg: FFmpeg) => void })) => {
-    const { onLoaded, ...sources } = config();
     const ffmpeg = new FFmpeg();
     let isLoaded = -1; // -1: not loaded, 0: loading, 1: loaded
     let setReady: (ffmpeg: FFmpeg) => void;
@@ -61,6 +60,7 @@ const createFFmpegLoader = (config: () => (FFMessageLoadConfig & { onLoaded?: (f
 
         isLoaded = 0;
         try {
+            const { onLoaded, ...sources } = config();
             await ffmpeg.load(sources);
             isLoaded = 1;
             setReady(ffmpeg);
