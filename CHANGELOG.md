@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [Unreleased]
+
+### Bug Fixes
+
+* 修复素材切分后偶尔崩坏（预览变灰块、播放无内容）问题：将 `clip.split` 改为只调用一次并复用左右两半、及时销毁未使用片段，导出前先从 canvas 摘除原 sprite 避免并发解码共享 localFile；移除 `onAfterGen` 对新 clip tickInterceptor 的错误覆盖；文本切分透传 css/highlights 防止样式丢失；切分按钮在 loading 期间禁用防止重复触发
+
 ### [0.2.1](https://github.com/tangshuang/webcut/compare/v0.2.0...v0.2.1) (2025-12-05)
 
 ### [0.1.13](https://github.com/tangshuang/webcut/compare/v0.1.12...v0.1.13) (2025-12-05)

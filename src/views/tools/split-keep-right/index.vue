@@ -7,7 +7,7 @@ import { useWebCutManager } from '../../../hooks/manager';
 import { useT } from '../../../i18n/hooks';
 import { computed } from 'vue';
 
-const { rails, current, cursorTime } = useWebCutContext();
+const { rails, current, cursorTime, loading } = useWebCutContext();
 const { splitSegment } = useWebCutManager();
 const { push: pushHistory } = useWebCutHistory();
 const t = useT();
@@ -56,7 +56,7 @@ async function handleSplit() {
 <template>
     <n-popover :delay="200" class="webcut-tooltip">
         <template #trigger>
-            <n-button quaternary size="small" :focusable="false" @click="handleSplit" class="webcut-tool-button" :disabled="!current || !current.segmentId || !canSplit">
+            <n-button quaternary size="small" :focusable="false" @click="handleSplit" class="webcut-tool-button" :disabled="loading || !current || !current.segmentId || !canSplit">
                 <template #icon>
                     <n-icon :component="PanelRight16Filled" size="16px"></n-icon>
                 </template>

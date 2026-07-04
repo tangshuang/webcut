@@ -5,6 +5,8 @@ import { WebCutSegment, WebCutRail } from '../types';
 import { exportAsWavBlobOffscreen, exportBlobOffscreen } from '../libs';
 import { blobToFile } from '../libs/file';
 import { addFileToProject, writeFile } from '../db';
+import { clone } from 'ts-fns';
+import type { MP4Clip, AudioClip, ImgClip } from '@webav/av-cliper';
 
 export function useWebCutManager() {
     const {
@@ -247,26 +249,26 @@ export function useWebCutManager() {
                 resetSegmentTime(segment);
             };
 
-            const onAfterGen = (key: string) => {
-                if (clip.tickInterceptor) {
-                    const newClip = sources.value.get(key)!.clip;
-                    newClip.tickInterceptor = clip.tickInterceptor;
-                }
-            };
+            // 注意：原 sprite 在切分前已从 canvas 摘除（见下方各分支），
+            // 避免导出期间 canvas 并发解码与 split 出来的 clip 共享同一 localFile。
+            // push 内部会通过 syncSourceTickInterceptor 为新 source 注册正确的 tickInterceptor，
+            // 滤镜/音量通过 meta 透传到新 source，无需再复制旧 clip 的 tickInterceptor。
 
-            const createAndStoreSplitFile = async (direction: 'left' | 'right') => {
-                const clipPart = direction === 'left' ? (await clip.split(splitTime))[0] : (await clip.split(splitTime))[1];
+            // 将切分出来的 clip 片段离屏导出为文件，导出完成后立即销毁片段，避免解码资源泄漏。
+            // 同一原始 clip 的 clip.split(splitTime) 一次调用即返回 [left, right]，
+            // 二者与原 clip 共享同一 localFile，因此只 split 一次并复用两半，杜绝重复消费与泄漏。
+            const renderPartToFile = async (clipPart: MP4Clip | AudioClip | ImgClip) => {
                 try {
                     if (type === 'video') {
                         const blob = await exportBlobOffscreen([clipPart], { type: 'video/mp4' });
-                        const file = blobToFile(blob, `split-video-${direction}-${Date.now()}.mp4`);
+                        const file = blobToFile(blob, `split-video-${Date.now()}.mp4`);
                         const fileId = await writeFile(file);
                         await addFileToProject(projectId.value, fileId);
                         return { fileId };
                     }
                     if (type === 'audio') {
                         const blob = await exportAsWavBlobOffscreen([clipPart as any]);
-                        const file = blobToFile(blob, `split-audio-${direction}-${Date.now()}.wav`);
+                        const file = blobToFile(blob, `split-audio-${Date.now()}.wav`);
                         const fileId = await writeFile(file);
                         await addFileToProject(projectId.value, fileId);
                         return { fileId };
@@ -277,87 +279,48 @@ export function useWebCutManager() {
                 }
             };
 
-            // 通过切分，获得右侧部分时需要注意，
-            // 新的clip需要复制原来的tickInterceptor
-
-            if (type === 'video') {
-                const prevVideoMeta = source.meta.video || {};
+            if (type === 'video' || type === 'audio') {
+                const prevMeta = source.meta[type] || {};
                 const leftDuration = splitAt - start;
                 const rightDuration = end - splitAt;
                 const shouldKeepLeft = keep !== 'right';
                 const shouldKeepRight = keep !== 'left';
 
-                const leftFile = shouldKeepLeft ? await createAndStoreSplitFile('left') : null;
-                const rightFile = shouldKeepRight ? await createAndStoreSplitFile('right') : null;
+                // 导出前先摘除原 sprite，避免 canvas 在导出期间并发解码共享 localFile
+                canvas.value?.removeSprite(source.sprite);
+                // 只 split 一次，复用左右两半；不需要的那一半立即销毁
+                const [leftClipPart, rightClipPart] = await clip.split(splitTime);
+                if (!shouldKeepLeft) leftClipPart.destroy();
+                if (!shouldKeepRight) rightClipPart.destroy();
+                const leftFile = shouldKeepLeft ? await renderPartToFile(leftClipPart) : null;
+                const rightFile = shouldKeepRight ? await renderPartToFile(rightClipPart) : null;
 
                 deleteSegment({ segment, rail, skipMagnet: true, keepRailWhenEmpty: true });
 
                 if (shouldKeepLeft && leftFile) {
-                    const leftKey = await push('video', `file:${leftFile.fileId}`, {
+                    await push(type, `file:${leftFile.fileId}`, {
                         time: {
                             start,
                             duration: leftDuration,
                         },
-                        video: {
-                            ...prevVideoMeta,
+                        [type]: {
+                            ...prevMeta,
                         },
                         withRailId: rail.id,
                     });
-                    onAfterGen(leftKey);
                 }
 
                 if (shouldKeepRight && rightFile) {
-                    const rightKey = await push('video', `file:${rightFile.fileId}`, {
+                    await push(type, `file:${rightFile.fileId}`, {
                         time: {
                             start: splitAt,
                             duration: rightDuration,
                         },
-                        video: {
-                            ...prevVideoMeta,
+                        [type]: {
+                            ...prevMeta,
                         },
                         withRailId: rail.id,
                     });
-                    onAfterGen(rightKey);
-                }
-            }
-            else if (type === 'audio') {
-                const prevAudioMeta = source.meta.audio || {};
-                const leftDuration = splitAt - start;
-                const rightDuration = end - splitAt;
-                const shouldKeepLeft = keep !== 'right';
-                const shouldKeepRight = keep !== 'left';
-
-                const leftFile = shouldKeepLeft ? await createAndStoreSplitFile('left') : null;
-                const rightFile = shouldKeepRight ? await createAndStoreSplitFile('right') : null;
-
-                deleteSegment({ segment, rail, skipMagnet: true, keepRailWhenEmpty: true });
-
-                if (shouldKeepLeft && leftFile) {
-                    const leftKey = await push('audio', `file:${leftFile.fileId}`, {
-                        time: {
-                            start,
-                            duration: leftDuration,
-                        },
-                        audio: {
-                            ...prevAudioMeta,
-                        },
-                        withRailId: rail.id,
-                    });
-                    onAfterGen(leftKey);
-                }
-
-                if (shouldKeepRight && rightFile) {
-                    const rightKey = await push('audio', `file:${rightFile.fileId}`, {
-                        time: {
-                            start: splitAt,
-                            duration: rightDuration,
-                        },
-                        audio: {
-                            ...prevAudioMeta,
-                        },
-                        withRailId: rail.id,
-                    });
-                    onAfterGen(rightKey);
                 }
             }
             // 如果是图片，则不需要进行实际的切分，只需要调整segment的时间，并创建一个新的segment
@@ -369,14 +332,13 @@ export function useWebCutManager() {
                     splitToKeepLeft();
                     const { fileId, url } = source;
                     const src = fileId ? `file:${fileId}` : url as string;
-                    const key = await push('image', src, {
+                    await push('image', src, {
                         time: {
                             start: splitAt,
                             duration: end - splitAt,
                         },
                         withRailId: rail.id,
                     });
-                    onAfterGen(key);
                 }
             }
             else if (type === 'text') {
@@ -386,14 +348,19 @@ export function useWebCutManager() {
                 else {
                     splitToKeepLeft();
                     const { text } = source;
-                    const key = await push('text', text as string, {
+                    // 透传原文本样式与高亮，避免切分出的右半段样式被重置为默认
+                    const prevTextMeta = source.meta.text || {};
+                    await push('text', text as string, {
                         time: {
                             start: splitAt,
                             duration: end - splitAt,
                         },
+                        text: {
+                            css: prevTextMeta.css ? clone(prevTextMeta.css) : undefined,
+                            highlights: prevTextMeta.highlights ? clone(prevTextMeta.highlights) : undefined,
+                        },
                         withRailId: rail.id,
                     });
-                    onAfterGen(key);
                 }
             }
 
