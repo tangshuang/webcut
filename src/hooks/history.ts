@@ -214,6 +214,71 @@ export function useWebCutHistory() {
         return true;
     }
 
+    function shouldRebuildSource(current: WebCutSource, target: WebCutSourceData): boolean {
+        if (current.type !== target.type) {
+            return true;
+        }
+
+        if (current.fileId !== target.fileId || current.url !== target.url) {
+            return true;
+        }
+
+        if (current.sprite.time.playbackRate !== target.sprite.time.playbackRate) {
+            return true;
+        }
+
+        if (!isEqual(current.clip?.meta, target.clip?.meta)) {
+            return true;
+        }
+
+        if (!isEqual(current.meta.audio, target.meta.audio)) {
+            return true;
+        }
+
+        if (!isEqual(current.meta.video, target.meta.video)) {
+            return true;
+        }
+
+        if (!isEqual(current.meta.filters, target.meta.filters)) {
+            return true;
+        }
+
+        if (!isEqual(current.meta.animation, target.meta.animation)) {
+            return true;
+        }
+
+        if (current.type === 'text' &&
+            (current.text !== target.text || !isEqual(current.meta.text, target.meta.text))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    function destroySource(key: string) {
+        const source = sources.value.get(key);
+        if (!source) {
+            return;
+        }
+
+        const { clip, sprite } = source;
+        canvas.value?.removeSprite(sprite);
+        sprite.destroy();
+        clip.destroy();
+
+        const sprIdx = sprites.value.indexOf(sprite);
+        if (sprIdx !== -1) {
+            sprites.value.splice(sprIdx, 1);
+        }
+
+        const clipIdx = clips.value.indexOf(clip);
+        if (clipIdx !== -1) {
+            clips.value.splice(clipIdx, 1);
+        }
+
+        sources.value.delete(key);
+    }
+
     // 更新现有 source 的属性（避免重建）
     function updateSourceProperties(current: WebCutSource, target: WebCutSourceData) {
         const { sprite } = current;
@@ -278,25 +343,7 @@ export function useWebCutHistory() {
 
         // 4. 删除不需要的 sources
         for (const key of toDelete) {
-            const source = sources.value.get(key);
-            if (source) {
-                const { clip, sprite } = source;
-                canvas.value?.removeSprite(sprite);
-                sprite.destroy();
-                clip.destroy();
-
-                const sprIdx = sprites.value.indexOf(sprite);
-                if (sprIdx !== -1) {
-                    sprites.value.splice(sprIdx, 1);
-                }
-
-                const clipIdx = clips.value.indexOf(clip);
-                if (clipIdx !== -1) {
-                    clips.value.splice(clipIdx, 1);
-                }
-
-                sources.value.delete(key);
-            }
+            destroySource(key);
         }
 
         // 5. 更新现有的 sources
@@ -309,30 +356,10 @@ export function useWebCutHistory() {
                 continue;
             }
 
-            // 对于文本类型，如果文本内容或样式变化，需要重新生成
-            if (current.type === 'text' &&
-                (current.text !== target.text || !isEqual(current.meta.text, target.meta.text))) {
-                // 文本内容变化，需要重建
+            if (shouldRebuildSource(current, target)) {
                 toDelete.add(key);
                 toAdd.add(key);
-
-                // 先删除旧的
-                const { clip, sprite } = current;
-                canvas.value?.removeSprite(sprite);
-                sprite.destroy();
-                clip.destroy();
-
-                const sprIdx = sprites.value.indexOf(sprite);
-                if (sprIdx !== -1) {
-                    sprites.value.splice(sprIdx, 1);
-                }
-
-                const clipIdx = clips.value.indexOf(clip);
-                if (clipIdx !== -1) {
-                    clips.value.splice(clipIdx, 1);
-                }
-
-                sources.value.delete(key);
+                destroySource(key);
             } else {
                 // 非文本或文本内容未变化，只更新属性
                 updateSourceProperties(current, target);
