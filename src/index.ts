@@ -293,6 +293,12 @@ export {
     type WebCutExportVideoParams,
 } from './modules/advanced-export/types';
 
+// agent dock pack（内置 pack，挂到右侧 dock 槽位）
+export { createWebCutAgentPack, AgentIcon } from './packs/agent';
+export type { CreateWebCutAgentPackOptions, WebCutAgentPackInstance } from './packs/agent';
+export type { WebCutAgentAdapter, WebCutAgentEvent, WebCutAgentStream, WebCutAgentSendParams, WebCutAgentSendMessageParams, WebCutAgentToolSchema, WebCutAgentAttachment, WebCutAgentChatMeta, WebCutAgentUploadedFile } from './packs/agent/adapter';
+export type { WebCutAgentTool, WebCutAgentToolRuntime, WebCutAgentToolRegistry } from './packs/agent/tools';
+
 export type {
     WebCutLibarayNavComponentProps,
 };

@@ -90,6 +90,9 @@ export type WebCutContext = {
     /** 外部注册的模块列表 */
     modules: Map<new () => WebCutExtensionPack, WebCutExtensionPack>;
 
+    /** 当前展开的 dock pack key（同一时刻最多展开一个；dock pack 列表由 modules 中声明 dockConfig 的 pack 提供） */
+    activeDockKey: null | string;
+
     /** 内存缓存，用于存储一些临时数据，而且需要注意，使用markRaw标记，避免vue对其进行响应式处理 */
     memory: Record<string, any>;
 };
@@ -163,6 +166,23 @@ export interface WebCutExtensionPack {
             label: string;
             component: Component;
         }[];
+    };
+    /**
+     * 编辑器右侧 dock 槽位配置（悬浮按钮 + 可展开边栏，可多个，整组垂直居中）。
+     * 任意 pack 都可声明 dockConfig；编辑器扫描 modules 取所有声明了 dockConfig 的 pack 渲染按钮组。
+     * 所有 dock 按钮共用统一的「右侧贴边竖向 tab 拉手」样式，pack 只提供 icon 和文字，不能自定义整个按钮。
+     */
+    dockConfig?: {
+        /** 唯一 key，用于按钮组内识别与展开态切换 */
+        key: string;
+        /** 右侧边栏主组件（展开时渲染） */
+        sidebar: Component;
+        /** 触发按钮顶部图标 */
+        triggerIcon?: Component;
+        /** 触发按钮文字（竖排显示在 icon 下方，可不传） */
+        triggerText?: string;
+        /** 边栏宽度，默认 400 */
+        width?: number;
     };
     /** 语言包 */
     languagePackages?: Record<string, Record<string, string>>;

@@ -62,6 +62,7 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         loading: false,
         evt: markRaw(new Evt()),
         modules: new Map(),
+        activeDockKey: null,
         memory: markRaw({}),
     };
 
