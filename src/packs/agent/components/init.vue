@@ -115,9 +115,10 @@ function submit() {
                 <button type="button" class="webcut-agent-upload-btn tooltip-host" v-if="pack?.supportsUploadAttachments" data-tooltip="上传附件" data-tooltip-pos="top" @click="triggerUpload">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 </button>
-                <div v-if="operationSlots.length" class="webcut-agent-attachment-slots">
+                <span style="margin:auto"></span>
+                <template v-if="operationSlots.length" class="webcut-agent-attachment-slots">
                     <component v-for="(Slot, i) in operationSlots" :key="i" :is="Slot" @attach="onSlotAttach" />
-                </div>
+                </template>
                 <button type="button" class="webcut-agent-thinking-icon-btn tooltip-host" :class="{ active: enableThinking }" :aria-pressed="enableThinking" data-tooltip="思考" data-tooltip-pos="top" @click="enableThinking = !enableThinking">
                     <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5.5 2 3.5 4 3.5 6.5c0 2 1.3 3.5 2.5 4.5v1.5h4V11c1.2-1 2.5-2.5 2.5-4.5C12.5 4 10.5 2 8 2z"/><path d="M6.5 13.5h3M7 15h2"/></svg>
                 </button>
@@ -173,7 +174,6 @@ function submit() {
     gap: 6px;
 }
 .webcut-agent-attachment-slots {
-    margin-left: auto;
     display: inline-flex;
     align-items: center;
     gap: 2px;
