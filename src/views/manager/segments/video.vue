@@ -53,8 +53,13 @@ const totalWidth = computed(() => {
 const audioF32 = ref();
 const hasAudibleAudio = ref(false);
 let initToken = 0;
+// 每个 source 仅允许一次缩略图解码重试（避免真实解码失败时无限重试）
+let thumbRetryUsed = false;
 
-watch(source, initThumbnailsAndAudioWave, { immediate: true });
+watch(source, () => {
+    thumbRetryUsed = false;
+    initThumbnailsAndAudioWave();
+}, { immediate: true });
 
 // 监听总宽度变化（由播放速度或缩放比例变化引起），更新缩略图位置
 watch(totalWidth, () => {
@@ -205,11 +210,22 @@ async function initThumbnailsAndAudioWave() {
         }
     }
     catch (e) {
-        if (token === initToken) {
+        console.error(e);
+        if (token !== initToken) {
+            // 已被新一轮 source 取代，无需处理
+        }
+        else {
             hasAudibleAudio.value = false;
             audioF32.value = null;
+            // 拆分后新片段的缩略图解码会与 canvas 预览 / 离屏导出并发争用 WebCodecs 解码器，
+            // 偶发抛错被静默吞掉会让素材长时间停留在灰块。此处做一次延迟重试（每个 source 仅一次）。
+            if (!thumbRetryUsed) {
+                thumbRetryUsed = true;
+                setTimeout(() => {
+                    if (token === initToken) initThumbnailsAndAudioWave();
+                }, 600);
+            }
         }
-        console.error(e);
     } finally {
         if (token === initToken) {
             loading.value = false;

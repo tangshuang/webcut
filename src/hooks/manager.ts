@@ -2,11 +2,7 @@ import { computed, watchEffect, watch } from 'vue';
 import { useWebCutContext, useWebCutPlayer } from './index';
 import { getGridFrame, getGridPixel } from '../libs/timeline';
 import { WebCutSegment, WebCutRail } from '../types';
-import { exportAsWavBlobOffscreen, exportBlobOffscreen } from '../libs';
-import { blobToFile } from '../libs/file';
-import { addFileToProject, writeFile } from '../db';
 import { clone } from 'ts-fns';
-import type { MP4Clip, AudioClip, ImgClip } from '@webav/av-cliper';
 
 export function useWebCutManager() {
     const {
@@ -25,7 +21,6 @@ export function useWebCutManager() {
         unselectSegment,
         loading,
         rails,
-        id: projectId,
         enableMainVideoMagnet: contextEnableMainVideoMagnet,
     } = useWebCutContext();
     const { pause, push, syncSourceTickInterceptor } = useWebCutPlayer();
@@ -226,16 +221,14 @@ export function useWebCutManager() {
             const { sourceKey, start, end } = segment;
             const source = sources.value.get(sourceKey);
             if (!source) {
-                return;
+                return false;
             }
 
-            const { type, clip } = source;
+            const { type } = source;
             const splitAt = cursorTime.value;
             if (splitAt <= start || splitAt >= end) {
-                return;
+                return false;
             }
-            // 计算分割点（纳秒）
-            const splitTime = splitAt - start;
 
             // 将原始segment作为左侧部分
             const splitToKeepLeft = () => {
@@ -249,75 +242,44 @@ export function useWebCutManager() {
                 resetSegmentTime(segment);
             };
 
-            // 注意：原 sprite 在切分前已从 canvas 摘除（见下方各分支），
-            // 避免导出期间 canvas 并发解码与 split 出来的 clip 共享同一 localFile。
-            // push 内部会通过 syncSourceTickInterceptor 为新 source 注册正确的 tickInterceptor，
-            // 滤镜/音量通过 meta 透传到新 source，无需再复制旧 clip 的 tickInterceptor。
-
-            // 将切分出来的 clip 片段离屏导出为文件，导出完成后立即销毁片段，避免解码资源泄漏。
-            // 同一原始 clip 的 clip.split(splitTime) 一次调用即返回 [left, right]，
-            // 二者与原 clip 共享同一 localFile，因此只 split 一次并复用两半，杜绝重复消费与泄漏。
-            const renderPartToFile = async (clipPart: MP4Clip | AudioClip | ImgClip) => {
-                try {
-                    if (type === 'video') {
-                        const blob = await exportBlobOffscreen([clipPart], { type: 'video/mp4' });
-                        const file = blobToFile(blob, `split-video-${Date.now()}.mp4`);
-                        const fileId = await writeFile(file);
-                        await addFileToProject(projectId.value, fileId);
-                        return { fileId };
-                    }
-                    if (type === 'audio') {
-                        const blob = await exportAsWavBlobOffscreen([clipPart as any]);
-                        const file = blobToFile(blob, `split-audio-${Date.now()}.wav`);
-                        const fileId = await writeFile(file);
-                        await addFileToProject(projectId.value, fileId);
-                        return { fileId };
-                    }
-                    return null;
-                } finally {
-                    clipPart.destroy();
-                }
-            };
-
+            // 视频/音频：非破坏性切分（不再离屏重编码）。
+            // clip.split() 返回的两半与原 clip 共享同一 localFile，引擎本身也支持通过
+            // meta[type].offset 播放文件的子区间。因此拆分只需：左半段原地缩短（复用已解码的 clip，
+            // 零重解码）；右半段引用同一 fileId 并把文件入点前移（push 内部用一次轻量 clip.split(offset)
+            // 定位，无重编码）。避免了旧方案两次 exportBlobOffscreen（各自新建 OffscreenCanvas +
+            // 解码器 + 编码器）与主画布解码并发争用 WebCodecs 导致缩略图解码超时、素材变灰的问题。
             if (type === 'video' || type === 'audio') {
                 const prevMeta = source.meta[type] || {};
-                const leftDuration = splitAt - start;
-                const rightDuration = end - splitAt;
+                const rate = source.sprite.time.playbackRate || 1;
+                // 原始 segment 当前的文件入点（曾被拆分过则非 0）
+                const inPoint = (prevMeta as any).offset || 0;
+                // 分割点在文件中的位置：入点 + 左半段消耗的文件时长（含播放速率换算）
+                const rightInPoint = inPoint + (splitAt - start) * rate;
+                const rightTimelineDur = end - splitAt;
                 const shouldKeepLeft = keep !== 'right';
                 const shouldKeepRight = keep !== 'left';
+                const src = source.fileId ? `file:${source.fileId}` : source.url as string;
 
-                // 导出前先摘除原 sprite，避免 canvas 在导出期间并发解码共享 localFile
-                canvas.value?.removeSprite(source.sprite);
-                // 只 split 一次，复用左右两半；不需要的那一半立即销毁
-                const [leftClipPart, rightClipPart] = await clip.split(splitTime);
-                if (!shouldKeepLeft) leftClipPart.destroy();
-                if (!shouldKeepRight) rightClipPart.destroy();
-                const leftFile = shouldKeepLeft ? await renderPartToFile(leftClipPart) : null;
-                const rightFile = shouldKeepRight ? await renderPartToFile(rightClipPart) : null;
-
-                deleteSegment({ segment, rail, skipMagnet: true, keepRailWhenEmpty: true });
-
-                if (shouldKeepLeft && leftFile) {
-                    await push(type, `file:${leftFile.fileId}`, {
-                        time: {
-                            start,
-                            duration: leftDuration,
-                        },
-                        [type]: {
-                            ...prevMeta,
-                        },
-                        withRailId: rail.id,
-                    });
+                if (shouldKeepLeft) {
+                    // 左半段：原地缩短，复用现有 clip/sprite，不触发任何重解码
+                    segment.end = splitAt;
+                    resetSegmentTime(segment);
+                } else {
+                    // keep === 'right'：原始 segment 不保留，删除后由下方 push 重建右半段
+                    deleteSegment({ segment, rail, skipMagnet: true, keepRailWhenEmpty: true });
                 }
 
-                if (shouldKeepRight && rightFile) {
-                    await push(type, `file:${rightFile.fileId}`, {
+                if (shouldKeepRight) {
+                    await push(type, src, {
                         time: {
                             start: splitAt,
-                            duration: rightDuration,
+                            // push 内部会按 playbackRate 换算显示时长，这里传入文件时长（rate 换算后）
+                            duration: rightTimelineDur * rate,
+                            playbackRate: rate,
                         },
                         [type]: {
                             ...prevMeta,
+                            offset: rightInPoint,
                         },
                         withRailId: rail.id,
                     });
@@ -367,6 +329,9 @@ export function useWebCutManager() {
             // 更新总时长
             updateDuration();
             applyMainVideoMagnet(rail);
+            // 立即重绘当前帧，避免拆分后画布停留在旧帧
+            canvas.value?.previewFrame(cursorTime.value);
+            return true;
         } finally {
             loading.value = false;
         }

@@ -26,7 +26,7 @@ export interface WebCutAgentUploadedFile {
 /**
  * agent pack 与后端之间的事件协议（前端消费）。
  * - 路径 A（轻量）：后端为无状态 LLM 网关，前端自循环 tool。
- * - 路径 B（后端驱动，如 @fgu/agent）：后端管 LLM 循环；LLM 选中浏览器 tool 时下发 tool_call_awaiting，前端执行后 resume。
+ * - 路径 B（后端驱动）：后端管 LLM 循环；LLM 选中浏览器 tool 时下发 tool_call_awaiting，前端执行后 resume。
  */
 export type WebCutAgentEvent =
     | { type: 'message'; data: any }
@@ -86,8 +86,8 @@ export interface WebCutAgentSendMessageParams {
  * pack 启动时按能力自动选择运行路径：
  * - **路径 A（轻量 LLM 网关）**：仅实现 `sendLLMRequest`。后端是无状态 LLM 透传层，
  *   前端自循环 tool 调用（含 MAX_DEPTH 兜底），chats 走内存。适合无 agent 内核的消费方。
- * - **路径 B（后端驱动）**：实现 `sendMessage` + `resumeWithToolResult`。后端持有 LLM 循环
- *   （如 @fgu/agent）；LLM 选中浏览器端 tool 时下发 `tool_call_awaiting`，前端执行后 resume。
+ * - **路径 B（后端驱动）**：实现 `sendMessage` + `resumeWithToolResult`。后端持有 LLM 循环；
+ *   LLM 选中浏览器端 tool 时下发 `tool_call_awaiting`，前端执行后 resume。
  *   chats 可由后端持久化（提供 chats 命名空间方法）。
  *
  * 所有成员均为可选；缺省时 pack 用内置兜底（内存 store / 内置渲染 / 内置图标等）。
@@ -106,12 +106,12 @@ export interface WebCutAgentAdapter {
      */
     sendLLMRequest?(params: WebCutAgentSendParams): WebCutAgentStream;
 
-    // —— 路径 B：后端驱动（@fgu/agent 等）——
+    // —— 路径 B：后端驱动 ——
 
     /**
      * 把用户消息交给后端 agent 内核驱动一轮（路径 B）。
-     * `tools` 是浏览器端 tool 的 schema（前端始终用 tools 命名），后端转成自家内核语义
-     * （如 @fgu/agent 的 externalTools）。后端 LLM 选中浏览器 tool 时，stream 会以
+     * `tools` 是浏览器端 tool 的 schema（前端始终用 tools 命名），后端转成自家内核语义。
+     * 后端 LLM 选中浏览器 tool 时，stream 会以
      * `tool_call_awaiting` 事件结束，pack 本地执行后调 `resumeWithToolResult` 继续。
      *
      * 不实现此方法 → pack 走路径 A。

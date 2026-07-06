@@ -146,8 +146,13 @@ export const splitSegment: WebCutAgentTool<{ sourceKey: string; keep?: 'left' | 
     async execute(runtime, input) {
         const loc = runtime.findSegment(input.sourceKey);
         if (!loc) return { ok: false, error: '找不到该 sourceKey 对应的 segment' };
-        await runtime.splitSegment({ segment: loc.segment, rail: loc.rail, keep: input.keep || 'both' });
-        return { ok: true, splitAtUs: runtime.ctx.cursorTime };
+        const splitAt = runtime.ctx.cursorTime;
+        const ok = await runtime.splitSegment({ segment: loc.segment, rail: loc.rail, keep: input.keep || 'both' });
+        // splitSegment 在游标不在片段 [start, end] 范围内时返回 false（静默不切分）
+        if (ok === false) {
+            return { ok: false, error: `播放头(${splitAt}us)不在片段范围内，无法切分。请先 seek_cursor 到片段内部再切分。` };
+        }
+        return { ok: true, splitAtUs: splitAt };
     },
 };
 

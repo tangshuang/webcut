@@ -63,6 +63,14 @@ export function createAgentLoop(options: {
             store.isThinking.value = false;
             store.isRuning.value = false;
             currentStream = null;
+            // 兜底：清掉任何残留 pending 的 assistant/tool 消息（stream 异常 / 超时 / chat 切换可能导致未清）
+            try {
+                const msgs = chat.messages;
+                for (const m of msgs) {
+                    if ((m.role === 'assistant' || m.role === 'tool') && m.pending) m.pending = false;
+                    if (m.role === 'tool' && m.awaiting) m.awaiting = false;
+                }
+            } catch {}
             try { await runtime.history.push({ title: prompt.slice(0, 40) || 'agent operation' }); } catch {}
         }
     }
@@ -83,12 +91,15 @@ export function createAgentLoop(options: {
                 injectedThisTurn = true;
             }
             chat!.messages.push(assistant);
+            // 重新拿到响应式代理引用：后续对 assistant 的字段写入必须经过代理才能触发 UI 更新，
+            // 直接写原始对象会绕过 Vue 的 set trap，导致 "处理中" 永远清不掉。
+            const assistantProxy = chat!.messages[chat!.messages.length - 1] as AgentMessage;
             const toolCalls = await consumeLocalStream(() => adapter.sendLLMRequest!({
                 messages: requestMessages,
                 tools: registry.schemas(),
                 model: store.model.value || undefined,
                 enableThinking: store.enableThinking.value,
-            }), assistant);
+            }), assistantProxy);
             if (aborted || !toolCalls.length) break;
             for (const tc of toolCalls) {
                 if (aborted) break;
@@ -128,7 +139,7 @@ export function createAgentLoop(options: {
         });
     }
 
-    // —— 路径 B：后端驱动（@fgu/agent 等）——
+    // —— 路径 B：后端驱动 ——
     async function runBackendDriven(prompt: string, attachments?: WebCutAgentAttachment[]) {
         const chat = store.currentChat.value;
         // 首轮把剪辑器快照作为 attachment 一并提交，后端写入 context
@@ -141,6 +152,8 @@ export function createAgentLoop(options: {
         // 每轮 stream 独立创建 assistant 消息，保证 content / tool / 下一轮 content 按时间顺序排列
         let assistant: AgentMessage = { id: createMessageId(), role: 'assistant', content: '', reasoning: '', tool_calls: [], pending: true };
         chat!.messages.push(assistant);
+        // 取响应式代理：后续对 assistant.content / pending 的写入必须经过代理才能触发 UI 更新
+        assistant = chat!.messages[chat!.messages.length - 1] as AgentMessage;
 
         // 首次 send
         let pending: { callId: string; tool: string; input: any } | null = null;
@@ -154,8 +167,10 @@ export function createAgentLoop(options: {
         while (pending && depth < MAX_DEPTH) {
             if (aborted) break;
             // 本地执行 tool，先 push 一条 tool 消息占位
-            const toolMsg: AgentMessage = { id: createMessageId(), role: 'tool', content: '', tool_call_id: pending.callId, name: pending.tool, pending: true };
+            let toolMsg: AgentMessage = { id: createMessageId(), role: 'tool', content: '', tool_call_id: pending.callId, name: pending.tool, pending: true };
             chat!.messages.push(toolMsg);
+            // 取响应式代理：toolMsg.content / pending 的后续写入需经过代理
+            toolMsg = chat!.messages[chat!.messages.length - 1] as AgentMessage;
             let result: any;
             try { result = await executeTool(pending); }
             catch (err) { result = { error: String(err) }; }
@@ -164,8 +179,10 @@ export function createAgentLoop(options: {
 
             // 当前 assistant 已结束，resume 起新 stream → 新 assistant 消息承接后续 content
             assistant.pending = false;
-            const nextAssistant: AgentMessage = { id: createMessageId(), role: 'assistant', content: '', reasoning: '', tool_calls: [], pending: true };
+            let nextAssistant: AgentMessage = { id: createMessageId(), role: 'assistant', content: '', reasoning: '', tool_calls: [], pending: true };
             chat!.messages.push(nextAssistant);
+            // 取响应式代理，保证 consumeBackendStream 内对 nextAssistant 的写入触发更新
+            nextAssistant = chat!.messages[chat!.messages.length - 1] as AgentMessage;
 
             const next = pending;
             pending = await consumeBackendStream(() => adapter.resumeWithToolResult!({
@@ -188,6 +205,7 @@ export function createAgentLoop(options: {
                 if (settled) return;
                 settled = true;
                 for (const n of STREAM_EVENTS) stream.off(n as string, onEvent);
+                assistant.pending = false;
                 store.isThinking.value = false;
                 resolve(pending);
             };

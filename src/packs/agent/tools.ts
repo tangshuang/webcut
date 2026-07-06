@@ -43,8 +43,8 @@ export interface WebCutAgentToolRuntime {
     // —— manager（时间轴编辑） ——
     /** 删除 segment 及其 source；轨空时连轨一起删（除非 keepRailWhenEmpty）；可触发磁吸 */
     deleteSegment(args: { segment: any; rail: any; skipMagnet?: boolean; keepRailWhenEmpty?: boolean }): void;
-    /** 在当前游标处切分 segment。keep: 'left'|'right'|'both' */
-    splitSegment(args: { segment: any; rail: any; keep?: 'left' | 'right' | 'both' }): Promise<void>;
+    /** 在当前游标处切分 segment。keep: 'left'|'right'|'both'。返回是否成功（游标不在片段范围内会失败） */
+    splitSegment(args: { segment: any; rail: any; keep?: 'left' | 'right' | 'both' }): Promise<boolean | void>;
     /** 切换轨道静音 */
     toggleRailMute(rail: any, mute?: boolean): void;
     /** 切换轨道显隐 */

@@ -135,7 +135,9 @@ const visibleList = computed(() => {
         if (m.role === 'tool') {
             const callId = m.tool_call_id || '';
             const existing = callId ? toolIndex.get(callId) : undefined;
-            // 同 callId 已展示过：仅当当前是结果（有 content）时更新，否则跳过（占位已被结果覆盖）
+            // 同 callId 已展示过：
+            // - 当前是结果（有 content）→ 覆盖更新，强制清 pending/awaiting；
+            // - 当前是空占位 → 若已展示过则强制清 pending/awaiting（避免 await 占位残留），不覆盖正文
             if (existing != null) {
                 if (content) {
                     const tc = findToolCall(arr, i);
@@ -147,6 +149,9 @@ const visibleList = computed(() => {
                         pending: false,
                         awaiting: false,
                     };
+                } else {
+                    out[existing].pending = false;
+                    out[existing].awaiting = false;
                 }
                 continue;
             }
@@ -255,8 +260,6 @@ function submit() {
     }
     emit('send', prompt, attachments.value);
 }
-
-console.debug('!!!--->', visibleList)
 </script>
 
 <template>
