@@ -31,6 +31,8 @@ export interface WebCutAgentPackInstance extends WebCutExtensionPack {
     operationSlots: Component[];
     /** 是否启用附件上传 */
     supportsUploadAttachments: boolean;
+    /** 自定义 @ mention 弹窗组件 */
+    mentionSlot?: Component;
     /** 取当前作用域 id（adapter.chats 持久化 key + 调用方自用） */
     getScopeId?: () => string;
 }
@@ -55,6 +57,12 @@ export interface CreateWebCutAgentPackOptions {
     /** 是否启用附件上传（图片/视频/音频）。打开后输入框一行会出现上传按钮，adapter 需提供 uploadFile / previewFile。 */
     supportsUploadAttachments?: boolean;
     /**
+     * 自定义 @ mention 弹窗组件。传入后替换 webcut 默认 dropdown。
+     * 组件接收 { resources: MentionCandidate[], filter: string }，emit select(MentionSelectValue) / close。
+     * MentionSelectValue = { id: string, name: string, type?: string, url?: string }
+     */
+    mentionSlot?: Component;
+    /**
      * 取当前作用域 id（如 aiman 的 episodeId / projectId）。用于：
      * - adapter.chats 的 localStorage active chatId 按 scope 隔离持久化；
      * - 调用方在 adapter 内部自行使用（chats/SSE 端点）。
@@ -68,7 +76,7 @@ export interface CreateWebCutAgentPackOptions {
  * 用法：`createWebCutAgentPack({ adapter })`，把返回的类传给 `<WebCutEditor :packs="[...]">`。
  */
 export function createWebCutAgentPack(options: CreateWebCutAgentPackOptions): new () => WebCutExtensionPack {
-    const { adapter, tools, width, triggerIcon, triggerText, operationSlots, getScopeId, supportsUploadAttachments } = options;
+    const { adapter, tools, width, triggerIcon, triggerText, operationSlots, getScopeId, supportsUploadAttachments, mentionSlot } = options;
     const registry = createToolRegistry(createBuiltinTools(), tools);
 
     class WebCutAgentPack {
@@ -85,6 +93,7 @@ export function createWebCutAgentPack(options: CreateWebCutAgentPackOptions): ne
         operationSlots = operationSlots || [];
         getScopeId = getScopeId;
         supportsUploadAttachments = !!supportsUploadAttachments;
+        mentionSlot = mentionSlot;
     }
 
     return WebCutAgentPack as unknown as new () => WebCutExtensionPack;

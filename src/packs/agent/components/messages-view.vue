@@ -25,6 +25,7 @@ const operationSlots: Component[] = pack?.operationSlots || [];
 const scroller = ref<HTMLElement | null>(null);
 const text = ref('');
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const mentionInputRef = ref<any>(null);
 const previewState = ref<null | { type: 'image' | 'video' | 'audio'; url: string; name?: string }>(null);
 
 // 附件槽位提交数据（按 type 去重 upsert）
@@ -40,9 +41,9 @@ function onSlotAttach(payload: WebCutAgentAttachment) {
 const { selectedMaterials, removeMaterial, buildSubmitText } = useSelectionMention(runtime, text);
 
 // 上传附件
-const { uploadedFiles, upload, removeUpload, previewUpload } = useAttachments(pack?.adapter);
+const { uploadedFiles, upload, removeUpload } = useAttachments(pack?.adapter);
 
-/** 统一 clip 列表：选中素材 + 上传附件，连续 1-based 序号 */
+/** 统一 clip 列表：编辑器选中素材（@N 序号）+ 上传附件（@name 格式，index=0） */
 const clipItems = computed<ClipItem[]>(() => {
     let idx = 0;
     const items: ClipItem[] = [];
@@ -51,14 +52,13 @@ const clipItems = computed<ClipItem[]>(() => {
         items.push({ key: m.sourceKey || `sel_${idx}`, index: idx, name: m.text || m.name, type: m.type, url: undefined });
     }
     for (const f of uploadedFiles.value) {
-        idx++;
-        items.push({ key: f.fileId, index: idx, name: f.name, type: f.type, url: f.url });
+        items.push({ key: f.fileId, index: 0, name: f.name, type: f.type, url: f.url });
     }
     return items;
 });
 
-/** 统一 MentionInput 候选项（与 clipItems 同序同序号） */
-const allCandidates = computed(() => clipItems.value.map((c) => ({ index: c.index, name: c.name, type: c.type, sourceKey: c.key, url: c.url })));
+/** 统一 MentionInput 候选项（编辑器素材带序号 @N，上传文件 external=true 用 @name） */
+const allCandidates = computed(() => clipItems.value.map((c) => ({ index: c.index, name: c.name, type: c.type, sourceKey: c.key, url: c.url, external: c.index === 0 })));
 
 function onClipDelete(key: string) {
     // 先记住被删项的旧序号
@@ -129,7 +129,7 @@ function messageRendererKind(m: AgentMessage): 'component' | 'html' | 'text' {
 }
 
 /** 去除用户消息中的上下文附加块（<user-focus> / <user-operations> / <user-uploads> 等），仅显示用户实际输入 */
-const CONTEXT_TAGS = ['user-focus', 'user-operations', 'user-uploads', 'webcut-context'];
+const CONTEXT_TAGS = ['user-focus', 'user-operations', 'user-uploads', 'user-mentions', 'webcut-context'];
 function stripContextBlocks(text: string): string {
     let r = text;
     for (const tag of CONTEXT_TAGS) {
@@ -150,6 +150,11 @@ function submit() {
     // 上传的附件（仅引用 fileId，不重传文件）
     if (uploadedFiles.value.length) {
         prompt += '\n\n<user-uploads>\n' + JSON.stringify(uploadedFiles.value.map((f) => ({ fileId: f.fileId, type: f.type, name: f.name }))) + '\n</user-uploads>';
+    }
+    // 外部引用（角色/布景/道具，来自 mentionSlot 选择）
+    const extMentions = mentionInputRef.value?.getMentions()?.filter((m: any) => m.external) || [];
+    if (extMentions.length) {
+        prompt += '\n\n<user-mentions>\n' + JSON.stringify(extMentions.map((m: any) => ({ id: m.sourceKey, name: m.name, type: m.type }))) + '\n</user-mentions>';
     }
     emit('send', prompt, attachments.value);
 }
@@ -208,10 +213,12 @@ function submit() {
             <!-- clips bar：选中素材 + 上传附件，横向滚动小方块列表（hover 删除、点击预览） -->
             <ClipsBar :items="clipItems" @delete="onClipDelete" @preview="onClipPreview" />
 
-            <MentionInput
+            <MentionInput ref="mentionInputRef"
                 v-model="text"
                 :candidates="allCandidates"
                 :placeholder="t('webcut.agent.placeholder')"
+                :mention-slot="pack?.mentionSlot"
+                :render-mention="pack?.adapter?.renderMentionSegment"
                 @enter="submit"
             />
 

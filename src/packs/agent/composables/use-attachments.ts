@@ -36,10 +36,6 @@ export function useAttachments(adapter: WebCutAgentAdapter | null) {
         if (idx >= 0) uploadedFiles.value.splice(idx, 1);
     }
 
-    function previewUpload(file: WebCutAgentUploadedFile) {
-        adapter?.previewFile?.(file);
-    }
-
     /** 清空全部 */
     function clear() {
         uploadedFiles.value = [];
@@ -50,7 +46,6 @@ export function useAttachments(adapter: WebCutAgentAdapter | null) {
         isUploading,
         upload,
         removeUpload,
-        previewUpload,
         clear,
     };
 }

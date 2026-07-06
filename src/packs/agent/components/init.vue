@@ -17,6 +17,7 @@ const store = useWebCutAgentStore();
 const { enableThinking } = store;
 const text = ref('');
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const mentionInputRef = ref<any>(null);
 const previewState = ref<null | { type: 'image' | 'video' | 'audio'; url: string; name?: string }>(null);
 
 // 选中素材 + 上传附件
@@ -31,7 +32,7 @@ function onSlotAttach(payload: WebCutAgentAttachment) {
     else attachments.value.push(payload);
 }
 const { selectedMaterials, removeMaterial, buildSubmitText } = useSelectionMention(runtime, text);
-const { uploadedFiles, upload, removeUpload, previewUpload } = useAttachments(pack?.adapter);
+const { uploadedFiles, upload, removeUpload } = useAttachments(pack?.adapter);
 
 const clipItems = computed<ClipItem[]>(() => {
     let idx = 0;
@@ -41,12 +42,11 @@ const clipItems = computed<ClipItem[]>(() => {
         items.push({ key: m.sourceKey || `sel_${idx}`, index: idx, name: m.text || m.name, type: m.type });
     }
     for (const f of uploadedFiles.value) {
-        idx++;
-        items.push({ key: f.fileId, index: idx, name: f.name, type: f.type, url: f.url });
+        items.push({ key: f.fileId, index: 0, name: f.name, type: f.type, url: f.url });
     }
     return items;
 });
-const allCandidates = computed(() => clipItems.value.map((c) => ({ index: c.index, name: c.name, type: c.type, sourceKey: c.key, url: c.url })));
+const allCandidates = computed(() => clipItems.value.map((c) => ({ index: c.index, name: c.name, type: c.type, sourceKey: c.key, url: c.url, external: c.index === 0 })));
 
 function onClipDelete(key: string) {
     const clip = clipItems.value.find((c) => c.key === key);
@@ -92,6 +92,13 @@ function submit() {
     if (uploadedFiles.value.length) {
         prompt += '\n\n<user-uploads>\n' + JSON.stringify(uploadedFiles.value.map((f) => ({ fileId: f.fileId, type: f.type, name: f.name }))) + '\n</user-uploads>';
     }
+    const extMentions = mentionInputRef.value?.getMentions()?.filter((m: any) => m.external) || [];
+    if (extMentions.length) {
+        prompt += '\n\n<user-mentions>\n' + JSON.stringify(extMentions.map((m: any) => {
+            const view = m.viewOptions?.find((v: any) => v.id === m.selectedViewId) || m.viewOptions?.[0];
+            return { id: m.sourceKey, name: m.name, type: m.type, view: view ? { id: view.id, name: view.name, fileId: view.fileId } : undefined };
+        })) + '\n</user-mentions>';
+    }
     emit('send', prompt, attachments.value);
 }
 </script>
@@ -103,10 +110,12 @@ function submit() {
         <div class="webcut-agent-init-input">
             <ClipsBar :items="clipItems" @delete="onClipDelete" @preview="onClipPreview" />
 
-            <MentionInput
+            <MentionInput ref="mentionInputRef"
                 v-model="text"
                 :candidates="allCandidates"
                 :placeholder="t('webcut.agent.placeholder')"
+                :mention-slot="pack?.mentionSlot"
+                :render-mention="pack?.adapter?.renderMentionSegment"
                 @enter="submit"
             />
 

@@ -25,7 +25,7 @@ const emit = defineEmits<{ (e: 'delete', key: string): void; (e: 'preview', item
                 <video v-else-if="item.url && item.type === 'video'" :src="item.url" muted preload="metadata" />
                 <span v-else class="webcut-agent-clip-icon">{{ iconFor(item.type) }}</span>
             </div>
-            <span class="webcut-agent-clip-index">@{{ item.index }}</span>
+            <span class="webcut-agent-clip-index">{{ item.index > 0 ? '@' + item.index : '@' + (item.name || '').slice(0, 8) }}</span>
             <button
                 type="button"
                 class="webcut-agent-clip-delete"

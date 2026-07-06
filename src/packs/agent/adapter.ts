@@ -108,11 +108,17 @@ export interface WebCutAgentAdapter {
     renderMessage?: (msg: any) => any;
     fileUrl?: (file: string) => string;
 
+    /**
+     * 自定义 mention chip 内缩略图/图标渲染（可选）。
+     * 接收 segment 数据，返回一个 HTMLElement 作为 chip 内的 icon 区域。
+     * 不提供时用内置 SVG icon。
+     * openPreviewModal：传入后可在元素上绑定 click 打开内置预览弹窗。
+     */
+    renderMentionSegment?(seg: { name: string; type?: string; sourceKey?: string; url?: string; external?: boolean; mediaType?: 'image' | 'audio' | 'video'; fileId?: string }, openPreviewModal?: (item: { type: 'image' | 'video' | 'audio'; url: string; name?: string }) => void): HTMLElement;
+
     // —— 附件上传（可选；支持图片/视频/音频）——
     /** 上传文件到服务端，返回服务端文件对象（fileId 用于后续引用与提交） */
     uploadFile?(file: File): Promise<WebCutAgentUploadedFile>;
-    /** 打开文件预览（由调用方决定弹窗形式）；返回 void，UI 由 adapter 侧控制 */
-    previewFile?(file: WebCutAgentUploadedFile): void;
 
     /**
      * 自定义 tool_call 处理（可选）。
