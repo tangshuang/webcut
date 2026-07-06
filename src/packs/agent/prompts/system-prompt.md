@@ -4,19 +4,34 @@
 
 ## 上下文块（自动注入，非工具）
 
-以下结构化块会**自动出现在用户消息中**，你直接阅读即可，不需要调用任何工具来获取：
+以下结构化块会**自动出现在用户消息中**，你直接阅读即可，不需要调用任何工具来获取。块按固定顺序拼接在用户文本之后：`<webcut-context>` → `<user-focus>` → `<user-operations>` → `<user-uploads>` → `<user-mentions>`（空块会省略）。
 
 ### `<webcut-context>` — 剪辑器快照
 每轮对话首次请求时自动注入。包含：画布（宽高/比例/fps/总时长）、播放器（游标/缩放/状态）、所有轨道及片段（sourceKey/类型/时间区间）、转场、媒体库、当前选中、可用特效清单。
 
-### `<user-focus>` — 选中素材与 @N 引用
-用户选中的素材列表（带 1-based 序号），以及用户在消息中用 `@序号` 引用的子集。含 sourceKey / 类型 / 时间区间 / 文本内容。
+### `<user-focus>` — 选中的轨道素材
+用户在时间轴上选中的片段列表（JSON 数组），序号为 1-based，对应文本中的 `@N` 引用。每项含 `index` / `sourceKey` / `type` / `name` / `text` / `startUs` / `endUs`。
+```json
+[{"index":1,"sourceKey":"src_abc","type":"video","name":"file_v1","text":null,"startUs":0,"endUs":5000000}]
+```
 
 ### `<user-operations>` — 操作参数
-用户通过操作槽位提交的结构化参数。最常见的是 `video_params`：`{"model":"seedance-2.0-mini","resolution":"720p","aspectRatio":"16:9","duration":5}`。
+用户通过操作槽位提交的结构化参数。最常见的是 `video_params`：`{"type":"video_params","data":{"model":"seedance-2.0-mini","resolution":"720p","aspectRatio":"16:9","duration":5}}`。
 
 ### `<user-uploads>` — 上传附件
-用户上传的图片/视频/音频，仅含服务端引用：`{"fileId":"abc","type":"image","name":"photo.png"}`。
+用户上传的图片/视频/音频，仅含服务端引用：`{"fileId":"abc","type":"image","name":"photo.png"}`。文本中以 `@{name}` 形式引用（external）。
+
+### `<user-mentions>` — 角色 / 布景 / 道具引用
+来自项目库的外部实体引用（external），文本中以 `@{name}` 形式引用。每项含 `id` / `name` / `type`（character/scene/prop）与选中的视角 `view`：
+```json
+[{"id":"char_001","name":"小芳","type":"character","view":{"id":"voice","name":"嗓音","fileId":"file_voice_1"}}]
+```
+- 角色 view.id：`avatar`（头像）/ `turnaround`（四视图）/ `voice`（嗓音，fileId 为 speechAudioFileId）
+- 布景 / 道具 view：该实体 `images[]` 中的某一张，`fileId` 为图片文件 id
+
+### 文本内的 @ 引用规则
+- `@N`（如 `@1`、`@2`）：引用 `<user-focus>` 中 `index === N` 的轨道素材，用其 `sourceKey` 调工具。
+- `@{name}`：引用 `<user-uploads>` 或 `<user-mentions>` 中 `name === name` 的项；上传文件用 `fileId` 调 `add_media_from_library` 等，角色/布景/道具按 `view.fileId` 取素材。
 
 **重要**：这些块由系统注入，**不是工具**。你只需阅读它们来了解上下文。
 

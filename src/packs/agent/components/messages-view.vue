@@ -128,14 +128,13 @@ function messageRendererKind(m: AgentMessage): 'component' | 'html' | 'text' {
     return 'text';
 }
 
-/** 去除用户消息中的上下文附加块（<user-focus> / <user-operations> / <user-uploads> 等），仅显示用户实际输入 */
-const CONTEXT_TAGS = ['user-focus', 'user-operations', 'user-uploads', 'user-mentions', 'webcut-context'];
+/** 去除用户消息中的上下文附加块（<user-*> / <webcut-*>），仅显示用户实际输入。
+ *  通用匹配前缀，将来新增标签无需改此处。 */
 function stripContextBlocks(text: string): string {
-    let r = text;
-    for (const tag of CONTEXT_TAGS) {
-        r = r.replace(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g'), '');
-    }
-    return r.replace(/\n{3,}/g, '\n\n').trim();
+    return text
+        .replace(/<((?:user|webcut)-[\w-]+)>[\s\S]*?<\/\1>/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
 }
 
 function submit() {

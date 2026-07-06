@@ -124,24 +124,12 @@ export function useSelectionMention(runtime: any, text: Ref<string>) {
     function buildSubmitText(prompt: string): string {
         const selected = selectedMaterials.value;
         if (!selected.length) return prompt;
-        const referenced = new Set<number>();
-        const re = /@(\d+)/g;
-        let m: RegExpExecArray | null;
-        while ((m = re.exec(prompt))) {
-            referenced.add(Number(m[1]));
-        }
         const sel = selected.map(s => ({
             index: s.index, sourceKey: s.sourceKey, type: s.type,
             name: s.name, text: s.text, startUs: s.startUs, endUs: s.endUs,
         }));
-        const ref = selected.filter(s => referenced.has(s.index)).map(s => ({
-            index: s.index, sourceKey: s.sourceKey, type: s.type, text: s.text,
-            name: s.name, startUs: s.startUs, endUs: s.endUs,
-        }));
-        if (!sel.length && !ref.length) return prompt;
-        const ann = '\n\n<user-focus>\n选中的素材：\n' + JSON.stringify(sel)
-            + (ref.length ? '\n用户在消息中 @ 引用的素材：\n' + JSON.stringify(ref) : '')
-            + '\n</user-focus>';
+        if (!sel.length) return prompt;
+        const ann = '\n\n<user-focus>\n' + JSON.stringify(sel) + '\n</user-focus>';
         return prompt + ann;
     }
 
