@@ -1,4 +1,4 @@
-import { inject, provide, reactive, ref, computed, watch, type InjectionKey, type Ref, type ComputedRef } from 'vue';
+import { inject, provide, ref, computed, watch, type InjectionKey, type Ref, type ComputedRef } from 'vue';
 import type { WebCutAgentAdapter, WebCutAgentChatMeta } from './adapter';
 
 /** agent 对话消息。结构贴近 OpenAI 风格，便于直接作为 LLM 请求的 messages。 */
@@ -7,10 +7,12 @@ export interface AgentMessage {
     role: 'user' | 'assistant' | 'tool';
     content: string;
     reasoning?: string;
-    tool_calls?: { tool: string; callId: string; input: any }[];
+    tool_calls?: { tool: string; callId: string; input: any; raw?: string }[];
     tool_call_id?: string;
     name?: string;
     pending?: boolean;
+    /** tool 消息执行中占位（后端 await:true），尚未拿到结果 */
+    awaiting?: boolean;
     error?: string;
 }
 
@@ -73,15 +75,20 @@ function mapBackendMessage(m: any): AgentMessage {
     if (role === 'assistant') {
         if (m.reasoning_content) out.reasoning = m.reasoning_content;
         if (Array.isArray(m.tool_calls) && m.tool_calls.length) {
-            out.tool_calls = m.tool_calls.map((tc: any) => ({
-                tool: tc.function?.name || tc.name || tc.tool || '',
-                callId: tc.id || tc.callId || '',
-                input: (() => { try { return typeof tc.function?.arguments === 'string' ? JSON.parse(tc.function.arguments) : (tc.input ?? tc.arguments ?? {}); } catch { return {}; } })(),
-            })).filter((x: any) => x.tool);
+            out.tool_calls = m.tool_calls.map((tc: any) => {
+                const rawArgs = typeof tc.function?.arguments === 'string' ? tc.function.arguments
+                    : (typeof tc.arguments === 'string' ? tc.arguments : undefined);
+                let input: any;
+                try { input = rawArgs != null ? JSON.parse(rawArgs) : (tc.input ?? tc.arguments ?? {}); } catch { input = {}; }
+                return { tool: tc.function?.name || tc.name || tc.tool || '', callId: tc.id || tc.callId || '', input, raw: rawArgs };
+            }).filter((x: any) => x.tool);
         }
     } else if (role === 'tool') {
         out.tool_call_id = m.tool_call_id || m.toolCallId;
-        out.name = m.name;
+        // 后端 tool 消息无顶层 name，工具名在 metadata；await:true 表示执行中占位
+        const meta = m.metadata || {};
+        out.name = m.name || meta.toolName || meta.toolTitle || '';
+        if (meta.await === true) out.awaiting = true;
     }
     return out;
 }

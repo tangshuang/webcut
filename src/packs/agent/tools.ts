@@ -62,8 +62,12 @@ export interface WebCutAgentToolRuntime {
     library: {
         /** 当前项目文件列表（WebCutMaterial[]） */
         list(): any[];
-        /** 把 File 加入媒体库与当前项目 */
-        addNewFile(file: File, tags?: string[]): Promise<void>;
+        /** 把 File 加入媒体库与当前项目，返回本地 fileId */
+        addNewFile(file: File, tags?: string[]): Promise<string | undefined>;
+        /** 按 fileId 从本地 OPFS 读取文件 */
+        readFile(fileId: string): Promise<File | null>;
+        /** 把本地 fileId 对应的素材上传到服务端（adapter.uploadFile），返回服务端文件对象 */
+        uploadToServer(fileId: string): Promise<{ fileId: string; url?: string; type: string; name: string; size?: number } | null>;
     };
 
     // —— history（撤销/重做） ——

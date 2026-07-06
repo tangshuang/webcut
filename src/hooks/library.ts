@@ -43,12 +43,12 @@ export function useWebCutLibrary() {
         initFiles();
     }, { immediate: true });
 
-    async function addNewFile(file: File, tags?: string[]) {
+    async function addNewFile(file: File, tags?: string[]): Promise<string | undefined> {
         loading.value = true;
         try {
             let fileId = await getFileMd5(file);
             if (projectFiles.value.some((item: any) => item.id === fileId)) {
-                return;
+                return fileId;
             }
             if (!files.value.some((item: any) => item.id === fileId)) {
                 await addFile(file, tags);
@@ -60,6 +60,7 @@ export function useWebCutLibrary() {
             await addFileToProject(projectId.value, fileId);
             await refreshProjectData();
             await refreshFiles();
+            return fileId;
         } finally {
             loading.value = false;
         }

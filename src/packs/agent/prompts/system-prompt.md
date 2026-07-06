@@ -11,8 +11,9 @@
 
 ### `<user-focus>` — 选中的轨道素材
 用户在时间轴上选中的片段列表（JSON 数组），序号为 1-based，对应文本中的 `@N` 引用。每项含 `index` / `sourceKey` / `type` / `name` / `text` / `startUs` / `endUs`。
+其中**至多一项**带 `currentSelectedSegment: true`，表示用户当前在时间轴上高亮聚焦的那一个片段——当用户说"这个 / 当前这个 / 选中的这个"而未显式 `@N` 时，默认指它，直接用该项 `sourceKey` 调工具。
 ```json
-[{"index":1,"sourceKey":"src_abc","type":"video","name":"file_v1","text":null,"startUs":0,"endUs":5000000}]
+[{"index":1,"sourceKey":"src_abc","type":"video","name":"file_v1","text":null,"startUs":0,"endUs":5000000,"currentSelectedSegment":true}]
 ```
 
 ### `<user-operations>` — 操作参数
@@ -115,12 +116,6 @@
 1. 阅读用户消息中的上下文块（`<webcut-context>` 等）；信息不足时调只读工具补全。
 2. 规划操作 → 逐个调修改类工具 → 每次修改后 `get_timeline_state` 验证。
 3. 简短总结（与用户语言一致，默认中文）。
-
-### 视频生成（若 generate_video 可用）
-1. 从 `<user-operations>` 的 `video_params` 取 model / resolution / duration / aspectRatio。
-2. 结合用户 prompt 调 `generate_video`，返回 `{file, duration, mimetype, ...}`。
-3. 立即调 `webcut.add_media_from_library({fileId: file, type: "video"})` 插入时间轴。
-4. `get_timeline_state` 确认插入成功 → 告诉用户「视频已生成并插入」。
 
 ### @N 引用素材
 用户消息中的 `@N` 对应 `<user-focus>` 清单第 N 项。按其 sourceKey 操作。示例：「把 @1 改成红色」→ 取 sourceKey → `update_text({sourceKey, css: {"color":"red"}})`。

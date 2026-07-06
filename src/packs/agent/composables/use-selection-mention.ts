@@ -6,10 +6,14 @@ export interface SelectedMaterial {
     railId: string;
     sourceKey: string;
     type: string;           // video/audio/image/text
-    name: string;           // fileId / 文本前缀 / url
+    name: string;           // 显示名（fileId 前缀 / 文本前缀 / url）
+    fileId?: string;        // 本地 OPFS fileId（即内容 md5），用于服务端存在性查询
+    url?: string;           // 源文件 url（如有）
     text?: string;          // 文本片段内容
-    startUs: number;
-    endUs: number;
+    startUs: number;        // 片段在源文件中的起点（微秒）
+    endUs: number;          // 片段在源文件中的终点（微秒）
+    durationUs?: number;    // 源素材总时长（微秒，如可获取）
+    currentSelectedSegment?: boolean;    // 是否为时间轴当前高亮焦点（ctx.current）
 }
 
 /**
@@ -48,6 +52,7 @@ export function useSelectionMention(runtime: any, text: Ref<string>) {
         if (!ctx) return [];
         const map = new Map<string, Omit<SelectedMaterial, 'index'>>();
         const selected = ctx.selected || [];
+        const cur = ctx.current; // 当前高亮焦点 { segmentId, railId } | null
         for (const s of selected) {
             const rail = (ctx.rails || []).find((r: any) => r.id === s.railId);
             const segment = rail?.segments?.find?.((seg: any) => seg.id === s.segmentId);
@@ -59,9 +64,13 @@ export function useSelectionMention(runtime: any, text: Ref<string>) {
                 sourceKey: segment.sourceKey,
                 type: source?.type || rail?.type || 'unknown',
                 name: source?.fileId || (source?.text ? source.text.slice(0, 16) : source?.url) || segment?.id,
+                fileId: source?.fileId,
+                url: source?.url,
                 text: source?.text,
                 startUs: segment?.start || 0,
                 endUs: segment?.end || 0,
+                durationUs: typeof source?.duration === 'number' ? source.duration * 1_000_000 : undefined,
+                currentSelectedSegment: !!cur && cur.segmentId === s.segmentId && cur.railId === s.railId,
             });
         }
         return sourceKeyOrder.value
@@ -115,7 +124,7 @@ export function useSelectionMention(runtime: any, text: Ref<string>) {
         mentionAt = -1;
     }
 
-    function removeMaterial(item: { segmentId: string; railId: string; sourceKey?: string }) {
+    function removeMaterial(item: { index: number; segmentId: string; railId: string; sourceKey?: string }) {
         const re = new RegExp(`@${item.index}(\\s?)`, 'g');
         text.value = text.value.replace(re, '');
         try { runtime?.unselectSegment?.(item.segmentId, item.railId); } catch {}
@@ -125,8 +134,18 @@ export function useSelectionMention(runtime: any, text: Ref<string>) {
         const selected = selectedMaterials.value;
         if (!selected.length) return prompt;
         const sel = selected.map(s => ({
-            index: s.index, sourceKey: s.sourceKey, type: s.type,
-            name: s.name, text: s.text, startUs: s.startUs, endUs: s.endUs,
+            index: s.index,
+            sourceKey: s.sourceKey,
+            type: s.type,
+            name: s.name,
+            fileId: s.fileId,                 // 本地 OPFS md5；用于 aiman.file_exists 检查服务端是否存在
+            ...(s.url ? { url: s.url } : {}),
+            ...(s.text ? { text: s.text } : {}),
+            startUs: s.startUs,               // 片段起点（微秒）
+            endUs: s.endUs,                   // 片段终点（微秒）
+            segmentDurationUs: Math.max(0, (s.endUs || 0) - (s.startUs || 0)),  // 片段时长
+            ...(typeof s.durationUs === 'number' ? { sourceDurationUs: s.durationUs } : {}),  // 源素材总时长（如可获取）
+            ...(s.currentSelectedSegment ? { currentSelectedSegment: true } : {}),  // 时间轴当前高亮焦点片段
         }));
         if (!sel.length) return prompt;
         const ann = '\n\n<user-focus>\n' + JSON.stringify(sel) + '\n</user-focus>';

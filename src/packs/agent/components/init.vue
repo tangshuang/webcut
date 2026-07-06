@@ -8,7 +8,7 @@ import { useAttachments } from '../composables/use-attachments';
 import MentionInput from './mention-input.vue';
 import ClipsBar from './clips-bar.vue';
 import FilePreviewModal from './file-preview-modal.vue';
-import type { ClipItem } from './clips-bar.vue';
+import type { ClipItem } from '../clip-types';
 
 defineProps<{ hint?: string }>();
 const emit = defineEmits<{ (e: 'send', prompt: string, attachments?: WebCutAgentAttachment[]): void }>();
@@ -39,7 +39,7 @@ const clipItems = computed<ClipItem[]>(() => {
     const items: ClipItem[] = [];
     for (const m of selectedMaterials.value) {
         idx++;
-        items.push({ key: m.sourceKey || `sel_${idx}`, index: idx, name: m.text || m.name, type: m.type });
+        items.push({ key: m.sourceKey || `sel_${idx}`, index: idx, name: m.text || m.name, type: m.type, currentSelectedSegment: m.currentSelectedSegment });
     }
     for (const f of uploadedFiles.value) {
         items.push({ key: f.fileId, index: 0, name: f.name, type: f.type, url: f.url });
@@ -121,14 +121,14 @@ function submit() {
 
             <div class="webcut-agent-init-row">
                 <input ref="fileInputRef" type="file" accept="image/*,video/*,audio/*" multiple style="display:none" @change="onFileChange" />
-                <button type="button" class="webcut-agent-upload-btn tooltip-host" v-if="pack?.supportsUploadAttachments" data-tooltip="上传附件" data-tooltip-pos="top" @click="triggerUpload">
+                <button type="button" class="webcut-agent-upload-btn tooltip-host" v-if="pack?.supportsUploadAttachments" :data-tooltip="t('webcut.agent.uploadAttachment')" data-tooltip-pos="top" @click="triggerUpload">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 </button>
                 <span style="margin:auto"></span>
                 <template v-if="operationSlots.length" class="webcut-agent-attachment-slots">
                     <component v-for="(Slot, i) in operationSlots" :key="i" :is="Slot" @attach="onSlotAttach" />
                 </template>
-                <button type="button" class="webcut-agent-thinking-icon-btn tooltip-host" :class="{ active: enableThinking }" :aria-pressed="enableThinking" data-tooltip="思考" data-tooltip-pos="top" @click="enableThinking = !enableThinking">
+                <button type="button" class="webcut-agent-thinking-icon-btn tooltip-host" :class="{ active: enableThinking }" :aria-pressed="enableThinking" :data-tooltip="t('webcut.agent.thinkingSwitch')" data-tooltip-pos="top" @click="enableThinking = !enableThinking">
                     <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2C5.5 2 3.5 4 3.5 6.5c0 2 1.3 3.5 2.5 4.5v1.5h4V11c1.2-1 2.5-2.5 2.5-4.5C12.5 4 10.5 2 8 2z"/><path d="M6.5 13.5h3M7 15h2"/></svg>
                 </button>
                 <button type="button" class="webcut-agent-send-btn" :disabled="!text.trim()" @click="submit">

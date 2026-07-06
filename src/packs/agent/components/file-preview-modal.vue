@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { useT } from '../../../i18n/hooks';
 
+const t = useT();
 const props = defineProps<{ type: 'image' | 'video' | 'audio'; url: string; name?: string }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
 
@@ -30,7 +32,7 @@ onBeforeUnmount(() => {
         <div class="webcut-agent-preview-container" @click.stop>
             <!-- 顶部：文件名 + 关闭（absolute 覆盖在媒体上方，两边与媒体对齐） -->
             <div class="webcut-agent-preview-header">
-                <span class="webcut-agent-preview-name">{{ name || '预览' }}</span>
+                <span class="webcut-agent-preview-name">{{ name || t('webcut.agent.preview') }}</span>
                 <button type="button" class="webcut-agent-preview-close" @click="emit('close')">×</button>
             </div>
             <!-- 媒体内容（直接放在容器内，决定容器尺寸） -->

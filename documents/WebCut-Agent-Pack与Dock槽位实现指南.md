@@ -349,7 +349,7 @@ LLM 通过 4 个通道获取信息：
 
 - **请求消息构造顺序**：先把当前已确定的消息序列 `buildRequestMessages` 后，再 push 本轮空 assistant 消息，避免把空 pending assistant 带进请求（[`loop.ts` runOnce](../src/packs/agent/loop.ts)）。
 - **首轮上下文注入**：每个用户回合（`send()`）复位 `injectedThisTurn`；`runOnce` 仅在首次构造请求时 `unshift` 一条 `{role:'system', content: '<webcut-context>...</webcut-context>'}`（由 [`buildContextSnapshot`](../src/packs/agent/context-snapshot.ts) 产出），同回合后续轮次不再注入。
-- **整轮历史**：`send()` 的 `finally` 调一次 `runtime.history.push({ title: prompt.slice(0,40) })`（[history.ts push](../src/hooks/history.ts) 内部 diff，无变化返回 null 不入栈）→ 用户一次 Ctrl+Z 回退整轮 agent 操作。
+- **整轮历史**：`send()` 的 `finally` 调一次 `runtime.history.push({ title: prompt.slice(0,40) })`（[history.ts push](../src/hooks/history.ts) 内部 diff，无变化返回 null 不入栈）→ 用户一次回退整轮 agent 操作。
 - **多轮上限**：`MAX_DEPTH = 8`，防止 tool 死循环。
 - **兜底超时**：单轮 120s 强制结束。
 - **`buildRequestMessages`**：转 OpenAI 风格——user/assistant/tool，assistant 的 tool_calls 转成 `{id, type:'function', function:{name, arguments}}`。
@@ -451,7 +451,7 @@ export type { WebCutAgentTool, WebCutAgentToolRuntime, WebCutAgentToolRegistry }
 把 `sendLLMRequest` 嫁接到自家后端 LLM 网关端点，把后端 SSE 事件一对一映射为 `WebCutAgentEvent`。参考 [`adapter.ts`](../../../src/apps/aiman/site/packs/webcut-agent/adapter.ts)：
 
 ```typescript
-import { httpEventStream } from '@fgu/web';
+import { httpEventStream } from 'http-lib';
 import type { WebCutAgentAdapter, WebCutAgentStream } from '@/opensource/webcut/src';
 
 const EVENT_NAMES = ['reasoning','content','tool_call','usage','end','error', /* ... */];
@@ -631,3 +631,130 @@ aiman 后端实现了一个完整范例（**消费方参考，不属于 webcut**
 - 工具的 schema 与执行器同源（`WebCutAgentTool`），单一信息源，无需向后端单独「上报 schema」。
 
 收益：后端极简、可复用、水平扩展友好；前端获得低延迟的本地工具执行体验；system prompt 随包维护，前后端单一信息源。
+
+---
+
+## 10. 关键架构决策与设计要点
+
+本节记录几个"为什么这样设计"的关键决策，便于后续维护时查阅。
+
+### 10.1 后端 tool 用 awaitSignal 把落地委托给前端：以 generate_video 为例
+
+#### 问题背景
+
+webcut agent 运行时同时存在**两套互不相通的文件存储**：
+
+| | 服务端存储（如 aiman 的 fods） | 浏览器本地存储（OPFS + IndexedDB） |
+|---|---|---|
+| 谁写入 | 后端 tool（如 `generate_video` 落片 `_file.saveRemoteUrl(url)`） | `library.addNewFile(file)`：写 OPFS + 项目文件表 |
+| fileId 形态 | 服务端 ID（fods hash 等） | 文件内容的 MD5（内容寻址） |
+| 谁能读 | 后端 / adapter 的 `fetchFile(id)` | webcut 播放器的 `readFile(id)` |
+
+**关键事实**：webcut 播放器的 `push('file:<id>')` **只读浏览器本地 OPFS**。服务端产出的视频 fileId 不在本地 OPFS 中，直接交给 `webcut.add_media_from_library` 会抛 "File not found"，媒体库也不会有这条记录。
+
+#### 解决方案：后端 tool 主动 `createAwaitSignal` + 前端 `onToolCall` 落地
+
+不复用 `add_media_from_library` 这条内置链路（避免污染 webcut 通用层）。改为：
+
+1. **后端 tool 生成完成后返回 awaitSignal**（不是普通结果），通过 `metadata` 携带落地所需信息（file、duration 等）。
+2. 内核检测到 awaitSignal → 暂停 agent → SSE 下发 `tool_call_awaiting`（payload 含 `signal`）。
+3. 前端 adapter 把事件桥接为 webcut 的 `tool_call_awaiting`，`input = signal.metadata`（arguments 缺失时回退）。
+4. webcut loop 的 `executeTool`：该 tool 名不在内置 registry → 走 `adapter.onToolCall(name, meta, context)`。
+5. aiman adapter 在 `onToolCall` 里用 **context**（即完整 runtime）完成落地：
+   - `fetchSourceAsFile(meta.file)`（adapter 本地 helper，从服务端拉字节为 File）
+   - `context.library.addNewFile(file)` → 写本地 OPFS + 项目媒体库 → 得到 localFileId
+   - `context.push('video', 'file:' + localFileId)` → 推到时间轴 → 得到 sourceKey
+   - 返回 `{ file, sourceKey, duration, ... }`
+6. webcut loop 把返回值经 `adapter.resumeWithToolResult` 回后端 → 内核把它作为该 tool 的结果写进消息 → LLM 继续。
+
+**关键**：整条「生成 → 写库 → 推时间轴」是**一次 tool 调用**内完成的，后端不会把一个工具的结果变成对另一个工具的调用；webcut 内置工具保持纯粹（不识别服务端 fileId）；aiman 把自家业务编排放进 adapter 的 `onToolCall` + context。
+
+#### 代码位置
+
+| 角色 | 文件 |
+|---|---|
+| 后端 tool 返回 awaitSignal | [`src/apps/aiman/server/agent/tools/video/generate-video.tool.js`](../../../src/apps/aiman/server/agent/tools/video/generate-video.tool.js) |
+| 内核处理 awaitSignal | [`src/modules/agent/server/v2/core/agent.class.js`](../../../src/modules/agent/server/v2/core/agent.class.js)（`isAwaitSignal` → `pushAwaitSignal` → emit `tool_call_awaiting`） |
+| adapter 桥接事件 | [`src/apps/aiman/site/packs/webcut-agent/adapter.ts`](../../../src/apps/aiman/site/packs/webcut-agent/adapter.ts)（`signal.metadata → input`） |
+| adapter `onToolCall` 落地 | 同上：`fetchSourceAsFile` + `context.library.addNewFile` + `context.push` |
+| webcut loop 兜底 dispatch | [`opensource/webcut/src/packs/agent/loop.ts`](../src/packs/agent/loop.ts)（registry miss → `adapter.onToolCall(name, input, runtime)`） |
+
+#### 为什么不用其他方案
+
+| 候选方案 | 为什么不行 |
+|---|---|
+| webcut 播放器直接读服务端 fileId | webcut 不能依赖任何后端 |
+| 让内置 `add_media_from_library` 自动拉取服务端文件 | 把 aiman 业务污染进 webcut 通用层（已撤销） |
+| 服务端直接写客户端 OPFS | 服务端无法访问浏览器本地存储 |
+| 后端 LLM 链式调两个工具（generate_video → add_media_from_library） | 把一个工具的结果变成对另一个工具的调用，链路复杂且不优雅 |
+
+### 10.2 `onToolCall` 与剪辑器 runtime
+
+#### 签名
+
+```typescript
+// adapter 契约
+onToolCall?(funcName: string, funcArgs: any, context: WebCutAgentToolRuntime): Promise<any> | any;
+```
+
+`onToolCall` 在 [`loop.ts`](../src/packs/agent/loop.ts) 的 `executeTool` 中作为**非内置 tool 的兜底**调用。`context` 注入完整剪辑器 runtime（与内置 webcut.* 工具的 `execute(runtime, input)` 同源），因此自定义 tool 也能操作剪辑器：
+
+```js
+async function executeTool(tc) {
+    // 1. 内置工具（webcut.* 注册表）：直接前端执行
+    const tool = registry.get(tc.tool);
+    if (tool) return await tool.execute(runtime, tc.input || {});
+
+    // 2. 非内置工具：走 adapter.onToolCall，context 传入完整 runtime
+    if (adapter.onToolCall) {
+        return await adapter.onToolCall(tc.tool, tc.input || {}, runtime);
+    }
+}
+```
+
+#### context 可用能力
+
+完整字段见 [`WebCutAgentToolRuntime`](../src/packs/agent/tools.ts)，常用的：
+
+- `context.ctx`：响应式剪辑器上下文（rails / sources / cursorTime / 画布 / 选中，**可读**）
+- `context.push(type, source, meta?)` / `context.pushSeries(...)`：推素材到时间轴
+- `context.library.list() / addNewFile(file) / importSource(source)`：读写媒体库
+- `context.getSource / findSegment / findRail`：定位素材/轨道
+- `context.history.push/undo/redo`、`context.seekCursor / play / pause / setScale` 等
+
+#### 适用场景
+
+- **自定义 tool_call + 需要操作剪辑器**：例如 aiman 的 `generate_video` 服务端生成完成后，LLM 调一个浏览器端 tool 把视频落到时间轴——在 onToolCall 里用 `context.library.importSource(fileId)` 拉到本地、再 `context.push('video', 'file:' + localId)` 落轨。
+- **纯后端业务回执**：不操作剪辑器时，context 不用即可。
+
+#### 与内置 webcut.* 工具的取舍
+
+| | 内置 webcut.* 工具（`tools` 选项注入） | adapter.onToolCall |
+|---|---|---|
+| schema 发给 LLM | ✅ 自动（registry.schemas()） | ❌ 需消费方自行透传给后端 |
+| 注册位置 | `tools-builtin/` 或 pack `tools` 选项 | adapter 实现 |
+| runtime 访问 | ✅ execute(runtime, input) | ✅ 通过 context 参数 |
+| 适合 | 通用、可复用的剪辑器工具 | 与具体后端业务耦合的 tool |
+
+需要操作剪辑器时**两种方式都可行**：通用能力优先内置工具（schema 自动暴露给 LLM）；与具体后端业务耦合、不想暴露 schema 的，走 onToolCall + context。
+
+### 10.3 adapter 契约的双路径（A/B）分发
+
+pack 启动时按 adapter 能力自动选择路径：
+
+- **路径 A（轻量 LLM 网关）**：adapter 只实现 `sendLLMRequest`。后端是无状态透传层，前端自循环 tool 调用（含 `MAX_DEPTH=8` 兜底），chats 走内存。适合无 agent 内核的消费方。
+- **路径 B（后端驱动）**：adapter 实现 `sendMessage` + `resumeWithToolResult`。后端持有 LLM 循环；LLM 选中浏览器 tool 时下发 `tool_call_awaiting`，前端执行后 resume。
+
+详见 [`loop.ts`](../src/packs/agent/loop.ts) 的 `send` 实现：检测 `adapter.sendMessage` 是否存在来分发。所有成员均可选；缺省时 pack 用内置兜底（内存 store / 内置渲染 / 内置图标等）。契约不与任何具体后端耦合——adapter 自行解释自家 file/tool/chat 语义。
+
+### 10.4 内置 webcut.* 工具 vs 自定义 tool_call
+
+| | 内置 webcut.* 工具 | adapter.onToolCall |
+|---|---|---|
+| 注册位置 | `tools-builtin/` 或 pack `tools` 选项 | adapter 实现 |
+| runtime 访问 | ✅ execute(runtime, input) | ✅ 通过 context 参数（见 10.2） |
+| schema 发给 LLM | ✅ 自动（registry.schemas()） | ❌（需消费方自行透传） |
+| 适合 | 通用、可复用的剪辑器工具 | 与具体后端业务耦合的 tool |
+| 调用入口 | LLM 调 → `tool_call_awaiting` → registry 命中 → execute | LLM 调 → `tool_call_awaiting` → registry 未命中 → onToolCall 兜底 |
+
+**新增工具时的判断**：通用能力（操作轨道/素材/媒体库/历史）优先内置工具，schema 自动暴露给 LLM；与具体后端业务耦合、不想单独暴露 schema 的，走 onToolCall + context。

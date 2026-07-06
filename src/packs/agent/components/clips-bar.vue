@@ -1,14 +1,25 @@
 <script setup lang="ts">
-export interface ClipItem {
-    key: string;
-    index: number;      // @N 引用序号
-    name: string;
-    type: string;       // video/audio/image/text
-    url?: string;       // 缩略图/预览 URL
-}
-
+import { type Component } from 'vue';
+import { NIcon } from 'naive-ui';
+import { Play, Music, Image as ImageIcon, TextCreation } from '@vicons/carbon';
+import { useT } from '../../../i18n/hooks';
+import type { ClipItem } from '../clip-types';
+defineOptions({ name: 'ClipsBar' });
+const t = useT();
 defineProps<{ items: ClipItem[] }>();
 const emit = defineEmits<{ (e: 'delete', key: string): void; (e: 'preview', item: ClipItem): void }>();
+
+/** 各素材类型对应的图标组件（来自 @vicons/carbon） */
+const CLIP_ICONS: Record<string, Component> = {
+    video: Play,
+    audio: Music,
+    image: ImageIcon,
+    text: TextCreation,
+};
+const FALLBACK_ICON = TextCreation;
+function clipIcon(type: string): Component {
+    return CLIP_ICONS[type] || FALLBACK_ICON;
+}
 </script>
 
 <template>
@@ -17,37 +28,25 @@ const emit = defineEmits<{ (e: 'delete', key: string): void; (e: 'preview', item
             v-for="item in items"
             :key="item.key"
             class="webcut-agent-clip-block"
+            :class="{ 'is-current': item.currentSelectedSegment }"
             :title="item.name"
             @click="emit('preview', item)"
         >
             <div class="webcut-agent-clip-thumb">
                 <img v-if="item.url && item.type === 'image'" :src="item.url" :alt="item.name" />
                 <video v-else-if="item.url && item.type === 'video'" :src="item.url" muted preload="metadata" />
-                <span v-else class="webcut-agent-clip-icon">{{ iconFor(item.type) }}</span>
+                <n-icon v-else class="webcut-agent-clip-icon" :component="clipIcon(item.type)" :size="16" />
             </div>
             <span class="webcut-agent-clip-index">{{ item.index > 0 ? '@' + item.index : '@' + (item.name || '').slice(0, 8) }}</span>
             <button
                 type="button"
                 class="webcut-agent-clip-delete"
-                title="删除"
+                :title="t('webcut.agent.deleteChat')"
                 @click.stop="emit('delete', item.key)"
             >×</button>
         </div>
     </div>
 </template>
-
-<script lang="ts">
-function iconFor(type: string): string {
-    switch (type) {
-        case 'video': return '▶';
-        case 'audio': return '♪';
-        case 'image': return '🖼';
-        case 'text': return 'T';
-        default: return '•';
-    }
-}
-export default { name: 'ClipsBar' };
-</script>
 
 <style scoped>
 .webcut-agent-clips-bar {
@@ -77,6 +76,11 @@ export default { name: 'ClipsBar' };
 }
 .webcut-agent-clip-block:hover {
     border-color: var(--webcut-dock-primary, #00b4a2);
+}
+/* 时间轴当前高亮焦点片段对应的附件：主色边框 + 轻微外发光，实时跟随 ctx.current */
+.webcut-agent-clip-block.is-current {
+    border-color: var(--webcut-dock-primary, #00b4a2);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--webcut-dock-primary, #00b4a2) 35%, transparent);
 }
 .webcut-agent-clip-thumb {
     width: 100%;

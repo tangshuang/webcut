@@ -3,7 +3,7 @@ import { REFRESH_HINT } from './common';
 
 export const undo: WebCutAgentTool = {
     name: 'webcut.undo',
-    description: '撤销上一步操作（用户也可手动 Ctrl+Z）。agent 出错时可用本工具自纠。' + REFRESH_HINT,
+    description: '撤销上一步操作。agent 出错时可用本工具自纠。' + REFRESH_HINT,
     parameters: { type: 'object', properties: {} },
     async execute(runtime) { await runtime.history.undo(); return { ok: true, canUndo: runtime.ctx.canUndo }; },
 };

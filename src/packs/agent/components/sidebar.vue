@@ -5,6 +5,7 @@ import { useWebCutManager } from '../../../hooks/manager';
 import { useWebCutLibrary } from '../../../hooks/library';
 import { useWebCutHistory } from '../../../hooks/history';
 import { useWebCutTransition } from '../../../hooks/transition';
+import { readFile as readLocalFile } from '../../../db';
 import type { WebCutContext } from '../../../types';
 import { createWebCutAgentStore, provideWebCutAgentStore, AGENT_PACK_KEY, AGENT_RUNTIME_KEY } from '../store';
 import { createAgentLoop } from '../loop';
@@ -82,6 +83,16 @@ if (!cached) {
         library: {
             list: () => library.projectFiles.value,
             addNewFile: library.addNewFile,
+            // 从本地 OPFS 读取文件
+            readFile: (fileId: string) => readLocalFile(fileId),
+            // 读本地 + 调 adapter.uploadFile 上传到服务端，返回服务端文件对象
+            uploadToServer: async (fileId: string) => {
+                const file = await readLocalFile(fileId);
+                if (!file) return null;
+                const upload = (agentPack as any).adapter?.uploadFile;
+                if (typeof upload !== 'function') return null;
+                return await upload(file);
+            },
         },
         // history
         history: {
@@ -147,7 +158,7 @@ function handleAbort() {
         <div class="webcut-agent-top-bar">
             <span class="webcut-agent-title">{{ t('webcut.agent.title') }}</span>
             <span class="webcut-agent-top-bar-actions">
-                <button type="button" class="webcut-agent-icon-btn tooltip-host" data-tooltip="新对话" data-tooltip-pos="bottom" @click="handleNewChat">
+                <button type="button" class="webcut-agent-icon-btn tooltip-host" :data-tooltip="t('webcut.agent.newChat')" data-tooltip-pos="bottom" @click="handleNewChat">
                     <n-icon :component="Add" size="16px" />
                 </button>
                 <div class="webcut-agent-history-wrap" ref="historyWrapRef">
@@ -155,7 +166,7 @@ function handleAbort() {
                         type="button"
                         class="webcut-agent-icon-btn tooltip-host"
                         :class="{ active: showHistory }"
-                        data-tooltip="历史"
+                        :data-tooltip="t('webcut.agent.history')"
                         data-tooltip-pos="bottom"
                         @click="showHistory = !showHistory"
                     >
@@ -163,7 +174,7 @@ function handleAbort() {
                     </button>
                     <ChatsPopover v-if="showHistory" @close="showHistory = false" />
                 </div>
-                <button type="button" class="webcut-agent-icon-btn tooltip-host" data-tooltip="收起" data-tooltip-pos="bottom" @click="emit('close')">
+                <button type="button" class="webcut-agent-icon-btn tooltip-host" :data-tooltip="t('webcut.agent.hide')" data-tooltip-pos="bottom" @click="emit('close')">
                     <n-icon :component="ChevronRight" size="16px" />
                 </button>
             </span>

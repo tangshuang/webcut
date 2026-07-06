@@ -138,8 +138,8 @@ export function createAgentLoop(options: {
         })();
         const allAttachments = [...(attachments || []), ...(snapshotAttachment ? [snapshotAttachment] : [])];
 
-        // 建一个跨多轮 stream 的 assistant 消息（reasoning + content + tool_calls 累积）
-        const assistant: AgentMessage = { id: createMessageId(), role: 'assistant', content: '', reasoning: '', tool_calls: [], pending: true };
+        // 每轮 stream 独立创建 assistant 消息，保证 content / tool / 下一轮 content 按时间顺序排列
+        let assistant: AgentMessage = { id: createMessageId(), role: 'assistant', content: '', reasoning: '', tool_calls: [], pending: true };
         chat!.messages.push(assistant);
 
         // 首次 send
@@ -149,7 +149,7 @@ export function createAgentLoop(options: {
             enableThinking: store.enableThinking.value, chatId: store.currentChatId.value,
         }), assistant);
 
-        // 循环：执行 browser tool → resume → 新 stream
+        // 循环：执行 browser tool → resume → 新 stream（新 assistant 消息）
         let depth = 0;
         while (pending && depth < MAX_DEPTH) {
             if (aborted) break;
@@ -162,11 +162,16 @@ export function createAgentLoop(options: {
             toolMsg.content = safeStringify(result);
             toolMsg.pending = false;
 
-            // resume 回传 → 新 stream，继续累积到同一 assistant
+            // 当前 assistant 已结束，resume 起新 stream → 新 assistant 消息承接后续 content
+            assistant.pending = false;
+            const nextAssistant: AgentMessage = { id: createMessageId(), role: 'assistant', content: '', reasoning: '', tool_calls: [], pending: true };
+            chat!.messages.push(nextAssistant);
+
             const next = pending;
             pending = await consumeBackendStream(() => adapter.resumeWithToolResult!({
                 callId: next.callId, result, chatId: store.currentChatId.value,
-            }), assistant);
+            }), nextAssistant);
+            assistant = nextAssistant;
             depth++;
         }
         assistant.pending = false;
@@ -194,6 +199,9 @@ export function createAgentLoop(options: {
                     case 'content': assistant.content += e.content || ''; break;
                     case 'tool_call_awaiting':
                         pending = { callId: e.callId, tool: e.tool, input: e.input };
+                        // 记录到当前 assistant 的 tool_calls，让 UI 可展示工具名与入参
+                        assistant.tool_calls = assistant.tool_calls || [];
+                        assistant.tool_calls.push({ tool: e.tool, callId: e.callId, input: e.input });
                         break;
                     case 'error': assistant.error = typeof e.data === 'string' ? e.data : JSON.stringify(e.data); break;
                     case 'end': case 'abort': case 'close': case 'http_abort': case 'http_error': finish(); break;
@@ -216,9 +224,10 @@ export function createAgentLoop(options: {
         const tool = registry.get(tc.tool);
         if (tool) return await tool.execute(runtime, tc.input || {});
         // 2. 非内置工具：走 adapter.onToolCall（调用方结合后端逻辑处理自定义 tool call）
+        //    context 传入完整 runtime，使自定义 tool 也能 push 到时间轴 / 写媒体库等
         if (adapter.onToolCall) {
             try {
-                return await adapter.onToolCall(tc.tool, tc.input || {}, null);
+                return await adapter.onToolCall(tc.tool, tc.input || {}, runtime);
             } catch (err) {
                 return { error: String(err) };
             }

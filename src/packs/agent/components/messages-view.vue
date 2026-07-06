@@ -2,14 +2,16 @@
 import { computed, inject, nextTick, ref, watch, type Component } from 'vue';
 import { useT } from '../../../i18n/hooks';
 import { useWebCutAgentStore, AGENT_PACK_KEY, AGENT_RUNTIME_KEY, type AgentMessage } from '../store';
+import { toolShortName, toolNameI18nKey } from '../tool-names';
 import type { WebCutAgentAttachment } from '../adapter';
 import { useSelectionMention } from '../composables/use-selection-mention';
 import { useAttachments } from '../composables/use-attachments';
 import ThinkingText from './thinking-text.vue';
+import MarkdownView from './markdown-view.vue';
 import MentionInput from './mention-input.vue';
 import ClipsBar from './clips-bar.vue';
 import FilePreviewModal from './file-preview-modal.vue';
-import type { ClipItem } from './clips-bar.vue';
+import type { ClipItem } from '../clip-types';
 
 const t = useT();
 const store = useWebCutAgentStore();
@@ -49,7 +51,7 @@ const clipItems = computed<ClipItem[]>(() => {
     const items: ClipItem[] = [];
     for (const m of selectedMaterials.value) {
         idx++;
-        items.push({ key: m.sourceKey || `sel_${idx}`, index: idx, name: m.text || m.name, type: m.type, url: undefined });
+        items.push({ key: m.sourceKey || `sel_${idx}`, index: idx, name: m.text || m.name, type: m.type, url: undefined, currentSelectedSegment: m.currentSelectedSegment });
     }
     for (const f of uploadedFiles.value) {
         items.push({ key: f.fileId, index: 0, name: f.name, type: f.type, url: f.url });
@@ -102,9 +104,73 @@ async function onFileChange(e: Event) {
 
 const list = computed(() => store.messages.value);
 
+/** 向前遍历，从最近一条 assistant 消息的 tool_calls 中找到当前 tool 消息对应的工具名 + 入参。
+ *  工具名取自 assistant.tool_calls（比 tool 消息的 metadata 更可靠）。 */
+function findToolCall(arr: AgentMessage[], idx: number): { tool: string; input: any; raw?: string } | null {
+    const m = arr[idx];
+    if (m.role !== 'tool' || !m.tool_call_id) return null;
+    for (let j = idx - 1; j >= 0; j--) {
+        const prev = arr[j];
+        if (prev.role === 'assistant' && prev.tool_calls) {
+            const hit = prev.tool_calls.find((tc) => tc.callId === m.tool_call_id);
+            if (hit) return { tool: hit.tool, input: hit.input, raw: hit.raw };
+        }
+    }
+    return null;
+}
+
+/** 展示用列表：
+ *  - 规范化 content/reasoning，过滤空 assistant 消息；
+ *  - tool 消息按 tool_call_id 去重（后端会发 await 占位 + 结果两条），合并入参（找不到入参则忽略）；
+ *  - 工具名优先取 assistant.tool_calls 中的，兜底 metadata。 */
+const visibleList = computed(() => {
+    const out: (AgentMessage & { tool_input?: string })[] = [];
+    const arr = list.value;
+    const toolIndex = new Map<string, number>(); // tool_call_id -> out 下标
+    for (let i = 0; i < arr.length; i++) {
+        const m = arr[i];
+        const content = displayContent(m);
+        const reasoning = m.reasoning ? normalizeContent(m.reasoning) : '';
+
+        if (m.role === 'tool') {
+            const callId = m.tool_call_id || '';
+            const existing = callId ? toolIndex.get(callId) : undefined;
+            // 同 callId 已展示过：仅当当前是结果（有 content）时更新，否则跳过（占位已被结果覆盖）
+            if (existing != null) {
+                if (content) {
+                    const tc = findToolCall(arr, i);
+                    out[existing] = {
+                        ...out[existing],
+                        content,
+                        tool_input: tc ? toolInputToString(tc) : out[existing].tool_input,
+                        name: tc?.tool || out[existing].name,
+                        pending: false,
+                        awaiting: false,
+                    };
+                }
+                continue;
+            }
+            // 首次见此 callId：向前找入参；找不到入参忽略
+            const tc = findToolCall(arr, i);
+            if (!tc) continue;
+            const name = tc.tool || m.name || '';
+            out.push({ ...m, content, reasoning, tool_input: toolInputToString(tc), name });
+            if (callId) toolIndex.set(callId, out.length - 1);
+            continue;
+        }
+
+        if (!m.pending && !m.awaiting && m.role === 'assistant') {
+            // assistant 不再渲染 tool_calls；仅 tool_calls（无正文/思考/error）的非 pending 消息跳过
+            if (!content && !reasoning && !m.error) continue;
+        }
+        out.push({ ...m, content, reasoning });
+    }
+    return out;
+});
+
 // 自动滚动到底部
 watch(
-    () => list.value.map((m) => (m.content || '') + (m.reasoning || '') + (m.tool_calls?.length || 0)).join('|'),
+    () => visibleList.value.map((m) => (m.content || '') + (m.reasoning || '') + (m.tool_calls?.length || 0)).join('|'),
     async () => {
         await nextTick();
         if (scroller.value) {
@@ -115,6 +181,20 @@ watch(
 
 function isProcessing(m: AgentMessage): boolean {
     return !!m.pending;
+}
+
+/** tool 入参 → 原始字符串：优先 raw（function.arguments 原值），缺失时回退紧凑 JSON */
+function toolInputToString(item: { raw?: string; input: any }): string {
+    if (typeof item.raw === 'string') return item.raw;
+    try { return JSON.stringify(item.input ?? {}); } catch { return String(item.input ?? ''); }
+}
+
+/** 工具名 → 展示文案：优先 i18n 翻译；未命中（返回值等于 key）则回退到短名（去掉 webcut. 前缀） */
+function toolDisplayName(tool?: string): string {
+    if (!tool) return '';
+    const key = toolNameI18nKey(tool);
+    const translated = t(key);
+    return translated && translated !== key ? translated : toolShortName(tool);
 }
 
 /** 返回消息正文的渲染方式：'component' / 'html' / 'text' */
@@ -137,6 +217,24 @@ function stripContextBlocks(text: string): string {
         .trim();
 }
 
+/** 规范化展示文本：统一换行符，清理行尾空白，3+ 连续换行压缩为段落分隔（\n\n），trim 首尾。
+ *  注意1：保留 \n\n 作为 markdown 段落/列表分隔，不能合并为单个换行，否则破坏 markdown 渲染。
+ *  注意2：不清理行首空白，避免破坏 markdown 缩进式代码块。 */
+function normalizeContent(s: string | undefined): string {
+    if (!s) return '';
+    return s
+        .replace(/\r\n?/g, '\n')        // 统一 \r\n / \r → \n
+        .replace(/[ \t]+\n/g, '\n')      // 去掉行尾空白
+        .replace(/\n{3,}/g, '\n\n')      // 3+ 换行压缩为段落分隔（保留 \n\n 给 markdown）
+        .trim();
+}
+
+/** 取消息展示用 content：user 需 stripContextBlocks，其余直接用 content */
+function displayContent(m: AgentMessage): string {
+    const raw = m.role === 'user' ? stripContextBlocks(m.content || '') : (m.content || '');
+    return normalizeContent(raw);
+}
+
 function submit() {
     const raw = text.value.trim();
     if (!raw || store.isRuning.value) return;
@@ -157,39 +255,48 @@ function submit() {
     }
     emit('send', prompt, attachments.value);
 }
+
+console.debug('!!!--->', visibleList)
 </script>
 
 <template>
     <div class="webcut-agent-messages-view">
         <div class="webcut-agent-scroller" ref="scroller">
             <div
-                v-for="m in list"
+                v-for="m in visibleList"
                 :key="m.id"
                 class="webcut-agent-msg"
                 :class="['role-' + m.role, { 'is-error': m.error }]"
             >
                 <!-- 用户消息 -->
                 <div v-if="m.role === 'user'" class="webcut-agent-bubble user">
-                    <span>{{ stripContextBlocks(m.content) }}</span>
+                    <MarkdownView :content="m.content" />
                 </div>
 
-                <!-- 工具结果 -->
-                <div v-else-if="m.role === 'tool'" class="webcut-agent-tool-result">
-                    <span class="webcut-agent-tool-name">↳ {{ m.name }}</span>
-                    <span class="webcut-agent-tool-content">{{ m.content }}</span>
+                <!-- 工具调用：role=tool 时展示，向前合并入参（找不到入参已在 visibleList 过滤） -->
+                <div v-else-if="m.role === 'tool'" class="webcut-agent-bubble assistant">
+                    <details class="webcut-agent-tool-call">
+                        <summary class="webcut-agent-tool-call-summary">
+                            <ThinkingText v-if="m.pending || m.awaiting" :text="t('webcut.agent.callTool', { name: toolDisplayName(m.name) })" />
+                            <span v-else>{{ t('webcut.agent.callTool', { name: toolDisplayName(m.name) }) }}</span>
+                        </summary>
+                        <div class="webcut-agent-tool-section">
+                            <div class="webcut-agent-tool-section-label">{{ t('webcut.agent.toolInputLabel') }}</div>
+                            <pre class="webcut-agent-tool-section-body">{{ m.tool_input }}</pre>
+                        </div>
+                        <div class="webcut-agent-tool-section">
+                            <div class="webcut-agent-tool-section-label">{{ t('webcut.agent.toolResultLabel') }}</div>
+                            <pre class="webcut-agent-tool-section-body">{{ m.content }}</pre>
+                        </div>
+                    </details>
                 </div>
 
-                <!-- assistant -->
+                <!-- assistant：不再直接渲染 tool_calls，工具调用统一由上方 role=tool 消息展示 -->
                 <div v-else class="webcut-agent-bubble assistant">
                     <details v-if="m.reasoning" class="webcut-agent-reasoning">
                         <summary>{{ m.pending && store.isThinking.value ? t('webcut.agent.thinking') : t('webcut.agent.deepThinking') }}</summary>
                         <pre>{{ m.reasoning }}</pre>
                     </details>
-                    <div v-if="m.tool_calls && m.tool_calls.length" class="webcut-agent-tool-calls">
-                        <div v-for="(tc, i) in m.tool_calls" :key="i" class="webcut-agent-tool-call">
-                            <ThinkingText :text="t('webcut.agent.toolCalling') + ': ' + tc.tool" />
-                        </div>
-                    </div>
                     <div v-if="m.content" class="webcut-agent-content">
                         <component
                             v-if="messageRendererKind(m) === 'component'"
@@ -197,10 +304,10 @@ function submit() {
                             :content="m.content"
                             :message="m"
                         />
-                        <span v-else-if="messageRendererKind(m) === 'html'" v-html="(renderMessage as any)(m)"></span>
-                        <template v-else>{{ m.content }}</template>
+                        <!-- 默认走内置 markdown 渲染（轻量 marked + 基础 XSS 清理） -->
+                        <MarkdownView v-else :content="m.content" />
                     </div>
-                    <div v-else-if="isProcessing(m) && !(m.tool_calls && m.tool_calls.length)" class="webcut-agent-pending">
+                    <div v-else-if="isProcessing(m)" class="webcut-agent-pending">
                         <ThinkingText :text="store.isThinking.value ? t('webcut.agent.thinking') : t('webcut.agent.processing')" />
                     </div>
                     <div v-if="m.error" class="webcut-agent-msg-error">{{ m.error }}</div>
@@ -224,7 +331,7 @@ function submit() {
             <div class="webcut-agent-input-actions">
                 <!-- 上传附件 -->
                 <input ref="fileInputRef" type="file" accept="image/*,video/*,audio/*" multiple style="display:none" @change="onFileChange" />
-                <button type="button" class="webcut-agent-upload-btn tooltip-host" v-if="pack?.supportsUploadAttachments" data-tooltip="上传附件" data-tooltip-pos="top" @click="triggerUpload">
+                <button type="button" class="webcut-agent-upload-btn tooltip-host" v-if="pack?.supportsUploadAttachments" :data-tooltip="t('webcut.agent.uploadAttachment')" data-tooltip-pos="top" @click="triggerUpload">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 </button>
                 <span style="margin:auto"></span>
@@ -238,7 +345,7 @@ function submit() {
                     class="webcut-agent-thinking-icon-btn tooltip-host"
                     :class="{ active: enableThinking }"
                     :aria-pressed="enableThinking"
-                    data-tooltip="思考"
+                    :data-tooltip="t('webcut.agent.thinkingSwitch')"
                     data-tooltip-pos="top"
                     @click="enableThinking = !enableThinking"
                 >
@@ -282,7 +389,6 @@ function submit() {
     font-size: 13px;
     line-height: 1.5;
     word-break: break-word;
-    white-space: pre-wrap;
 }
 .webcut-agent-bubble.user {
     background-color: var(--webcut-dock-primary, #00b4a2);
@@ -290,12 +396,12 @@ function submit() {
     border-bottom-right-radius: 2px;
 }
 .webcut-agent-bubble.assistant {
-    background-color: var(--webcut-grey-deep-color, #eee);
-    border-bottom-left-radius: 2px;
+    background-color: transparent;
+    padding: 4px 0;
+    border-bottom-left-radius: 0;
 }
 .webcut-agent-content { margin-top: 2px; }
 .webcut-agent-reasoning {
-    margin-bottom: 24px;
     font-size: 12px;
     opacity: 0.7;
 }
@@ -304,8 +410,9 @@ function submit() {
     margin: 6px 0 0;
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: 200px;
-    overflow: auto;
+}
+.webcut-agent-reasoning + .webcut-agent-content {
+    margin-top: 16px;
 }
 .webcut-agent-tool-calls {
     display: flex;
@@ -314,25 +421,52 @@ function submit() {
     font-size: 12px;
     margin-bottom: 4px;
 }
-.webcut-agent-pending { font-size: 12px; }
-.webcut-agent-tool-result {
-    max-width: 88%;
-    font-size: 12px;
-    background-color: var(--webcut-grey-deep-color, #eee);
-    border-radius: 8px;
-    padding: 4px 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+.webcut-agent-tool-call {
+    background-color: transparent;
+    padding: 2px 0;
+    font-size: 13px;
 }
-.webcut-agent-tool-name { font-weight: 600; opacity: 0.8; }
-.webcut-agent-tool-content {
-    opacity: 0.7;
+.webcut-agent-tool-call-summary {
+    cursor: pointer;
+    opacity: 0.85;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.webcut-agent-tool-call-summary::-webkit-details-marker { display: none; }
+.webcut-agent-tool-call-summary::before {
+    content: '▸';
+    font-size: 10px;
+    opacity: 0.5;
+    transition: transform 0.12s ease;
+    display: inline-block;
+}
+.webcut-agent-tool-call[open] .webcut-agent-tool-call-summary::before {
+    transform: rotate(90deg);
+}
+.webcut-agent-tool-section {
+    margin: 6px 0 2px;
+    font-size: 12px;
+}
+.webcut-agent-tool-section-label {
+    font-size: 11px;
+    opacity: 0.6;
+    margin-bottom: 2px;
+}
+.webcut-agent-tool-section-body {
+    margin: 0;
+    padding: 6px 8px;
+    background-color: var(--webcut-grey-deep-color, #eee);
+    border-radius: 4px;
+    font-size: 11px;
+    opacity: 0.78;
     word-break: break-all;
-    max-height: 120px;
+    max-height: 240px;
     overflow: auto;
     white-space: pre-wrap;
 }
+.webcut-agent-pending { font-size: 12px; }
 .webcut-agent-msg-error { color: var(--webcut-error-color, #d03050); font-size: 12px; margin-top: 4px; }
 
 .webcut-agent-input-bar {

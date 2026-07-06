@@ -19,6 +19,49 @@ export const agentLanguagePackages: Record<string, Record<string, string>> = {
         'webcut.agent.emptyHint': '描述你想做的事，例如「在 5 秒处加一段文字 你好」。',
         'webcut.agent.thinkingSwitch': '思考',
         'webcut.agent.deleteChat': '删除',
+        'webcut.agent.uploadAttachment': '上传附件',
+        'webcut.agent.preview': '预览',
+        'webcut.agent.toolInputLabel': '入参',
+        'webcut.agent.toolResultLabel': '返回值',
+        'webcut.agent.callTool': '调用工具：「{name}」',
+
+        // —— webcut.* 工具名（与 tool-names.ts BUILTIN_TOOL_SHORT_NAMES 一致）——
+        'webcut.agent.tool.add_text_segment': '添加文字片段',
+        'webcut.agent.tool.add_media_from_library': '从媒体库添加',
+        'webcut.agent.tool.upload_source': '上传素材',
+        'webcut.agent.tool.push_media': '推送媒体',
+        'webcut.agent.tool.push_series': '批量推送',
+        'webcut.agent.tool.delete_segment': '删除片段',
+        'webcut.agent.tool.split_segment': '拆分片段',
+        'webcut.agent.tool.update_text': '更新文字',
+        'webcut.agent.tool.update_segment_props': '更新片段属性',
+        'webcut.agent.tool.set_filters': '设置滤镜',
+        'webcut.agent.tool.clear_timeline': '清空时间轴',
+        'webcut.agent.tool.apply_animation': '应用动画',
+        'webcut.agent.tool.remove_animation': '移除动画',
+        'webcut.agent.tool.apply_transition': '应用转场',
+        'webcut.agent.tool.remove_transition': '移除转场',
+        'webcut.agent.tool.separate_audio': '分离音频',
+        'webcut.agent.tool.repair_pitch': '修复音高',
+        'webcut.agent.tool.set_rail_mute': '轨道静音',
+        'webcut.agent.tool.set_rail_hidden': '隐藏轨道',
+        'webcut.agent.tool.magnet_main_video': '主视频磁吸',
+        'webcut.agent.tool.set_aspect_ratio': '设置宽高比',
+        'webcut.agent.tool.get_timeline_state': '获取时间轴状态',
+        'webcut.agent.tool.get_player_state': '获取播放器状态',
+        'webcut.agent.tool.get_library': '获取媒体库',
+        'webcut.agent.tool.get_selection': '获取选中信息',
+        'webcut.agent.tool.list_effects': '列出特效',
+        'webcut.agent.tool.list_history': '列出历史',
+        'webcut.agent.tool.undo': '撤销',
+        'webcut.agent.tool.redo': '重做',
+        'webcut.agent.tool.recover_to_history': '恢复到历史',
+        'webcut.agent.tool.export_video': '导出视频',
+        'webcut.agent.tool.seek_cursor': '移动播放头',
+        'webcut.agent.tool.set_scale': '设置缩放',
+        'webcut.agent.tool.play': '播放',
+        'webcut.agent.tool.pause': '暂停',
+        'webcut.agent.tool.reset': '重置',
     },
     'zh-HK': {
         'webcut.agent.title': 'AI 助手',
@@ -67,6 +110,49 @@ export const agentLanguagePackages: Record<string, Record<string, string>> = {
         'webcut.agent.emptyHint': 'Describe what you want, e.g. "add the text Hello at 5s".',
         'webcut.agent.thinkingSwitch': 'Thinking',
         'webcut.agent.deleteChat': 'Delete',
+        'webcut.agent.uploadAttachment': 'Upload attachment',
+        'webcut.agent.preview': 'Preview',
+        'webcut.agent.toolInputLabel': 'Input',
+        'webcut.agent.toolResultLabel': 'Result',
+        'webcut.agent.callTool': 'Calling tool: {name}',
+
+        // —— webcut.* tool names ——
+        'webcut.agent.tool.add_text_segment': 'Add text segment',
+        'webcut.agent.tool.add_media_from_library': 'Add from library',
+        'webcut.agent.tool.upload_source': 'Upload source',
+        'webcut.agent.tool.push_media': 'Push media',
+        'webcut.agent.tool.push_series': 'Push series',
+        'webcut.agent.tool.delete_segment': 'Delete segment',
+        'webcut.agent.tool.split_segment': 'Split segment',
+        'webcut.agent.tool.update_text': 'Update text',
+        'webcut.agent.tool.update_segment_props': 'Update segment props',
+        'webcut.agent.tool.set_filters': 'Set filters',
+        'webcut.agent.tool.clear_timeline': 'Clear timeline',
+        'webcut.agent.tool.apply_animation': 'Apply animation',
+        'webcut.agent.tool.remove_animation': 'Remove animation',
+        'webcut.agent.tool.apply_transition': 'Apply transition',
+        'webcut.agent.tool.remove_transition': 'Remove transition',
+        'webcut.agent.tool.separate_audio': 'Separate audio',
+        'webcut.agent.tool.repair_pitch': 'Repair pitch',
+        'webcut.agent.tool.set_rail_mute': 'Mute rail',
+        'webcut.agent.tool.set_rail_hidden': 'Hide rail',
+        'webcut.agent.tool.magnet_main_video': 'Magnet main video',
+        'webcut.agent.tool.set_aspect_ratio': 'Set aspect ratio',
+        'webcut.agent.tool.get_timeline_state': 'Get timeline state',
+        'webcut.agent.tool.get_player_state': 'Get player state',
+        'webcut.agent.tool.get_library': 'Get library',
+        'webcut.agent.tool.get_selection': 'Get selection',
+        'webcut.agent.tool.list_effects': 'List effects',
+        'webcut.agent.tool.list_history': 'List history',
+        'webcut.agent.tool.undo': 'Undo',
+        'webcut.agent.tool.redo': 'Redo',
+        'webcut.agent.tool.recover_to_history': 'Recover to history',
+        'webcut.agent.tool.export_video': 'Export video',
+        'webcut.agent.tool.seek_cursor': 'Seek cursor',
+        'webcut.agent.tool.set_scale': 'Set scale',
+        'webcut.agent.tool.play': 'Play',
+        'webcut.agent.tool.pause': 'Pause',
+        'webcut.agent.tool.reset': 'Reset',
     },
     'ja-JP': {
         'webcut.agent.title': 'AIアシスタント',
@@ -133,3 +219,19 @@ export const agentLanguagePackages: Record<string, Record<string, string>> = {
         'webcut.agent.deleteChat': 'Supprimer',
     },
 };
+
+// agent 文案翻译补全：zh-HK / zh-TW 复用 zh-CN（中文用户均可读）；ja / de / es / fr 暂用 en-US 兜底，
+// 后续可按需各自细化。仅填充缺失项，不影响各自已有翻译。
+(function () {
+    const zh = agentLanguagePackages['zh-CN'] || {};
+    const en = agentLanguagePackages['en-US'] || {};
+    const isAgentKey = (k: string) => /^webcut\.agent\./.test(k);
+    (['zh-HK', 'zh-TW'] as const).forEach((lng) => {
+        const pkg = agentLanguagePackages[lng] || (agentLanguagePackages[lng] = {});
+        Object.keys(zh).forEach((k) => { if (isAgentKey(k) && pkg[k] == null) pkg[k] = zh[k]; });
+    });
+    (['ja-JP', 'de-DE', 'es-ES', 'fr-FR'] as const).forEach((lng) => {
+        const pkg = agentLanguagePackages[lng] || (agentLanguagePackages[lng] = {});
+        Object.keys(en).forEach((k) => { if (isAgentKey(k) && pkg[k] == null) pkg[k] = en[k]; });
+    });
+})();

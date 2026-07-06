@@ -46,6 +46,29 @@ export const addMediaFromLibrary: WebCutAgentTool<{ fileId: string; type: 'video
     },
 };
 
+/** 把本地 OPFS 中的素材上传到服务端，返回服务端 fileId。LLM 在确认服务端无该文件后调用。 */
+export const uploadSource: WebCutAgentTool<{ sourceKey: string }> = {
+    name: 'webcut.upload_source',
+    description: '把指定 sourceKey 对应的本地素材（仅存在于前端 OPFS）上传到服务端，返回 {fileId, url, type, name}。当 aiman.file_exists 返回 exists=false 时调用本工具，拿到服务端 fileId 后再用于上游服务（如 generate_video 的首末帧/参考图）。',
+    parameters: {
+        type: 'object',
+        properties: {
+            sourceKey: { type: 'string', description: '<user-focus> 中的 sourceKey' },
+        },
+        required: ['sourceKey'],
+    },
+    async execute(runtime, input) {
+        if (!runtime.library.uploadToServer) return { error: '当前 adapter 不支持 uploadFile' };
+        const source = runtime.getSource(input.sourceKey);
+        if (!source) return { error: 'sourceKey 不存在' };
+        const localFileId = source.fileId;
+        if (!localFileId) return { error: '该素材无本地 fileId（可能是文本/URL 类素材）' };
+        const result = await runtime.library.uploadToServer(localFileId);
+        if (!result) return { error: '上传失败' };
+        return { ...result, sourceKey: input.sourceKey, localFileId };
+    },
+};
+
 /** 直接推一个外部 url / data URL / 已知 fileId 的素材（优先用 add_media_from_library） */
 export const pushMedia: WebCutAgentTool<{ type: 'video' | 'audio' | 'image' | 'text'; source: string; start?: number; railId?: string }> = {
     name: 'webcut.push_media',
@@ -219,6 +242,7 @@ export const clearTimeline: WebCutAgentTool = {
 export const timelineTools: WebCutAgentTool[] = [
     addTextSegment,
     addMediaFromLibrary,
+    uploadSource,
     pushMedia,
     pushSeries,
     deleteSegment,
