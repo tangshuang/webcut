@@ -486,7 +486,7 @@ function getActiveMention(): { filter: string; start: number } | null {
         const maxI = Math.min(segLen, pos - offset);
         for (let i = 0; i < maxI; i++) {
             const ch = segText[i];
-            if (/\s/.test(ch)) { filter = ''; start = -1; active = false; continue; }
+            if (/[^\p{L}\p{N}_]/u.test(ch)) { filter = ''; start = -1; active = false; continue; }
             if (ch === '@') { filter = ''; start = offset + i; active = true; continue; }
             if (active) filter += ch;
         }
@@ -792,11 +792,6 @@ function onKeydown(e: KeyboardEvent) {
             return;
         }
         if (e.key === 'Escape') { e.preventDefault(); showDropdown.value = false; replacingSegmentEl.value = null; return; }
-        return;
-    }
-    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        emit('enter');
         return;
     }
 }
