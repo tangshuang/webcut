@@ -11,7 +11,7 @@ import { clone, createRandomString } from 'ts-fns';
 
 const { currentSource } = useWebCutContext();
 const { syncSourceMeta, syncSourceTickInterceptor } = useWebCutPlayer();
-const { push: pushHistory } = useWebCutHistory();
+const { push: pushHistory, touch: touchHistory } = useWebCutHistory();
 const t = useT();
 
 const filterDefaults = filterManager.getFilterDefaults();
@@ -94,7 +94,7 @@ async function toggleFilter(filterName: string) {
     await pushHistory({ title: '调整滤镜' });
 }
 
-// 更新滤镜参数
+// 更新滤镜参数（滑杆连续调整，以手势事务合并为一条历史）
 async function updateFilterParams(paramName: string, value: number) {
     if (!selectedFilter.value) return;
 
@@ -106,7 +106,7 @@ async function updateFilterParams(paramName: string, value: number) {
     });
 
     updateFilters(newFilters);
-    await pushHistory({ title: '调整滤镜' });
+    touchHistory({ title: '调整滤镜', mergeKey: `filter:${currentSource.value?.key}:${paramName}` });
 }
 
 // 更新滤镜到素材meta

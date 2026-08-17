@@ -4,14 +4,14 @@ import { Undo } from '@vicons/carbon';
 import { useWebCutHistory } from '../../../hooks/history';
 import { useT } from '../../../i18n/hooks';
 
-const { canUndo, undo } = useWebCutHistory();
+const { canUndo, undo, loading } = useWebCutHistory();
 const t = useT();
 </script>
 
 <template>
     <n-popover :delay="200" class="webcut-tooltip">
         <template #trigger>
-            <n-button quaternary size="small" :focusable="false" @click="undo" class="webcut-tool-button" :disabled="!canUndo">
+            <n-button quaternary size="small" :focusable="false" @click="undo" class="webcut-tool-button" :disabled="!canUndo || loading">
                 <template #icon>
                     <n-icon :component="Undo" size="16px"></n-icon>
                 </template>

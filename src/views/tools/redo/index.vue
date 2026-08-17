@@ -4,14 +4,14 @@ import { Redo } from '@vicons/carbon';
 import { useWebCutHistory } from '../../../hooks/history';
 import { useT } from '../../../i18n/hooks';
 
-const { canRedo, redo } = useWebCutHistory();
+const { canRedo, redo, loading } = useWebCutHistory();
 const t = useT();
 </script>
 
 <template>
     <n-popover :delay="200" class="webcut-tooltip">
         <template #trigger>
-            <n-button quaternary size="small" :focusable="false" @click="redo" class="webcut-tool-button" :disabled="!canRedo">
+            <n-button quaternary size="small" :focusable="false" @click="redo" class="webcut-tool-button" :disabled="!canRedo || loading">
                 <template #icon>
                     <n-icon :component="Redo" size="16px"></n-icon>
                 </template>

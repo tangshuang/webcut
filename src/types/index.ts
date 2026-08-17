@@ -509,18 +509,28 @@ export type WebCutProjectHistoryData = {
     patch: WebCutProjectHistoryPatch;
     /** 撤销本次变更所需 patch */
     undoPatch: WebCutProjectHistoryPatch;
-    /** 本次变更后的完整快照 */
-    snapshot: WebCutProjectHistoryState;
+    /**
+     * 本次变更后的完整快照
+     * v8 起快照独立存储于 project_history_snapshot，列表行不再携带；
+     * 该字段仅作为读取时的内存挂载点（undo/redo/moveTo 已解析）或旧版内联数据
+     */
+    snapshot?: WebCutProjectHistoryState;
     /** 兼容旧版本字段 */
-    state: WebCutProjectHistoryState;
+    state?: WebCutProjectHistoryState;
+    /** 手势合并标识：同 key 且在时间窗口内的连续变更会合并进同一条历史 */
+    mergeKey?: string;
 }
 
 export type WebCutProjectHistoryPushPayload = {
     title?: string;
-    state: WebCutProjectHistoryState;
+    state?: WebCutProjectHistoryState;
     patch?: WebCutProjectHistoryPatch;
     undoPatch?: WebCutProjectHistoryPatch;
     snapshot?: WebCutProjectHistoryState;
+    /** 手势合并标识 */
+    mergeKey?: string;
+    /** 原地更新已有记录时使用 */
+    timestamp?: number;
 };
 
 export interface WebCutColors {

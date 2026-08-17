@@ -3,9 +3,11 @@ import { useWebCutContext, useWebCutPlayer } from './index';
 import { getGridFrame, getGridPixel } from '../libs/timeline';
 import { WebCutSegment, WebCutRail } from '../types';
 import { clone } from 'ts-fns';
+import { detachSourceToPark } from './source-park';
 
 export function useWebCutManager() {
     const {
+        id,
         cursorTime,
         fps,
         scale,
@@ -17,6 +19,8 @@ export function useWebCutManager() {
         ruler,
         manager,
         sources,
+        sprites,
+        clips,
         updateDuration,
         unselectSegment,
         loading,
@@ -193,11 +197,13 @@ export function useWebCutManager() {
         const { sourceKey } = segment;
         const source = sources.value.get(sourceKey);
         if (source) {
-            const { clip, sprite } = source!;
-            canvas.value?.removeSprite(sprite);
-            sprite.destroy();
-            clip.destroy();
-            sources.value.delete(sourceKey);
+            // 摘除并驻留（不销毁 clip/sprite），撤销删除时可免重解码直接复活
+            detachSourceToPark(id.value, source, {
+                canvas: canvas.value,
+                sprites: sprites.value,
+                clips: clips.value,
+                sourcesMap: sources.value,
+            });
         }
 
         const segmentIndex = rail.segments.findIndex(s => s.id === segment.id);

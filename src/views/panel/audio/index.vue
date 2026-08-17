@@ -4,11 +4,10 @@ import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { NForm, NFormItem, NSlider, NInputNumber, NAlert, NButton } from 'naive-ui';
 import { useT } from '../../../i18n/hooks';
 import { useWebCutHistory } from '../../../hooks/history';
-import { throttle } from 'ts-fns';
 
 const { currentSource } = useWebCutContext();
 const { syncSourceMeta, repairAudioPitchByPlaybackRate, syncSourceTickInterceptor } = useWebCutPlayer();
-const { push: pushHistory } = useWebCutHistory();
+const { push: pushHistory, touch: touchHistory } = useWebCutHistory();
 const t = useT();
 
 const volume = ref(1);
@@ -17,9 +16,9 @@ const isSyncing = ref(false);
 const fixingPitch = ref(false);
 const canRepairPitch = computed(() => !!currentSource.value && Math.abs(playbackRate.value - 1) > 1e-6 && !fixingPitch.value);
 
-// 节流保存历史记录
-const throttledPushHistory = throttle(() => pushHistory({ title: '调整音频音量' }), 500);
-const throttledPushPlaybackRateHistory = throttle(() => pushHistory({ title: '调整播放速度' }), 500);
+// 手势事务记账：同一属性的连续调整静默后合并为一条历史
+const touchVolumeHistory = () => touchHistory({ title: '调整音频音量', mergeKey: `audio:${currentSource.value?.key}:volume` });
+const touchPlaybackRateHistory = () => touchHistory({ title: '调整播放速度', mergeKey: `audio:${currentSource.value?.key}:rate` });
 
 // 同步音量数据
 function syncVolumeToForm() {
@@ -66,7 +65,7 @@ watch(volume, (newVolume) => {
   syncSourceTickInterceptor(currentSource.value.key);
 
   // 保存历史记录
-  throttledPushHistory();
+  touchVolumeHistory();
 });
 
 // 监听播放速度变化
@@ -79,7 +78,7 @@ watch(playbackRate, (newRate) => {
   });
 
   // 保存历史记录
-  throttledPushPlaybackRateHistory();
+  touchPlaybackRateHistory();
 });
 
 // 重置音量

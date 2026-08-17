@@ -296,14 +296,13 @@
 
 #### useWebCutHistory()
 - 功能：撤销/重做与历史持久化/恢复。
-- 实现：
-  - 每个项目一个 `HistoryMachine`（`src/hooks/history.ts:12–24`）。
-  - 监听 `rails` 与规范化的 `sources` 保存到 DB（`src/hooks/history.ts:43–59`）。
-  - `convertSource` 将运行时对象转为可存的 meta（`src/hooks/history.ts:60–84`）。
-  - `recoverProjectState()` 从保存状态重新推入素材与片段（`src/hooks/history.ts:111–137`）。
-  - `pushHistory(state)` 格式化并保存特定操作如删除（`src/hooks/history.ts:139–160`）。
-  - `undo()` 重新添加删除素材；`redo()` 再次删除（`src/hooks/history.ts:162–202`）。
-  - `clearHistory()` 清空；`canUndo`、`canRedo`、`canRecover` 反映可用性（`src/hooks/history.ts:204–221`）。
+- 实现（`src/hooks/history.ts`）：
+  - 每个项目一个 `HistoryMachine` + 一个串行队列：`push/undo/redo/recoverToHistory` 全部排队执行，消除并发交错（undo 失效的根因之一）。
+  - undo/redo 直接使用目标历史条目的完整快照恢复，不再从运行态反推。
+  - 恢复引擎分级应用：属性类变化（位置/时长/变速/滤镜/动画/音量）原地更新 sprite 与 meta；仅素材身份变化（类型/文件/入点/文本内容）才重建，重建优先从「驻留池」复活（undo/redo 往返不反复创建/销毁解码器）。
+  - 手势事务 API：`touch({ title, mergeKey, delay })` 连续调整静默后合并为一条历史（`beginTransaction/commitTransaction/cancelTransaction` 为显式配对接口）；画布拖拽等外部交互可通过 `requestHistoryTouch(projectId, options)` 打点。
+  - 恢复后统一收尾：重算/清除动画、刷新 tickInterceptor、层级排序、总时长、重绘当前帧，并按新 rails 过滤选中状态。
+  - 存储（`src/db/index.ts`）：历史列表行只存轻量数据（标题/patch/指针），全量快照独立存于 `project_history_snapshot` 表，旧数据读取时自动迁移。
 
 ### 国际化钩子
 

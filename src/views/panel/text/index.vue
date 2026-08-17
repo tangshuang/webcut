@@ -11,7 +11,7 @@ import { useWebCutHistory } from '../../../hooks/history';
 
 const { currentSource, currentSegment, height, editTextState, disableSelectSprite } = useWebCutContext();
 const { updateText } = useWebCutPlayer();
-const { push: pushHistory } = useWebCutHistory();
+const { push: pushHistory, touch: touchHistory } = useWebCutHistory();
 const t = useT();
 
 const text: any = ref('');
@@ -25,12 +25,15 @@ const AlignIcons: any = {
     justify: TextAlignJustify,
 };
 
+// 编辑文本：渲染重建保留节流（避免逐字符重建位图），历史以手势事务记账（静默后合并为一条）
 const throttleUpdateText = throttle(async (sourceKey: string, data: any) => {
     await updateText(sourceKey, data);
-    await pushHistory({ title: '编辑文本' });
+    touchHistory({ title: '编辑文本', mergeKey: `text:${sourceKey}` });
 }, 200);
-// 节流保存历史记录，避免频繁操作时过度保存
-const throttledPushHistory = throttle(() => pushHistory({ title: '调整文本位置' }), 200);
+// 调整文本位置同样以手势事务记账
+const touchTextRectHistory = (sourceKey: string) => {
+    touchHistory({ title: '调整文本位置', mergeKey: `text-rect:${sourceKey}` });
+};
 
 let isSyncing = false;
 watch(currentSource, () => {
@@ -83,7 +86,7 @@ watch(marginBottom, () => {
     const newY = height.value - marginBottom.value - h;
     rect.y = newY;
     // 保存到历史记录
-    throttledPushHistory();
+    touchTextRectHistory(currentSource.value.key);
 });
 
 watch(() => editTextState.value?.text, (newText) => {

@@ -17,7 +17,7 @@ import { SubtractAlt } from '@vicons/carbon';
 import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 import { useT } from '../../../i18n/hooks';
-import { fixNum, throttle } from 'ts-fns';
+import { fixNum } from 'ts-fns';
 import { WebCutAnimationType, WebCutAnimationData } from '../../../types';
 import { ScanObject20Filled } from '@vicons/fluent';
 import EffectIcon from '../../../components/effect-icon/index.vue';
@@ -25,13 +25,13 @@ import { animationManager } from '../../../modules/animations';
 
 const { currentSource, currentSegment, cursorTime } = useWebCutContext();
 const { applyAnimation } = useWebCutPlayer();
-const { push: pushHistory } = useWebCutHistory();
+const { push: pushHistory, touch: touchHistory } = useWebCutHistory();
 const t = useT();
 const animationDefaults = animationManager.getAnimationDefaults();
 const animationPresets = Object.values(animationDefaults);
 
-// 节流保存历史记录
-const throttledPushHistory = throttle(() => pushHistory({ title: '调整动画' }), 500);
+// 调整动画参数（滑杆等连续调整）以手势事务合并为一条历史
+const touchAnimationHistory = () => touchHistory({ title: '调整动画', mergeKey: `anim:${currentSegment.value?.sourceKey}` });
 
 const selectedAnimationType = ref<WebCutAnimationType | string>(WebCutAnimationType.Enter);
 
@@ -92,7 +92,7 @@ async function onUpdateAnimation() {
         return;
     }
     await applyAnimation(currentSegment.value?.sourceKey!, usedAnimation.value);
-    throttledPushHistory();
+    touchAnimationHistory();
 }
 
 async function handleToggleAnimation(animationName: string) {

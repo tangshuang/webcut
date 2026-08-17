@@ -20,7 +20,7 @@ const queue = new AsyncQueue();
 // 初始化 InDB 实例
 const idb = new InDB({
     name: 'webcut',
-    version: 7,
+    version: 8,
     stores: [
         {
             name: 'file',
@@ -60,6 +60,11 @@ const idb = new InDB({
             ]
         },
         {
+            // v8: 历史快照独立分表，历史列表行保持轻量（不再内联全量快照）
+            name: 'project_history_snapshot',
+            isKv: true,
+        },
+        {
             name: 'project_state',
             isKv: true,
         },
@@ -74,6 +79,9 @@ const projectsStorage = idb.use('project');
 
 // 获取 history 存储实例
 const historyStorage = idb.use('project_history');
+
+// 历史快照存储（key 为历史记录 id）
+const historySnapshotStorage = idb.use('project_history_snapshot');
 
 const projectStateStorage = idb.use('project_state');
 
@@ -521,7 +529,7 @@ export async function moveProjectHistoryToId(projectId: string, historyId: strin
 }
 
 /**
- * 将当前项目的状态保存为一个历史记录
+ * 将当前项目的状态保存为一个历史记录（兼容旧 API，内部走统一的轻行+快照分表存储）
  * @param projectId
  * @returns 历史记录ID
  */
@@ -529,49 +537,15 @@ export async function pushProjectHistory(projectId: string, historyState: WebCut
     if (!projectId) {
         return null;
     }
-
-    const projectState = await getProjectState(projectId);
-    if (projectState?.historyAt) {
-        const { historyAt } = projectState;
-        const projectHistory: any[] = await getProjectHistory(projectId);
-        const closest = projectHistory.find((item: any) => item.id === historyAt);
-        if (closest) {
-            const sortedHistory = projectHistory.sort((a: any, b: any) => a.timestamp - b.timestamp);
-            // 清除timestamp比它大的历史记录
-            const deleteAfterItems = sortedHistory.filter((item: any) => item.timestamp > closest.timestamp).map(({ id }) => id);
-            if (deleteAfterItems.length) {
-                await historyStorage.delete(deleteAfterItems);
-            }
-            // 将历史记录控制在50以内
-            const beforeItems = sortedHistory.filter((item: any) => item.timestamp <= closest.timestamp);
-            if (beforeItems.length > 50) {
-                const deleteBeforeItems = beforeItems.slice(0, beforeItems.length - 50).map(({ id }) => id);
-                await historyStorage.delete(deleteBeforeItems);
-            }
-        }
-    }
-
-    const historyId = createRandomString(16);
-    const historyData = {
-        id: historyId,
-        projectId,
-        timestamp: Date.now(),
-        current: true,
+    return await pushProjectHistoryEntry(projectId, {
         title: '编辑变更',
-        patch: createEmptyPatch(),
-        undoPatch: createEmptyPatch(),
         snapshot: historyState,
-        state: historyState,
-    };
-    await historyStorage.put(historyData);
-    await updateProjectState(projectId, { historyAt: historyId });
-    await updateProjectHistoryCurrent(projectId, historyId);
-
-    return historyId;
+    });
 }
 
 /**
  * 使用完整历史结构写入一条历史记录
+ * v8 起：列表行只存轻量数据（id/title/patch/指针等），全量快照独立存入 project_history_snapshot
  * @param projectId 项目ID
  * @param payload 完整历史数据（含 patch/title/snapshot）
  * @returns 历史记录ID
@@ -592,12 +566,12 @@ export async function pushProjectHistoryEntry(projectId: string, payload: WebCut
                 .filter((item: any) => item.timestamp > closest.timestamp)
                 .map(({ id }) => id);
             if (deleteAfterItems.length) {
-                await historyStorage.delete(deleteAfterItems);
+                await deleteProjectHistoryEntries(deleteAfterItems);
             }
             const beforeItems = sortedHistory.filter((item: any) => item.timestamp <= closest.timestamp);
             if (beforeItems.length > 50) {
                 const deleteBeforeItems = beforeItems.slice(0, beforeItems.length - 50).map(({ id }) => id);
-                await historyStorage.delete(deleteBeforeItems);
+                await deleteProjectHistoryEntries(deleteBeforeItems);
             }
         }
     }
@@ -615,14 +589,78 @@ export async function pushProjectHistoryEntry(projectId: string, payload: WebCut
         title: payload.title || '编辑变更',
         patch,
         undoPatch,
-        snapshot: state,
-        state, // 兼容字段
+        mergeKey: payload.mergeKey,
     };
 
+    // 快照单独落表，历史列表读取不再反序列化全量状态
+    if (state) {
+        await historySnapshotStorage.setItem(historyId, state);
+    }
     await historyStorage.put(historyData);
     await updateProjectState(projectId, { historyAt: historyId });
     await updateProjectHistoryCurrent(projectId, historyId);
     return historyId;
+}
+
+/**
+ * 原地更新一条历史记录（用于手势合并：同 mergeKey 的连续调整合并为一条历史）
+ */
+export async function updateProjectHistoryEntry(projectId: string, historyId: string, payload: Partial<WebCutProjectHistoryPushPayload>) {
+    if (!projectId || !historyId) {
+        return null;
+    }
+    const historyData: any = await historyStorage.get(historyId);
+    if (!historyData) {
+        return null;
+    }
+
+    if (payload.title !== undefined) {
+        historyData.title = payload.title;
+    }
+    if (payload.timestamp !== undefined) {
+        historyData.timestamp = payload.timestamp;
+    }
+    if (payload.patch !== undefined) {
+        historyData.patch = payload.patch;
+    }
+    if (payload.undoPatch !== undefined) {
+        historyData.undoPatch = payload.undoPatch;
+    }
+    if (payload.mergeKey !== undefined) {
+        historyData.mergeKey = payload.mergeKey;
+    }
+    const state = payload.snapshot || payload.state;
+    if (state) {
+        delete historyData.snapshot;
+        delete historyData.state;
+        await historySnapshotStorage.setItem(historyId, state);
+    }
+
+    await historyStorage.put(historyData);
+    return historyId;
+}
+
+/** 读取某条历史记录的全量快照（优先快照表，兼容旧版内联数据） */
+export async function getProjectHistorySnapshot(historyId: string): Promise<WebCutProjectHistoryState | null> {
+    if (!historyId) {
+        return null;
+    }
+    const snapshot = await historySnapshotStorage.getItem(historyId);
+    if (snapshot) {
+        return snapshot;
+    }
+    // 兼容旧数据：快照内联在历史行中
+    const historyData: any = await historyStorage.get(historyId);
+    return historyData?.snapshot || historyData?.state || null;
+}
+
+/** 同时删除历史列表行与对应的快照 */
+async function deleteProjectHistoryEntries(historyIds: string[]) {
+    if (!historyIds.length) {
+        return;
+    }
+    await historyStorage.delete(historyIds);
+    await historySnapshotStorage.delete(historyIds);
 }
 
 // 获取项目的历史记录
@@ -632,6 +670,20 @@ export async function getProjectHistory(projectId: string): Promise<WebCutProjec
     }
 
     const projectHistory = await historyStorage.query('projectId', projectId);
+    // 懒迁移：旧版本的历史行内联了全量快照，首次读到时拆分到快照表并重写轻行
+    const legacyItems = projectHistory.filter((item: any) => item && (item.snapshot || item.state));
+    if (legacyItems.length) {
+        const actions = legacyItems.map(async (item: any) => {
+            const state = item.snapshot || item.state;
+            try {
+                await historySnapshotStorage.setItem(item.id, state);
+                delete item.snapshot;
+                delete item.state;
+                await historyStorage.put(item);
+            } catch {}
+        });
+        await Promise.all(actions);
+    }
     return projectHistory.sort((a: any, b: any) => a.timestamp - b.timestamp);
 }
 
@@ -643,8 +695,7 @@ export async function clearProjectHistory(projectId: string) {
 
     const projectHistory: any[] = await getProjectHistory(projectId);
     if (projectHistory.length) {
-        const actions = projectHistory.map(({ id }) => id);
-        await historyStorage.delete(actions);
+        await deleteProjectHistoryEntries(projectHistory.map(({ id }) => id));
     }
     await updateProjectState(projectId, {
         historyAt: '',

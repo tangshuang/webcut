@@ -21,6 +21,7 @@ import { filterManager } from '../modules/filters';
 import { WebCutAnimationManager, animationManager } from '../modules/animations';
 import { Evt } from '../libs/evt';
 import { mergeLangPkg } from '../i18n/core';
+import { requestHistoryTouch } from './history';
 
 let context: WebCutContext | null | undefined = null;
 export function useWebCutContext(provideContext?: () => Partial<WebCutContext> | undefined | null) {
@@ -290,6 +291,7 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
 export function useWebCutPlayer() {
     const refs = useWebCutContext();
     const {
+        id,
         viewport,
         width,
         height,
@@ -416,6 +418,14 @@ export function useWebCutPlayer() {
                     const rect = sourceItem.meta.rect = sourceItem.meta.rect || {};
                     Object.assign(rect, props.rect);
                 }
+
+                // 画布上的交互调整（拖动/缩放/旋转）显式记录历史：
+                // 以 touch 手势合并，静默后落一条历史，不再依赖面板的隐式打点
+                requestHistoryTouch(id.value, {
+                    title: '调整素材',
+                    mergeKey: `sprite:${sourceItem.key}`,
+                    delay: 600,
+                });
             });
 
             if (sourceItem?.segmentId) {
@@ -785,7 +795,10 @@ export function useWebCutPlayer() {
 
             // 存储原始素材时长（用于播放速度调整时计算新的显示时长）
             segMeta.time = segMeta.time || {};
-            segMeta.time.originalDuration = spr.time.duration;
+            // 外部显式传入过原始时长（如历史恢复、音频分离）时尊重传入值
+            if (typeof segMeta.time.originalDuration !== 'number') {
+                segMeta.time.originalDuration = spr.time.duration;
+            }
 
             // 如果有播放速度设置，需要调整显示时长
             if (typeof meta.time?.playbackRate === 'number' && meta.time.playbackRate !== 1) {

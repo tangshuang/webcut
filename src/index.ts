@@ -144,6 +144,7 @@ export {
 } from './hooks/toast';
 export {
     useWebCutHistory,
+    requestHistoryTouch,
 } from './hooks/history';
 export {
     useWebCutTransition,

@@ -7,15 +7,16 @@ import { useT } from '../../../i18n/hooks';
 import { autoFitRect } from '../../../libs';
 import { ImgClip, MP4Clip } from '@webav/av-cliper';
 import { useWebCutHistory } from '../../../hooks/history';
-import { throttle } from 'ts-fns';
 
 const { currentSource, width, height } = useWebCutContext();
-const { push: pushHistory } = useWebCutHistory();
+const { push: pushHistory, touch: touchHistory } = useWebCutHistory();
 const { syncSourceMeta } = useWebCutPlayer();
 const t = useT();
 
-// 节流保存历史记录，避免频繁操作时过度保存
-const throttledPushHistory = throttle(() => pushHistory({ title: '调整基础属性' }), 500);
+// 调整基础属性以手势事务记账：同一字段的连续调整静默后合并为一条历史
+const touchBasicHistory = (sourceKey: string, field: string) => {
+    touchHistory({ title: '调整基础属性', mergeKey: `basic:${sourceKey}:${field}` });
+};
 
 const formData = ref<any>({
     x: 0,
@@ -51,9 +52,10 @@ function setupWatch(type: 'x' | 'y' | 'w' | 'h' | 'angle' | 'opacity') {
         if (!currentSource.value) {
             return;
         }
+        const { key } = currentSource.value;
         if (isSyncing) {
-            // 保存到历史记录
-            throttledPushHistory();
+            // 外部（画布交互等）引起的变化，记入手势事务
+            touchBasicHistory(key, type);
             return;
         }
 
@@ -68,7 +70,7 @@ function setupWatch(type: 'x' | 'y' | 'w' | 'h' | 'angle' | 'opacity') {
         }
 
         // 保存到历史记录
-        throttledPushHistory();
+        touchBasicHistory(key, type);
     });
 }
 ;['x', 'y', 'w', 'h', 'angle', 'opacity'].forEach((key) => {
