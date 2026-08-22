@@ -712,3 +712,79 @@ export async function getProjectState(projectId: string): Promise<WebCutProjectS
     const projectState = await projectStateStorage.getItem(projectId);
     return projectState;
 }
+
+/**
+ * 列出全部项目（宿主项目列表页用）。
+ * 返回轻量行（id/name/files 引用），排序由宿主按自身元数据决定。
+ */
+export async function listProjects(): Promise<WebCutProjectData[]> {
+    const projects = await projectsStorage.all();
+    return (projects || []).filter(Boolean) as WebCutProjectData[];
+}
+
+/** 重命名项目 */
+export async function renameProject(projectId: string, name: string): Promise<WebCutProjectData | null> {
+    if (!projectId || !name) {
+        return null;
+    }
+    const projectData = await projectsStorage.get(projectId);
+    if (!projectData) {
+        return null;
+    }
+    projectData.name = name;
+    await projectsStorage.put(projectData);
+    return projectData;
+}
+
+/**
+ * 删除项目（级联清理）：
+ * 1) 该项目全部历史记录（列表行 + 快照）；2) project_state；3) project 行；
+ * 4) 孤儿文件：该项目引用且不被其他任何项目引用的 file 元数据与 OPFS 文件。
+ *    注意：fileId 为 md5 内容寻址，与 @fgu/file 本地缓存共享 OPFS 路径空间——
+ *    删除后外部缓存读取会 miss 并回源重新下载（服务端文件仍在），行为安全。
+ */
+export async function deleteProject(projectId: string): Promise<{ filesRemoved: number } | null> {
+    if (!projectId) {
+        return null;
+    }
+    const projectData = await projectsStorage.get(projectId);
+    if (!projectData) {
+        return null;
+    }
+
+    // 1) 删除该项目全部历史（列表行 + 快照）
+    const projectHistory = await historyStorage.query('projectId', projectId);
+    if (projectHistory.length) {
+        await deleteProjectHistoryEntries(projectHistory.map(({ id }) => id));
+    }
+
+    // 2) 删除 project_state
+    await projectStateStorage.delete([projectId]);
+
+    // 3) 删除 project 行
+    await projectsStorage.delete([projectId]);
+
+    // 4) 孤儿文件清理：先收集剩余项目仍引用的 fileId
+    const removedFileIds = ((projectData.files || []) as any[])
+        .map((item) => item?.id)
+        .filter((id): id is string => typeof id === 'string' && !!id);
+    if (!removedFileIds.length) {
+        return { filesRemoved: 0 };
+    }
+    const otherProjects = (await projectsStorage.all() || []).filter(Boolean);
+    const stillUsedFileIds = new Set<string>();
+    for (const other of otherProjects as any[]) {
+        // 兼容旧版本（fileIds → files）
+        const files = other.files || (other.fileIds || []).map((id: string) => ({ id }));
+        for (const item of files || []) {
+            if (item?.id) {
+                stillUsedFileIds.add(String(item.id));
+            }
+        }
+    }
+    const orphanFileIds = removedFileIds.filter((id) => !stillUsedFileIds.has(id));
+    for (const fileId of orphanFileIds) {
+        await removeFileEverywhere(fileId);
+    }
+    return { filesRemoved: orphanFileIds.length };
+}

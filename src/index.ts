@@ -240,7 +240,10 @@ export { aspectRatioMap } from './constants';
 
 export {
     getProject,
+    listProjects,
     createNewProject,
+    renameProject,
+    deleteProject,
     addFileToProject,
     removeFileFromProject,
     removeFileEverywhere,
