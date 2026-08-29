@@ -99,7 +99,7 @@ export interface WebCutAgentAdapter {
     /**
      * 发起一次 LLM 流式请求（路径 A）。
      * 后端只需做无状态透传：把 messages + tools 转发到底层 LLM 并把 SSE 流回传前端。
-     * 前端在收到 tool_call 后自行执行内置 webcut.* 工具，并把结果拼回 messages 再次请求，
+     * 前端在收到 tool_call 后自行执行内置 webcut_* 工具，并把结果拼回 messages 再次请求，
      * 直到 LLM 不再调工具或达 MAX_DEPTH。
      *
      * 不实现此方法 → pack 走路径 B。
@@ -194,11 +194,11 @@ export interface WebCutAgentAdapter {
 
     /**
      * 自定义 tool_call 处理（可选）。
-     * 当 LLM 返回的 tool_call 不在内置 webcut.* 工具注册表中时，走此回调。
+     * 当 LLM 返回的 tool_call 不在内置 webcut_* 工具注册表中时，走此回调。
      * 调用方（如 aiman）可在此结合后端逻辑处理自己的 tool call（如 generate_video 等）。
      * 返回值作为 tool 执行结果回传给 LLM 继续对话。
      *
-     * context 注入完整剪辑器 runtime（与内置 webcut.* 工具的 execute(runtime, input) 同源）：
+     * context 注入完整剪辑器 runtime（与内置 webcut_* 工具的 execute(runtime, input) 同源）：
      * - `context.ctx`：响应式剪辑器上下文（rails / sources / cursorTime / 画布 / 选中 等，可读）
      * - `context.push(type, source, meta?)`：推素材到时间轴
      * - `context.library.list() / addNewFile(file) / importSource(source)`：读写媒体库

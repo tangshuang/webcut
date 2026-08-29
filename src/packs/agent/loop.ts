@@ -238,7 +238,7 @@ export function createAgentLoop(options: {
     }
 
     async function executeTool(tc: { tool: string; callId: string; input: any }): Promise<any> {
-        // 1. 内置工具（webcut.* 注册表）：直接前端执行
+        // 1. 内置工具（webcut_* 注册表）：直接前端执行
         const tool = registry.get(tc.tool);
         if (tool) return await tool.execute(runtime, tc.input || {});
         // 2. 非内置工具：走 adapter.onToolCall（调用方结合后端逻辑处理自定义 tool call）

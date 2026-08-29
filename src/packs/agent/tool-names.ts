@@ -1,18 +1,21 @@
 /**
- * webcut.* 工具名 → i18n key 映射。
+ * webcut_* 工具名 → i18n key 映射。
  *
- * 工具名（如 `webcut.add_text_segment`）与 i18n key 一一对应：
- *   webcut.<short>  →  webcut.agent.tool.<short>
+ * 工具名（如 `webcut_add_text_segment`）与 i18n key 一一对应：
+ *   webcut_<short>  →  webcut.agent.tool.<short>
  * 翻译文案维护在 ./i18n.ts 的 `webcut.agent.tool.*` 命名空间下。
  * 未提供翻译（语言缺失或工具未登记）时，UI 兜底显示短名 <short>。
+ *
+ * 注意：工具名前缀用下划线（webcut_）而非点号（webcut.）——
+ * OpenAI function name 规范为 ^[a-zA-Z0-9_-]+$，DeepSeek 等厂商严格校验，带点会被 400 拒绝。
  */
 
-/** 取工具短名：`webcut.add_text_segment` → `add_text_segment` */
+/** 取工具短名：`webcut_add_text_segment` → `add_text_segment` */
 export function toolShortName(tool: string): string {
-    return (tool || '').replace(/^webcut\./, '');
+    return (tool || '').replace(/^webcut_/, '');
 }
 
-/** 取工具名的 i18n key：`webcut.add_text_segment` → `webcut.agent.tool.add_text_segment` */
+/** 取工具名的 i18n key：`webcut_add_text_segment` → `webcut.agent.tool.add_text_segment` */
 export function toolNameI18nKey(tool: string): string {
     return 'webcut.agent.tool.' + toolShortName(tool);
 }

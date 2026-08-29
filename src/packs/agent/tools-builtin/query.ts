@@ -33,7 +33,7 @@ export function summarizeRails(ctx: any) {
 
 /** 读取完整时间轴状态：画布、所有轨道、片段、转场、选中。修改前后都可调用来确认现状。 */
 export const getTimelineState: WebCutAgentTool = {
-    name: 'webcut.get_timeline_state',
+    name: 'webcut_get_timeline_state',
     description: '读取当前剪辑器完整状态：画布尺寸/比例/帧率/总时长、所有轨道及其片段（含 sourceKey/时间区间/类型）、转场、当前选中。任何修改前若上下文过期，先调本工具。',
     parameters: { type: 'object', properties: {} },
     execute(runtime) {
@@ -55,7 +55,7 @@ export const getTimelineState: WebCutAgentTool = {
 
 /** 读取播放器/视图状态：游标时间、缩放、播放状态、撤销可用性。 */
 export const getPlayerState: WebCutAgentTool = {
-    name: 'webcut.get_player_state',
+    name: 'webcut_get_player_state',
     description: '读取播放器与时间轴视图状态：游标时间（cursorUs）、缩放（scale 0-100）、播放状态（status: -1 停止/0 暂停/1 播放）、总时长、可撤销/可重做。',
     parameters: { type: 'object', properties: {} },
     execute(runtime) {
@@ -75,8 +75,8 @@ export const getPlayerState: WebCutAgentTool = {
 
 /** 列出当前项目媒体库的文件，用于挑选 add_media_from_library 的 fileId。 */
 export const getLibrary: WebCutAgentTool = {
-    name: 'webcut.get_library',
-    description: '列出当前项目的媒体库文件（fileId、名称、媒体类型、大小）。要把媒体库素材放到时间轴时，先用本工具查 fileId，再调 webcut.add_media_from_library。',
+    name: 'webcut_get_library',
+    description: '列出当前项目的媒体库文件（fileId、名称、媒体类型、大小）。要把媒体库素材放到时间轴时，先用本工具查 fileId，再调 webcut_add_media_from_library。',
     parameters: { type: 'object', properties: {} },
     execute(runtime) {
         const items = runtime.library.list() || [];
@@ -96,7 +96,7 @@ export const getLibrary: WebCutAgentTool = {
 
 /** 读取当前选中的 segment/source 详情（meta/样式/动画/音视频属性）。 */
 export const getSelection: WebCutAgentTool = {
-    name: 'webcut.get_selection',
+    name: 'webcut_get_selection',
     description: '读取当前选中片段（sourceKey）的详情：类型、文本内容、rect（位置/尺寸/角度）、opacity、动画、音量、播放速率、滤镜、时间偏移。修改属性前调本工具看清现状。',
     parameters: { type: 'object', properties: {} },
     execute(runtime) {
@@ -128,7 +128,7 @@ export const getSelection: WebCutAgentTool = {
 
 /** 列出可用的转场、滤镜、动画清单（名称 + 默认参数），便于选 name。 */
 export const listEffects: WebCutAgentTool = {
-    name: 'webcut.list_effects',
+    name: 'webcut_list_effects',
     description: '列出所有可用的转场（transitions）、滤镜（filters）、动画（animations，按 enter/exit/motion 分组）名称与默认参数。选 apply_transition/apply_animation 的 name 前可调本工具。',
     parameters: { type: 'object', properties: {} },
     execute() {
@@ -156,8 +156,8 @@ export const listEffects: WebCutAgentTool = {
 
 /** 列出历史记录，便于 recover_to_history。 */
 export const listHistory: WebCutAgentTool = {
-    name: 'webcut.list_history',
-    description: '列出可撤销/重做的历史记录条目（id、标题、时间）。需要跳转到某个历史点时调 webcut.recover_to_history。',
+    name: 'webcut_list_history',
+    description: '列出可撤销/重做的历史记录条目（id、标题、时间）。需要跳转到某个历史点时调 webcut_recover_to_history。',
     parameters: { type: 'object', properties: {} },
     execute(runtime) {
         const list = runtime.history.list() || [];

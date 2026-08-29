@@ -25,7 +25,7 @@ export const agentLanguagePackages: Record<string, Record<string, string>> = {
         'webcut.agent.toolResultLabel': '返回值',
         'webcut.agent.callTool': '调用工具：「{name}」',
 
-        // —— webcut.* 工具名（与 tool-names.ts BUILTIN_TOOL_SHORT_NAMES 一致）——
+        // —— webcut_* 工具名（与 tool-names.ts BUILTIN_TOOL_SHORT_NAMES 一致）——
         'webcut.agent.tool.add_text_segment': '添加文字片段',
         'webcut.agent.tool.add_media_from_library': '从媒体库添加',
         'webcut.agent.tool.upload_source': '上传素材',
@@ -116,7 +116,7 @@ export const agentLanguagePackages: Record<string, Record<string, string>> = {
         'webcut.agent.toolResultLabel': 'Result',
         'webcut.agent.callTool': 'Calling tool: {name}',
 
-        // —— webcut.* tool names ——
+        // —— webcut_* tool names ——
         'webcut.agent.tool.add_text_segment': 'Add text segment',
         'webcut.agent.tool.add_media_from_library': 'Add from library',
         'webcut.agent.tool.upload_source': 'Upload source',

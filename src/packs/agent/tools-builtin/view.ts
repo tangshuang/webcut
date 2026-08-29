@@ -2,7 +2,7 @@ import type { WebCutAgentTool } from '../tools';
 
 /** 把播放头跳到指定时间（微秒） */
 export const seekCursor: WebCutAgentTool<{ time: number }> = {
-    name: 'webcut.seek_cursor',
+    name: 'webcut_seek_cursor',
     description: '把播放头跳到指定时间（微秒，1e6=1秒）。定位播放头后再做拆分/加转场等位置相关操作。',
     parameters: {
         type: 'object',
@@ -17,7 +17,7 @@ export const seekCursor: WebCutAgentTool<{ time: number }> = {
 
 /** 设置时间轴缩放 */
 export const setScale: WebCutAgentTool<{ scale: number }> = {
-    name: 'webcut.set_scale',
+    name: 'webcut_set_scale',
     description: '设置时间轴缩放比例（0-100，步进 10；越大越展开）。仅影响视图，不影响片段。',
     parameters: {
         type: 'object',
@@ -32,21 +32,21 @@ export const setScale: WebCutAgentTool<{ scale: number }> = {
 };
 
 export const play: WebCutAgentTool = {
-    name: 'webcut.play',
+    name: 'webcut_play',
     description: '从当前播放头开始播放。',
     parameters: { type: 'object', properties: {} },
     execute(runtime) { runtime.play(); return { ok: true }; },
 };
 
 export const pause: WebCutAgentTool = {
-    name: 'webcut.pause',
+    name: 'webcut_pause',
     description: '暂停播放。',
     parameters: { type: 'object', properties: {} },
     execute(runtime) { runtime.pause(); return { ok: true }; },
 };
 
 export const reset: WebCutAgentTool = {
-    name: 'webcut.reset',
+    name: 'webcut_reset',
     description: '停止播放并把播放头重置到 0。',
     parameters: { type: 'object', properties: {} },
     async execute(runtime) { await runtime.reset(); return { ok: true }; },

@@ -100,7 +100,7 @@ export interface WebCutAgentToolRuntime {
  * agent 工具：同时是 schema（喂给 LLM）+ 前端驻留执行器，单一信息源。
  */
 export interface WebCutAgentTool<I = any, R = any> {
-    /** 全局唯一，建议命名空间前缀，如 webcut.add_text_segment */
+    /** 全局唯一，建议命名空间前缀，如 webcut_add_text_segment */
     name: string;
     /** 给 LLM 的工具说明 */
     description: string;

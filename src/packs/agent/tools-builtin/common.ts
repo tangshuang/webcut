@@ -36,4 +36,4 @@ export function usToSec(us: number): number {
 }
 
 /** 所有修改类工具 description 末尾追加的提示，配合「首轮注入+按需拉取」策略 */
-export const REFRESH_HINT = '修改后建议调用 webcut.get_timeline_state 或 webcut.get_player_state 刷新上下文以确认结果。';
+export const REFRESH_HINT = '修改后建议调用 webcut_get_timeline_state 或 webcut_get_player_state 刷新上下文以确认结果。';

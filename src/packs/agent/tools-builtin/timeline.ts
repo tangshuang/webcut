@@ -3,7 +3,7 @@ import { REFRESH_HINT } from './common';
 
 /** 加文字片段到时间轴（不传 start 用当前播放头） */
 export const addTextSegment: WebCutAgentTool<{ text: string; start?: number; railId?: string }> = {
-    name: 'webcut.add_text_segment',
+    name: 'webcut_add_text_segment',
     description: '在时间轴上添加一段文字片段（渲染为图片 sprite 落到文本轨道）。不传 start 时使用当前播放头位置。' + REFRESH_HINT,
     parameters: {
         type: 'object',
@@ -25,12 +25,12 @@ export const addTextSegment: WebCutAgentTool<{ text: string; start?: number; rai
 
 /** 从媒体库取文件推到时间轴。先 get_library 拿 fileId。 */
 export const addMediaFromLibrary: WebCutAgentTool<{ fileId: string; type: 'video' | 'audio' | 'image'; start?: number; railId?: string }> = {
-    name: 'webcut.add_media_from_library',
-    description: '从当前项目媒体库取一个文件推到时间轴。需要先调 webcut.get_library 拿到 fileId 与媒体类型。不传 start 时使用当前播放头位置。' + REFRESH_HINT,
+    name: 'webcut_add_media_from_library',
+    description: '从当前项目媒体库取一个文件推到时间轴。需要先调 webcut_get_library 拿到 fileId 与媒体类型。不传 start 时使用当前播放头位置。' + REFRESH_HINT,
     parameters: {
         type: 'object',
         properties: {
-            fileId: { type: 'string', description: '媒体库文件 id（webcut.get_library 返回的 fileId）' },
+            fileId: { type: 'string', description: '媒体库文件 id（webcut_get_library 返回的 fileId）' },
             type: { type: 'string', enum: ['video', 'audio', 'image'], description: '媒体类型' },
             start: { type: 'number', description: '起点（微秒），不传则用当前播放头' },
             railId: { type: 'string', description: '目标轨道 id，不传则自动选择/新建' },
@@ -48,7 +48,7 @@ export const addMediaFromLibrary: WebCutAgentTool<{ fileId: string; type: 'video
 
 /** 把本地 OPFS 中的素材上传到服务端，返回服务端 fileId。LLM 在确认服务端无该文件后调用。 */
 export const uploadSource: WebCutAgentTool<{ sourceKey: string }> = {
-    name: 'webcut.upload_source',
+    name: 'webcut_upload_source',
     description: '把指定 sourceKey 对应的本地素材（仅存在于前端 OPFS）上传到服务端，返回 {fileId, url, type, name}。当 aiman.file_exists 返回 exists=false 时调用本工具，拿到服务端 fileId 后再用于上游服务（如 generate_video 的首末帧/参考图）。',
     parameters: {
         type: 'object',
@@ -71,8 +71,8 @@ export const uploadSource: WebCutAgentTool<{ sourceKey: string }> = {
 
 /** 直接推一个外部 url / data URL / 已知 fileId 的素材（优先用 add_media_from_library） */
 export const pushMedia: WebCutAgentTool<{ type: 'video' | 'audio' | 'image' | 'text'; source: string; start?: number; railId?: string }> = {
-    name: 'webcut.push_media',
-    description: '直接推送任意素材到时间轴：source 可为 http(s) URL、data: URL 或 "file:<fileId>"。优先用 webcut.add_media_from_library 走媒体库。' + REFRESH_HINT,
+    name: 'webcut_push_media',
+    description: '直接推送任意素材到时间轴：source 可为 http(s) URL、data: URL 或 "file:<fileId>"。优先用 webcut_add_media_from_library 走媒体库。' + REFRESH_HINT,
     parameters: {
         type: 'object',
         properties: {
@@ -94,7 +94,7 @@ export const pushMedia: WebCutAgentTool<{ type: 'video' | 'audio' | 'image' | 't
 
 /** 批量按顺序连续推送素材（前一个结束 = 后一个开始） */
 export const pushSeries: WebCutAgentTool<{ materials: Array<{ type: string; source: string; start?: number }>; startTime?: number; thingType?: string }> = {
-    name: 'webcut.push_series',
+    name: 'webcut_push_series',
     description: '批量按顺序连续推送多个素材（前一个结束 = 后一个开始，自动续接）。适合"按顺序排几段视频"。' + REFRESH_HINT,
     parameters: {
         type: 'object',
@@ -113,7 +113,7 @@ export const pushSeries: WebCutAgentTool<{ materials: Array<{ type: string; sour
 
 /** 按 sourceKey 删除片段（同步删除 segment 与空轨，触发磁吸）——修复版，使用 manager.deleteSegment */
 export const deleteSegment: WebCutAgentTool<{ sourceKey: string; keepRailWhenEmpty?: boolean }> = {
-    name: 'webcut.delete_segment',
+    name: 'webcut_delete_segment',
     description: '按 sourceKey 删除片段：同步从轨道 segments 中移除、销毁 source、轨道空时连轨一起删（除非 keepRailWhenEmpty=true）、触发主轨磁吸。' + REFRESH_HINT,
     parameters: {
         type: 'object',
@@ -133,7 +133,7 @@ export const deleteSegment: WebCutAgentTool<{ sourceKey: string; keepRailWhenEmp
 
 /** 在当前播放头处切分片段 */
 export const splitSegment: WebCutAgentTool<{ sourceKey: string; keep?: 'left' | 'right' | 'both' }> = {
-    name: 'webcut.split_segment',
+    name: 'webcut_split_segment',
     description: '在当前播放头位置切分指定片段为两段。keep 控制：both=保留两半（默认）、left=只留左半、right=只留右半。' + REFRESH_HINT,
     parameters: {
         type: 'object',
@@ -158,7 +158,7 @@ export const splitSegment: WebCutAgentTool<{ sourceKey: string; keep?: 'left' | 
 
 /** 更新文字片段的内容/样式 */
 export const updateText: WebCutAgentTool<{ sourceKey: string; text?: string; css?: Record<string, any> }> = {
-    name: 'webcut.update_text',
+    name: 'webcut_update_text',
     description: '更新文字片段的内容或 CSS 样式（如字体、颜色、大小）。css 例：{"color":"#fff","font-size":"48px","font-weight":"700"}。' + REFRESH_HINT,
     parameters: {
         type: 'object',
@@ -183,7 +183,7 @@ export const updateSegmentProps: WebCutAgentTool<{
     volume?: number;
     playbackRate?: number;
 }> = {
-    name: 'webcut.update_segment_props',
+    name: 'webcut_update_segment_props',
     description: '更新片段的通用属性：位置/尺寸/角度（rect）、不透明度（opacity 0-1）、音量（volume 0-1，>0 启用音频）、播放速率（playbackRate，>0；≠1 会按比例调整显示时长）。只传需要改的字段。' + REFRESH_HINT,
     parameters: {
         type: 'object',
@@ -211,8 +211,8 @@ export const updateSegmentProps: WebCutAgentTool<{
 
 /** 设置片段滤镜（覆盖式） */
 export const setFilters: WebCutAgentTool<{ sourceKey: string; filters: Array<{ name: string; params?: Record<string, any> }> }> = {
-    name: 'webcut.set_filters',
-    description: '设置片段的滤镜（覆盖原有）。name 取自 webcut.list_effects 的 filters（如 grayscale/blur/brightness/contrast/saturate）。传空数组清除所有滤镜。' + REFRESH_HINT,
+    name: 'webcut_set_filters',
+    description: '设置片段的滤镜（覆盖原有）。name 取自 webcut_list_effects 的 filters（如 grayscale/blur/brightness/contrast/saturate）。传空数组清除所有滤镜。' + REFRESH_HINT,
     parameters: {
         type: 'object',
         properties: {
@@ -231,7 +231,7 @@ export const setFilters: WebCutAgentTool<{ sourceKey: string; filters: Array<{ n
 
 /** 清空时间轴全部素材（危险） */
 export const clearTimeline: WebCutAgentTool = {
-    name: 'webcut.clear_timeline',
+    name: 'webcut_clear_timeline',
     description: '【危险】清空时间轴所有轨道与素材，播放头回到 0。调用前务必先用一句话向用户确认。',
     parameters: { type: 'object', properties: {} },
     execute(runtime) {

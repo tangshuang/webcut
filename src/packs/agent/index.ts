@@ -40,7 +40,7 @@ export interface WebCutAgentPackInstance extends WebCutExtensionPack {
 export interface CreateWebCutAgentPackOptions {
     /** LLM 网关 adapter（必传，由调用方实现） */
     adapter: WebCutAgentAdapter;
-    /** 注入额外工具（不得与内置 webcut.* 同名） */
+    /** 注入额外工具（不得与内置 webcut_* 同名） */
     tools?: WebCutAgentTool[];
     /** 边栏宽度，默认 420 */
     width?: number;
