@@ -5,6 +5,7 @@ import WebCutPlayerScreen from '../player/screen.vue';
 import WebCutPlayerButton from '../player/button.vue';
 import WebCutManager from '../manager/index.vue';
 import { useWebCutContext, useWebCutPlayer, useWebCutThemeColors, useWebCutDarkMode } from '../../hooks';
+import { aspectRatioMap } from '../../constants';
 import ThemeSwitch from '../theme-switch/index.vue';
 import LangSwitch from '../lang-switch/index.vue';
 import WebCutSelectAspectRatio from '../select-aspect-ratio/index.vue';
@@ -14,7 +15,7 @@ import WebCutLibrary from '../library/index.vue';
 import { computed, ref, watch, shallowRef } from 'vue';
 import Panel from '../panel/index.vue';
 import ExportButton from '../export-button/index.vue';
-import { WebCutColors, WebCutExtensionPack } from '../../types';
+import { WebCutColors, WebCutExtensionPack, WebCutResolution } from '../../types';
 import { useWebCutLocale } from '../../i18n/hooks';
 import WebCutToast from '../toast/index.vue';
 import AdvancedExport from '../../modules/advanced-export/index.vue';
@@ -29,16 +30,31 @@ const props = defineProps<{
     disableRightTopBar?: boolean;
     /** 是否默认开启主轨视频磁吸 */
     enableMainVideoMagnet?: boolean;
+    /** 初始画布比例（如 '16:9'），进入编辑器时应用并持久化；项目已有持久化选择时以用户上次选择为准 */
+    aspectRatio?: keyof typeof aspectRatioMap;
+    /** 初始画布分辨率档位（如 '720P'），进入编辑器时应用并持久化；项目已有持久化选择时以用户上次选择为准 */
+    resolution?: WebCutResolution;
     packs?: (new () => WebCutExtensionPack)[];
 }>();
 
-const { registerExtensionPack, id, modules, activeDockKey } = useWebCutContext();
+const { registerExtensionPack, id, modules, activeDockKey, updateByAspectRatio, updateByResolution } = useWebCutContext();
 const { themeColors } = useWebCutThemeColors(() => props.colors);
 useWebCutDarkMode(darkMode);
 useWebCutLocale(language);
 
 if (props.projectId) {
     id.value = props.projectId;
+}
+
+// 初始画布设定：宿主传入比例/分辨率时立即初始化画布并持久化；
+// 若该项目已有持久化选择（用户上次手动切换），稍后恢复链路会以持久化值为准
+if (props.aspectRatio || props.resolution) {
+    if (props.aspectRatio) {
+        updateByAspectRatio(props.aspectRatio, props.resolution);
+    }
+    else {
+        updateByResolution(props.resolution!);
+    }
 }
 if (props.packs) {
     props.packs.forEach(mod => registerExtensionPack(mod));

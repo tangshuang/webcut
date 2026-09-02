@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. See [standa
 * 历史存储分表（DB v8）：历史列表行只保留轻量数据，全量快照独立存于 `project_history_snapshot`，旧数据读取时自动迁移，显著降低每次历史操作的 IO 与存储体积 (2026-08-17)
 * 历史记录恢复引擎分级应用：位置/时长/变速/滤镜/动画/音量等属性变化一律原地更新 sprite 与 meta，仅素材身份变化（类型/文件/入点/文本内容）才重建 (2026-08-17)
 * 编辑器画布右下角（比例切换左侧）新增分辨率切换：1080P/768P/720P/576P/544P/540P/480P/360P 共 8 档，切换实时调整画布尺寸且不影响素材原始尺寸；与比例切换联动（切比例保持档位、切档位保持比例），档位随项目状态持久化、刷新后恢复；导出面板默认分辨率跟随画布档位，选项同步扩展至全部档位（新增 `WebCutSelectResolution` 组件与 `updateByResolution` API） (2026-09-02)
+* `WebCutEditor` 新增 `aspectRatio` / `resolution` props：进入编辑器时按宿主传入的比例与分辨率档位初始化画布并持久化；项目已有持久化选择（用户上次手动切换）时以用户选择为准（webcomponents 形式经 attribute 同样可用） (2026-09-03)
 
 ### Bug Fixes
 
