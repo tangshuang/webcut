@@ -3,6 +3,9 @@ import { VisibleSprite, MP4Clip, ImgClip, AudioClip } from '@webav/av-cliper';
 import { Evt } from '../libs/evt';
 import { Component } from 'vue';
 
+/** 画布分辨率档位 */
+export type WebCutResolution = '1080P' | '768P' | '720P' | '576P' | '544P' | '540P' | '480P' | '360P';
+
 export type WebCutContext = {
     // 项目id
     id: string;
@@ -41,6 +44,9 @@ export type WebCutContext = {
 
     // 帧率
     fps: number;
+
+    // 画布分辨率档位
+    resolution: WebCutResolution;
 
     // 时间轴缩放比例, [0, 100], step:10
     scale: number;
@@ -471,6 +477,7 @@ export type WebCutSourceData = Omit<WebCutSource, 'clip' | 'sprite'> & {
 export type WebCutProjectState = {
     historyAt: string;
     aspectRatio: string;
+    resolution?: string;
 };
 
 export type WebCutProjectHistoryState = {

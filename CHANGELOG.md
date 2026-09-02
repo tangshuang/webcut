@@ -6,20 +6,21 @@ All notable changes to this project will be documented in this file. See [standa
 
 ### Features
 
-* 重构历史记录（undo/redo）系统：历史操作（push/undo/redo/恢复）全部经每项目串行队列执行，彻底消除并发交错；undo/redo 直接使用目标历史条目的完整快照恢复，不再从运行态反推
-* 新增 source 驻留池（`src/hooks/source-park.ts`）：撤销/重做/删除恢复时优先复用已构建的素材（不销毁 clip/sprite），避免反复创建/销毁解码器导致的内存压力与素材恢复失败
-* 新增手势事务 API：`useWebCutHistory` 返回 `touch/beginTransaction/commitTransaction/cancelTransaction`，连续调整（滑杆/拖拽/文本输入）静默后合并为一条历史；画布拖拽可通过新导出的 `requestHistoryTouch` 显式打点，不再依赖属性面板的隐式副作用
-* 历史存储分表（DB v8）：历史列表行只保留轻量数据，全量快照独立存于 `project_history_snapshot`，旧数据读取时自动迁移，显著降低每次历史操作的 IO 与存储体积
-* 历史记录恢复引擎分级应用：位置/时长/变速/滤镜/动画/音量等属性变化一律原地更新 sprite 与 meta，仅素材身份变化（类型/文件/入点/文本内容）才重建
+* 重构历史记录（undo/redo）系统：历史操作（push/undo/redo/恢复）全部经每项目串行队列执行，彻底消除并发交错；undo/redo 直接使用目标历史条目的完整快照恢复，不再从运行态反推 (2026-08-17)
+* 新增 source 驻留池（`src/hooks/source-park.ts`）：撤销/重做/删除恢复时优先复用已构建的素材（不销毁 clip/sprite），避免反复创建/销毁解码器导致的内存压力与素材恢复失败 (2026-08-17)
+* 新增手势事务 API：`useWebCutHistory` 返回 `touch/beginTransaction/commitTransaction/cancelTransaction`，连续调整（滑杆/拖拽/文本输入）静默后合并为一条历史；画布拖拽可通过新导出的 `requestHistoryTouch` 显式打点，不再依赖属性面板的隐式副作用 (2026-08-17)
+* 历史存储分表（DB v8）：历史列表行只保留轻量数据，全量快照独立存于 `project_history_snapshot`，旧数据读取时自动迁移，显著降低每次历史操作的 IO 与存储体积 (2026-08-17)
+* 历史记录恢复引擎分级应用：位置/时长/变速/滤镜/动画/音量等属性变化一律原地更新 sprite 与 meta，仅素材身份变化（类型/文件/入点/文本内容）才重建 (2026-08-17)
+* 编辑器画布右下角（比例切换左侧）新增分辨率切换：1080P/768P/720P/576P/544P/540P/480P/360P 共 8 档，切换实时调整画布尺寸且不影响素材原始尺寸；与比例切换联动（切比例保持档位、切档位保持比例），档位随项目状态持久化、刷新后恢复；导出面板默认分辨率跟随画布档位，选项同步扩展至全部档位（新增 `WebCutSelectResolution` 组件与 `updateByResolution` API） (2026-09-02)
 
 ### Bug Fixes
 
-* 修复 undo 点击无效果的问题：串行化历史操作消除与未 await 的 `pushHistory` 之间的竞态；恢复完成后统一补齐动画重算、tickInterceptor 刷新、总时长更新与画面重绘；撤销/重做按钮在恢复期间禁用防止堆积
-* 修复撤销后状态与画面不刷新的问题：恢复时同步 source 与新 rails 的关联（跨轨道移动场景），并按新 rails 过滤保留选中状态而非全部清空
-* 修复变速素材撤销/重做后时长被二次换算错误的问题（恢复时按文件时长传参）
-* 修复恢复历史时 autoFit 重算覆盖快照中精确 rect 的问题（恢复场景禁用 autoFit）
-* 修复 `deleteSegment` 销毁素材后未从 sprites/clips 数组移除引用的问题（现统一走驻留池摘除）
-* 修复素材切分后偶尔崩坏（预览变灰块、播放无内容）问题：将 `clip.split` 改为只调用一次并复用左右两半、及时销毁未使用片段，导出前先从 canvas 摘除原 sprite 避免并发解码共享 localFile；移除 `onAfterGen` 对新 clip tickInterceptor 的错误覆盖；文本切分透传 css/highlights 防止样式丢失；切分按钮在 loading 期间禁用防止重复触发
+* 修复 undo 点击无效果的问题：串行化历史操作消除与未 await 的 `pushHistory` 之间的竞态；恢复完成后统一补齐动画重算、tickInterceptor 刷新、总时长更新与画面重绘；撤销/重做按钮在恢复期间禁用防止堆积 (2026-08-17)
+* 修复撤销后状态与画面不刷新的问题：恢复时同步 source 与新 rails 的关联（跨轨道移动场景），并按新 rails 过滤保留选中状态而非全部清空 (2026-08-17)
+* 修复变速素材撤销/重做后时长被二次换算错误的问题（恢复时按文件时长传参） (2026-08-17)
+* 修复恢复历史时 autoFit 重算覆盖快照中精确 rect 的问题（恢复场景禁用 autoFit） (2026-08-17)
+* 修复 `deleteSegment` 销毁素材后未从 sprites/clips 数组移除引用的问题（现统一走驻留池摘除） (2026-08-17)
+* 修复素材切分后偶尔崩坏（预览变灰块、播放无内容）问题：将 `clip.split` 改为只调用一次并复用左右两半、及时销毁未使用片段，导出前先从 canvas 摘除原 sprite 避免并发解码共享 localFile；移除 `onAfterGen` 对新 clip tickInterceptor 的错误覆盖；文本切分透传 css/highlights 防止样式丢失；切分按钮在 loading 期间禁用防止重复触发 (2026-07-04)
 
 ### [0.2.1](https://github.com/tangshuang/webcut/compare/v0.2.0...v0.2.1) (2025-12-05)
 

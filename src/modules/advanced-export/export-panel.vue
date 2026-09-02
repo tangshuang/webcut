@@ -11,11 +11,12 @@ import {
 import { WebCutExportVideoParams, WebCutExportAudioParams } from './types';
 import { useWebCutContext, useWebCutPlayer } from '../../hooks';
 import { useT } from '../../i18n/hooks';
-import { aspectRatioMap, aspectRatio720PMap, aspectRatio480PMap, aspectRatio360PMap } from '../../constants';
+import { aspectRatioMap, aspectRatioResolutionMaps, RESOLUTIONS } from '../../constants';
+import type { WebCutResolution } from '../../types';
 import { calcAspectRatio, resampleAudioWithOfflineContext, saveAsFile } from '../../libs';
 
 const t = useT();
-const { fps, canvas, width, height } = useWebCutContext();
+const { fps, canvas, width, height, resolution } = useWebCutContext();
 const { exportAsWavBlob } = useWebCutPlayer();
 
 const emit = defineEmits<{
@@ -29,7 +30,7 @@ const exportStatus = ref<'default' | 'success' | 'error'>('default');
 const exportType = ref<'video' | 'audio'>('video');
 const videoData = ref<WebCutExportVideoParams>({
     format: 'mp4',
-    resolution: '1080P',
+    resolution: (resolution.value as WebCutResolution) || '1080P',
     fps: fps.value,
     videoBitrate: 5000000,
     audioBitrate: 128000,
@@ -196,13 +197,7 @@ function getSupportedMimeType(highPriority: string): string {
 
 function calcVideoSize() {
     const aspectRatio = calcAspectRatio(width.value, height.value, aspectRatioMap);
-    const aspectRatioMaps = {
-        '1080P': aspectRatioMap,
-        '720P': aspectRatio720PMap,
-        '480P': aspectRatio480PMap,
-        '360P': aspectRatio360PMap,
-    };
-    const map = aspectRatioMaps[videoData.value.resolution];
+    const map = aspectRatioResolutionMaps[videoData.value.resolution];
     const size = map[aspectRatio];
     return size;
 }
@@ -234,7 +229,7 @@ function calcVideoSize() {
 
                 <n-form-item :label="t('分辨率')" v-if="videoData.format === 'mp4'">
                     <n-select v-model:value="videoData.resolution"
-                        :options="['1080P', '720P', '480P', '360P'].map(value => ({ label: value, value }))"
+                        :options="RESOLUTIONS.map(value => ({ label: value, value }))"
                         size="tiny" />
                 </n-form-item>
 

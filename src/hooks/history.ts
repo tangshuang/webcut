@@ -4,6 +4,7 @@ import { HistoryMachine } from '../libs/history-machine';
 import {
     WebCutProjectHistoryData,
     WebCutProjectHistoryState,
+    WebCutResolution,
     WebCutSegment,
     WebCutSource,
     WebCutSourceData,
@@ -126,9 +127,9 @@ export function useWebCutHistory() {
             dataToRecover.value = savedData;
             canRecover.value = true;
             // 恢复一些视频基础配置
-            const { aspectRatio } = savedData;
+            const { aspectRatio, resolution } = savedData;
             if (aspectRatio) {
-                updateByAspectRatio(aspectRatio);
+                updateByAspectRatio(aspectRatio, resolution as WebCutResolution | undefined);
             }
             // 页面刷新后自动恢复到最近一次历史镜像
             await recover();
@@ -658,9 +659,9 @@ export function useWebCutHistory() {
                     return;
                 }
 
-                const { aspectRatio, state } = projectState;
+                const { aspectRatio, resolution, state } = projectState;
                 if (aspectRatio) {
-                    updateByAspectRatio(aspectRatio);
+                    updateByAspectRatio(aspectRatio, resolution as WebCutResolution | undefined);
                 }
                 await recoverHistory(state);
 

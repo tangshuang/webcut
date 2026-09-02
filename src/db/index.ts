@@ -440,6 +440,10 @@ export async function updateProjectState(projectId: string, state: Partial<WebCu
         data.aspectRatio = state.aspectRatio;
         neeedToUpdate = true;
     }
+    if ('resolution' in state) {
+        data.resolution = state.resolution;
+        neeedToUpdate = true;
+    }
 
     if (neeedToUpdate) {
         const prevState = await getProjectState(projectId) || {};
@@ -707,6 +711,7 @@ export async function getProjectState(projectId: string): Promise<WebCutProjectS
         return {
             historyAt: '',
             aspectRatio: '4:3',
+            resolution: '1080P',
         };
     }
     const projectState = await projectStateStorage.getItem(projectId);

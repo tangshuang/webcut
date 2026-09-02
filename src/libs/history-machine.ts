@@ -14,6 +14,7 @@ import { aspectRatioMap } from '../constants';
 /** 历史记录对应的完整项目状态 */
 export type WebCutHistorySavedState = {
     aspectRatio: keyof typeof aspectRatioMap,
+    resolution?: string,
     state: WebCutProjectHistoryState,
 };
 
@@ -87,13 +88,14 @@ export class HistoryMachine {
         try {
             const savedState = await getProjectState(this.projectId);
             if (savedState) {
-                const { aspectRatio, historyAt } = savedState;
+                const { aspectRatio, resolution, historyAt } = savedState;
                 currentHistory = await this.updateCurrent(historyAt);
                 if (currentHistory) {
                     const state = await this.resolveState(currentHistory);
                     if (state) {
                         this.isReadyResolve({
                             aspectRatio,
+                            resolution,
                             state,
                         });
                     }

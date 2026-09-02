@@ -1,6 +1,8 @@
 // 导出参数类型定义
+import type { WebCutResolution } from '../../../types';
+
 export interface WebCutExportVideoParams {
-  resolution: '1080P' | '720P' | '480P' | '360P';
+  resolution: WebCutResolution;
   fps: number;
   videoBitrate: number;
   audioBitrate: number;

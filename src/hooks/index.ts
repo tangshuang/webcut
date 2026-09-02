@@ -1,5 +1,5 @@
 import { inject, toRefs, markRaw, reactive, provide, watch, ref, watchEffect, computed, type ComputedRef, ModelRef, WritableComputedRef } from 'vue';
-import { WebCutAnimationData, WebCutColors, WebCutContext, WebCutSource, WebCutFilterData, WebCutExtensionPack, WebCutMaterialType, WebCutHighlightOfText, WebCutSourceMeta, WebCutRail } from '../types';
+import { WebCutAnimationData, WebCutColors, WebCutContext, WebCutSource, WebCutFilterData, WebCutExtensionPack, WebCutMaterialType, WebCutHighlightOfText, WebCutSourceMeta, WebCutRail, WebCutResolution } from '../types';
 import { AVCanvas } from '@webav/av-canvas';
 import {
   AudioClip,
@@ -10,13 +10,13 @@ import {
 import { base64ToFile, blobToFile, downloadBlob } from '../libs/file';
 import { assignNotEmpty } from '../libs/object';
 import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-fns';
-import { exportAsWavBlobOffscreen, measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap } from '../libs';
+import { exportAsWavBlobOffscreen, measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap, calcAspectRatio } from '../libs';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { safeCloseFrame, trackVideoFrameCreated } from '../libs';
 import { execFFmpeg, extractAudioFromVideo } from '../libs/ffmpeg';
 import { ensureWebCutOpfsPathMigration, readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
-import { aspectRatioMap } from '../constants';
+import { aspectRatioMap, aspectRatioResolutionMaps } from '../constants';
 import { filterManager } from '../modules/filters';
 import { WebCutAnimationManager, animationManager } from '../modules/animations';
 import { Evt } from '../libs/evt';
@@ -46,6 +46,7 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         disableRecoverHistory: false,
         autoFitSize: undefined,
         fps: 30,
+        resolution: '1080P',
         scale: 70,
         enableMainVideoMagnet: true,
         scroll1: null,
@@ -98,7 +99,7 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         context = null;
     }, 0);
 
-    const { id, sprites, status, cursorTime, fps, selected, current, rails, sources, width, height, modules, evt, duration } = refs;
+    const { id, sprites, status, cursorTime, fps, selected, current, rails, sources, width, height, modules, evt, duration, resolution } = refs;
 
     // 总时长，纳秒，1000*1000=1秒
     const updateDuration = debounce(async () => {
@@ -228,12 +229,24 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         return source;
     });
 
-    async function updateByAspectRatio(aspectRatio: keyof typeof aspectRatioMap) {
-        const size = aspectRatioMap[aspectRatio];
+    async function updateByAspectRatio(aspectRatio: keyof typeof aspectRatioMap, resolutionValue?: WebCutResolution) {
+        // 未指定档位时沿用当前档位，保证切换比例时分辨率不变
+        const res = resolutionValue || (resolution.value as WebCutResolution);
+        const map = aspectRatioResolutionMaps[res] || aspectRatioMap;
+        const size = map[aspectRatio];
         // 更新宽度和高度
         width.value = size.width;
         height.value = size.height;
-        await updateProjectState(id.value, { aspectRatio });
+        resolution.value = res;
+        await updateProjectState(id.value, { aspectRatio, resolution: res });
+    }
+
+    /**
+     * 切换画布分辨率档位，保持当前长宽比不变，仅更换宽高基准
+     */
+    async function updateByResolution(resolutionValue: WebCutResolution) {
+        const aspectRatio = calcAspectRatio(width.value, height.value, aspectRatioMap);
+        await updateByAspectRatio(aspectRatio, resolutionValue);
     }
 
     async function registerExtensionPack(mod: new () => WebCutExtensionPack) {
@@ -283,6 +296,7 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         currentTransition,
         currentSource,
         updateByAspectRatio,
+        updateByResolution,
         registerExtensionPack,
         findRailExtensionPack,
     };
