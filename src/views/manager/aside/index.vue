@@ -68,7 +68,14 @@ function handleToggleLocked(rail: any) {
     }
 }
 
+// 主轨不可删除，仅空的非主轨可删
+const canDeleteRail = computed(() => props.rail.segments.length === 0 && !props.rail.main);
+
 function handleDeleteRail(railId: string) {
+    const rail = rails.value.find(r => r.id === railId);
+    if (!rail || rail.main) {
+        return;
+    }
     const railIndex = rails.value.findIndex(r => r.id === railId);
     if (railIndex > -1) {
         rails.value.splice(railIndex, 1);
@@ -95,8 +102,8 @@ function handleDeleteRail(railId: string) {
             <n-icon :component="VolumeUp" @click="toggleRailHidden(rail)" v-if="enabledFeatures.mute && !rail.hidden && ['audio'].includes(rail.type)"></n-icon>
             <n-icon :component="VolumeMute" @click="toggleRailHidden(rail)" v-if="enabledFeatures.mute && rail.hidden && ['audio'].includes(rail.type)"></n-icon>
         </span>
-        <span class="webcut-manager-webcut-manager-rail-left-side-action-icon" :class="{ 'webcut-manager-webcut-manager-rail-left-side-action-icon--disabled': rail.segments.length > 0 }">
-            <n-icon :component="Delete" @click="rail.segments.length === 0 &&handleDeleteRail(rail.id)"></n-icon>
+        <span class="webcut-manager-webcut-manager-rail-left-side-action-icon" :class="{ 'webcut-manager-webcut-manager-rail-left-side-action-icon--disabled': !canDeleteRail }">
+            <n-icon :component="Delete" @click="canDeleteRail && handleDeleteRail(rail.id)"></n-icon>
         </span>
     </div>
 </template>

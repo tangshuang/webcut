@@ -114,7 +114,7 @@ export const pushSeries: WebCutAgentTool<{ materials: Array<{ type: string; sour
 /** 按 sourceKey 删除片段（同步删除 segment 与空轨，触发磁吸）——修复版，使用 manager.deleteSegment */
 export const deleteSegment: WebCutAgentTool<{ sourceKey: string; keepRailWhenEmpty?: boolean }> = {
     name: 'webcut_delete_segment',
-    description: '按 sourceKey 删除片段：同步从轨道 segments 中移除、销毁 source、轨道空时连轨一起删（除非 keepRailWhenEmpty=true）、触发主轨磁吸。' + REFRESH_HINT,
+    description: '按 sourceKey 删除片段：同步从轨道 segments 中移除、销毁 source、轨道空时连轨一起删（主轨不删仅清空；除非 keepRailWhenEmpty=true）、触发主轨磁吸。' + REFRESH_HINT,
     parameters: {
         type: 'object',
         properties: {

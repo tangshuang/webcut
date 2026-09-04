@@ -209,7 +209,8 @@ export function useWebCutManager() {
         const segmentIndex = rail.segments.findIndex(s => s.id === segment.id);
         rail.segments.splice(segmentIndex, 1);
 
-        if (rail.segments.length === 0 && !keepRailWhenEmpty) {
+        // 主轨不可删除：素材删空后仅清空轨道，保留主轨本身
+        if (rail.segments.length === 0 && !keepRailWhenEmpty && !rail.main) {
             const railIndex = rails.value.findIndex(r => r.id === rail.id);
             rails.value.splice(railIndex, 1);
         }
