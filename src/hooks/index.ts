@@ -10,11 +10,12 @@ import {
 import { base64ToFile, blobToFile, downloadBlob } from '../libs/file';
 import { assignNotEmpty } from '../libs/object';
 import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-fns';
-import { exportAsWavBlobOffscreen, measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap, calcAspectRatio } from '../libs';
+import { exportBlobOffscreen, measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap, calcAspectRatio } from '../libs';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { safeCloseFrame, trackVideoFrameCreated } from '../libs';
 import { execFFmpeg, extractAudioFromVideo, extractAudioFromVideoByCopy } from '../libs/ffmpeg';
 import { extractAudioByRemux } from '../libs/split-av';
+import { composeSpeedChangedVideo } from '../libs/remux';
 import { ensureWebCutOpfsPathMigration, readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
 import { aspectRatioMap, aspectRatioResolutionMaps } from '../constants';
@@ -1282,22 +1283,27 @@ export function useWebCutPlayer() {
             const oldClip = source.clip as AudioClip;
             await oldClip.ready;
 
-            const wavBlob = await exportAsWavBlobOffscreen([oldClip]);
-            const inputFile = blobToFile(wavBlob, 'audio.wav');
+            // 链路优化：Combinator 直接导出 m4a（跳过 decodeAudioData→WAV 的全量 PCM 往返），
+            // ffmpeg atempo time-stretch 后输出 m4a（体积远小于 PCM WAV，落盘与后续解码更快）；
+            // atempo 滤镜链复用视频版的分段写法（rate 超出 0.5~2 单段范围时 ffmpeg 会报错）
+            const m4aBlob = await exportBlobOffscreen([oldClip]);
+            const inputFile = blobToFile(m4aBlob, 'audio.m4a');
+            const filterChain = buildAtempoFilterChain(rate);
             const { buffer } = await execFFmpeg({
                 input: inputFile,
-                inputFormat: 'wav',
-                outputFormat: 'wav',
+                inputFormat: 'm4a',
+                outputFormat: 'm4a',
                 command: ({ input, output }) => [
                     '-i', input,
-                    '-filter:a', `atempo=${rate}`,
-                    '-acodec', 'pcm_s16le',
+                    '-filter:a', filterChain,
+                    '-c:a', 'aac',
+                    '-b:a', '192k',
                     output,
                 ],
             });
 
-            const outBlob = new Blob([buffer], { type: 'audio/wav' });
-            const outFile = blobToFile(outBlob, `audio-pitch-fixed-${Date.now()}.wav`);
+            const outBlob = new Blob([buffer], { type: 'audio/mp4' });
+            const outFile = blobToFile(outBlob, `audio-pitch-fixed-${Date.now()}.m4a`);
             const newFileId = await writeFile(outFile);
             const newClip = new AudioClip(outFile.stream(), source.meta.audio || {});
             await newClip.ready;
@@ -1305,7 +1311,8 @@ export function useWebCutPlayer() {
             const newSprite = new VisibleSprite(newClip);
             newSprite.time.offset = oldSprite.time.offset;
             newSprite.time.playbackRate = 1;
-            newSprite.time.duration = Math.round((await measureAudioDuration(outFile)) * 1e6);
+            // ready 后 meta.duration（微秒）即 atempo 后实际时长，省一次 measureAudioDuration 全量解码
+            newSprite.time.duration = Math.round(newClip.meta.duration);
             newSprite.zIndex = oldSprite.zIndex;
             newSprite.opacity = oldSprite.opacity;
             newSprite.flip = oldSprite.flip;
@@ -1369,7 +1376,13 @@ export function useWebCutPlayer() {
     }
 
     /**
-     * 修复视频变速后的音调：对视频音轨做 time-stretch（保音高）并替换当前视频片段
+     * 修复视频变速后的音调（合成替换，保持单一视频素材）：
+     * 1. 提取音轨并做 atempo time-stretch（保音高，内容时长=源/rate）
+     * 2. 与原画面合成单一 mp4：画面轨时间戳按 rate 压缩（ts/rate，零重编码），
+     *    产物以 1x 播放即为「变速不变调」效果
+     * 3. 替换原素材（sprite playbackRate 重置 1，时间轴占用不变，无需新建轨道）
+     *
+     * 旧实现（音轨 atempo + 视频流 copy + playbackRate 重置 1）：画面原速、音频变速，音画必然不同步，已废弃。
      */
     async function repairVideoPitchByPlaybackRate(sourceKey: string) {
         const source = sources.value.get(sourceKey);
@@ -1395,33 +1408,61 @@ export function useWebCutPlayer() {
                 return;
             }
 
+            // 1) 提取音轨（mediabunny 流式 remux 优先，ffmpeg copy 兜底）
+            let audioTrackBlob: Blob;
+            try {
+                audioTrackBlob = await extractAudioByRemux(inputFile);
+            }
+            catch (err) {
+                // 无音轨的变速视频无需修复音调，直接跳过（画面保持 @webav 原生变速即可）
+                if (String(err?.message || err).includes('NO_AUDIO_TRACK')) {
+                    console.warn('[WebCut] repairVideoPitch: 源视频无音轨，无需修复音调');
+                    return;
+                }
+                const { buffer: audioTrackBuffer } = await extractAudioFromVideoByCopy(inputFile);
+                audioTrackBlob = new Blob([audioTrackBuffer], { type: 'audio/mp4' });
+            }
+
+            // 2) atempo time-stretch：变速不变调，内容时长=源/rate（分段滤镜链兼容 rate 超出 0.5~2）
             const filterChain = buildAtempoFilterChain(rate);
-            const { buffer } = await execFFmpeg({
-                input: inputFile,
-                inputFormat: 'mp4',
-                outputFormat: 'mp4',
+            const audioInputFile = blobToFile(audioTrackBlob, 'audio-track.m4a');
+            const { buffer: pitchedBuffer } = await execFFmpeg({
+                input: audioInputFile,
+                inputFormat: 'm4a',
+                outputFormat: 'm4a',
                 command: ({ input, output }) => [
                     '-i', input,
                     '-filter:a', filterChain,
-                    '-c:v', 'copy',
-                    '-movflags', 'faststart',
+                    '-c:a', 'aac',
+                    '-b:a', '192k',
                     output,
                 ],
             });
+            const pitchedAudioBlob = new Blob([pitchedBuffer], { type: 'audio/mp4' });
 
-            const outFile = blobToFile(new Blob([buffer], { type: 'video/mp4' }), `video-pitch-fixed-${Date.now()}.mp4`);
+            // 3) 合成单一 mp4：画面轨时间戳按 rate 压缩（零重编码）+ 变速不变调音轨
+            const composedBlob = await composeSpeedChangedVideo({
+                sourceBlob: inputFile,
+                audioBlob: pitchedAudioBlob,
+                rate,
+            });
+            const outFile = blobToFile(composedBlob, `video-pitch-fixed-${Date.now()}.mp4`);
             const newFileId = await writeFile(outFile);
-            const videoVolume = source.meta.video?.volume;
-            const newClipOptions = typeof videoVolume === 'number'
-                ? (videoVolume > 0 ? { audio: { volume: videoVolume } } : { audio: false })
-                : {};
-            const newClip = new MP4Clip(outFile.stream(), newClipOptions);
-            await newClip.ready;
 
             const oldClip = source.clip as MP4Clip;
             const oldSprite = source.sprite;
             const oldDuration = oldSprite.time.duration;
             const oldOffset = oldSprite.time.offset;
+            const oldTimeMeta = source.meta.time || {};
+            const oldVideoMeta = source.meta.video || {};
+            const videoVolume = oldVideoMeta.volume;
+            const newClipOptions = typeof videoVolume === 'number'
+                ? (videoVolume > 0 ? { audio: { volume: videoVolume } } : { audio: false })
+                : {};
+
+            // 4) 重建 clip（画面+修复音轨，1x 播放即变速不变调）；时间轴占用不变（内容时长=oldDuration）
+            const newClip = new MP4Clip(outFile.stream(), newClipOptions);
+            await newClip.ready;
 
             const newSprite = new VisibleSprite(newClip);
             newSprite.time.offset = oldOffset;
@@ -1446,10 +1487,13 @@ export function useWebCutPlayer() {
             source.sprite = newSprite;
             source.fileId = newFileId;
             source.url = undefined;
-            source.meta.time = source.meta.time || {};
-            source.meta.time.playbackRate = 1;
-            source.meta.time.duration = oldDuration;
-            source.meta.time.originalDuration = oldDuration;
+            source.meta.video = { ...oldVideoMeta };
+            source.meta.time = {
+                ...oldTimeMeta,
+                playbackRate: 1,
+                duration: oldDuration,
+                originalDuration: oldDuration,
+            };
             sources.value.set(sourceKey, {
                 ...source,
             });
@@ -1508,7 +1552,12 @@ export function useWebCutPlayer() {
             try {
                 audioBlob = await extractAudioByRemux(inputFile);
             }
-            catch {
+            catch (err) {
+                // 无音轨的源做声音分离无意义，跳过（避免走完整条失败链后无提示地抛错）
+                if (String(err?.message || err).includes('NO_AUDIO_TRACK')) {
+                    console.warn('[WebCut] separateAudioFromVideo: 源视频无音轨，跳过分离');
+                    return;
+                }
                 try {
                     const audioBuffer = await extractAudioFromVideoByCopy(inputFile);
                     audioBlob = new Blob([audioBuffer], { type: 'audio/mp4' });

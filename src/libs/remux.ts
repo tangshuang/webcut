@@ -43,6 +43,54 @@ function createUIYielder(): () => Promise<void> {
     };
 }
 
+/**
+ * 音轨归一化 copy（供 remuxToMp4 与声音分离的音轨提取共用）：
+ * - 负 timestamp 归一：metadataOnly 预扫描最小 ts，copy 时整体偏移（等价 elst 语义）
+ * - 单调化：非严格递增的源（mkv 毫秒取整抖动等）按「前包 ts + 0.1ms」修正；
+ *   累计修正超过 0.5s 视为异常损坏源，抛 AUDIO_TIMESTAMPS_CORRUPT 由调用方回退 ffmpeg
+ * - 批量让出主线程
+ */
+export async function copyAudioTrackNormalized(args: {
+    mb: any;
+    audioTrack: any;
+    audioSource: any;
+    isCancelled?: () => boolean;
+}): Promise<void> {
+    const { mb, audioTrack, audioSource, isCancelled } = args;
+    const { EncodedPacket, EncodedPacketSink } = mb;
+
+    const audioSink = new EncodedPacketSink(audioTrack);
+    const offset = -await scanMinTimestamp(audioSink);
+    const decoderConfig = (await audioTrack.getDecoderConfig()) ?? undefined;
+
+    let packet = await audioSink.getFirstPacket();
+    let first = true;
+    let prevTs = -Infinity;
+    let totalDrift = 0;
+    let counter = 0;
+    while (packet) {
+        if (isCancelled?.()) throw new Error('CANCELLED');
+        let ts = packet.timestamp + offset;
+        if (ts < prevTs) {
+            totalDrift += prevTs + 1e-4 - ts;
+            if (totalDrift > 0.5) throw new Error('AUDIO_TIMESTAMPS_CORRUPT');
+            ts = prevTs + 1e-4;
+        }
+        prevTs = ts;
+        const shifted = offset > 0 || ts !== packet.timestamp
+            ? new EncodedPacket(packet.data, packet.type, ts, packet.duration, packet.sequenceNumber, packet.byteLength, packet.sideData)
+            : packet;
+        await audioSource.add(shifted, first ? { decoderConfig } : undefined);
+        first = false;
+        packet = await audioSink.getNextPacket(packet);
+        counter += 1;
+        if (counter % 30 === 0) {
+            await new Promise<void>((r) => setTimeout(r, 0));
+        }
+    }
+    try { audioSource.close?.(); } catch { /* noop */ }
+}
+
 /** 按偏移构造新包（timestamp 非负化）；offset 为 0 时原样返回 */
 function shiftPacket(EncodedPacketCtor: any, packet: any, offset: number): any {
     if (offset <= 0 || packet.timestamp >= 0) return packet;
@@ -55,6 +103,111 @@ function shiftPacket(EncodedPacketCtor: any, packet: any, offset: number): any {
         packet.byteLength,
         packet.sideData,
     );
+}
+
+/**
+ * 画面变速合成（纯前端 mediabunny，零重编码）：源视频画面轨时间戳按 rate 压缩
+ * （ts/rate，>1 加速 <1 减速，等价 ffmpeg setpts=PTS/rate 但无滤镜重编码），
+ * 与「变速不变调」音轨（调用方 atempo 产物，时间轴已=源/rate）合成单一 mp4。
+ * 产物以 1x 播放即为变速不变调效果，可直接替换原素材。
+ *
+ * 错误以 message code 抛出：NO_VIDEO_TRACK / NO_AUDIO_TRACK / COMPOSE_FAILED。
+ */
+export async function composeSpeedChangedVideo(opts: {
+    /** 原视频（画面轨原速） */
+    sourceBlob: Blob;
+    /** 变速不变调音轨（m4a，内容时长=源/rate） */
+    audioBlob: Blob;
+    /** 目标播放速率（>1 加速，<1 减速） */
+    rate: number;
+    onProgress?: (progress: number) => void;
+    isCancelled?: () => boolean;
+}): Promise<Blob> {
+    const { sourceBlob, audioBlob, rate, onProgress, isCancelled } = opts;
+    if (!Number.isFinite(rate) || rate <= 0) throw new Error('INVALID_RATE');
+
+    // @ts-ignore 运行时动态 import（保持按需加载）
+    const mb: any = await import('mediabunny');
+    const {
+        Input, BlobSource, Output, Mp4OutputFormat, BufferTarget, EncodedPacket,
+        EncodedPacketSink, EncodedVideoPacketSource, EncodedAudioPacketSource, ALL_FORMATS,
+    } = mb;
+
+    const videoInput = new Input({ source: new BlobSource(sourceBlob), formats: ALL_FORMATS });
+    const audioInput = new Input({ source: new BlobSource(audioBlob), formats: ALL_FORMATS });
+    const yieldToUIThrottled = createUIYielder();
+    try {
+        const videoTrack = await videoInput.getPrimaryVideoTrack();
+        if (!videoTrack) throw new Error('NO_VIDEO_TRACK');
+        const audioTrack = await audioInput.getPrimaryAudioTrack();
+        if (!audioTrack) throw new Error('NO_AUDIO_TRACK');
+
+        // 画面轨 ts 归一偏移（负 ts 源；除以 rate 后仍保序保非负）
+        const videoSink = new EncodedPacketSink(videoTrack);
+        const offset = -await scanMinTimestamp(videoSink);
+
+        const target = new BufferTarget();
+        const out = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target });
+        const videoSource = new EncodedVideoPacketSource(videoTrack.codec as string || 'avc');
+        out.addVideoTrack(videoSource, {
+            rotation: videoTrack.rotation ?? undefined,
+            decoderConfig: (await videoTrack.getDecoderConfig()) ?? undefined,
+        });
+        const audioSource = new EncodedAudioPacketSource(audioTrack.codec);
+        out.addAudioTrack(audioSource, {
+            decoderConfig: (await audioTrack.getDecoderConfig()) ?? undefined,
+        });
+        await out.start();
+
+        const durationGuess = (await videoInput.getDurationFromMetadata()) || 0;
+        const decoderConfig = (await videoTrack.getDecoderConfig()) ?? undefined;
+
+        // 画面轨：逐包 copy，时间戳压缩（归一后 / rate）
+        let packet = await videoSink.getFirstPacket();
+        let first = true;
+        while (packet) {
+            if (isCancelled?.()) {
+                try { await out.cancel(); } catch { /* noop */ }
+                throw new Error('CANCELLED');
+            }
+            const ts = (packet.timestamp + offset) / rate;
+            const shifted = new EncodedPacket(
+                packet.data,
+                packet.type,
+                ts,
+                packet.duration,
+                packet.sequenceNumber,
+                packet.byteLength,
+                packet.sideData,
+            );
+            await videoSource.add(shifted, first ? { decoderConfig } : undefined);
+            first = false;
+            if (durationGuess > 0 && packet.timestamp >= 0) onProgress?.(Math.min(1, packet.timestamp / durationGuess));
+            packet = await videoSink.getNextPacket(packet);
+            await yieldToUIThrottled();
+        }
+        try { videoSource.close?.(); } catch { /* noop */ }
+
+        // 音轨：归一化 copy（atempo 产物时间轴已与压缩后画面对齐）
+        try {
+            await copyAudioTrackNormalized({ mb, audioTrack, audioSource, isCancelled });
+        }
+        catch (err) {
+            if (String(err?.message || err) === 'CANCELLED') {
+                try { await out.cancel(); } catch { /* noop */ }
+            }
+            throw err;
+        }
+
+        await out.finalize();
+        const buffer = target.buffer;
+        if (!buffer) throw new Error('COMPOSE_FAILED');
+        return new Blob([buffer], { type: 'video/mp4' });
+    }
+    finally {
+        try { videoInput.dispose?.(); } catch { /* noop */ }
+        try { audioInput.dispose?.(); } catch { /* noop */ }
+    }
 }
 
 export async function remuxToMp4(blob: Blob, opts: RemuxToMp4Options = {}): Promise<Blob> {
@@ -74,16 +227,11 @@ export async function remuxToMp4(blob: Blob, opts: RemuxToMp4Options = {}): Prom
         if (!videoTrack) throw new Error('NO_VIDEO_TRACK');
         const audioTrack = await input.getPrimaryAudioTrack();
 
-        // 预扫描各轨最小 timestamp（负 ts 场景的归一偏移量）
+        // 预扫描视频轨最小 timestamp（负 ts 场景的归一偏移量；音轨在 copyAudioTrackNormalized 内自行扫描）
         let videoOffset = 0;
-        let audioOffset = 0;
         {
             const videoSink = new EncodedPacketSink(videoTrack);
             videoOffset = -await scanMinTimestamp(videoSink);
-            if (audioTrack) {
-                const audioSink = new EncodedPacketSink(audioTrack);
-                audioOffset = -await scanMinTimestamp(audioSink);
-            }
         }
 
         const target = new BufferTarget();
@@ -125,37 +273,17 @@ export async function remuxToMp4(blob: Blob, opts: RemuxToMp4Options = {}): Prom
         }
         try { videoSource.close?.(); } catch { /* noop */ }
 
-        // 音轨逐包 copy（decode order；首包 meta 带 decoderConfig）
-        // 时间戳单调化：部分源（mkv 毫秒取整抖动 / 封装瑕疵）音轨 ts 非严格递增，
-        // IsobmffMuxer 要求全序单调；回退包按「前包 ts + 0.1ms」修正（毫秒级，不可感知）
+        // 音轨归一化 copy（负 ts 归一 + 单调化 + 累计漂移上限，见 copyAudioTrackNormalized）
         if (audioSource) {
-            const audioSink = new EncodedPacketSink(audioTrack);
-            let audioPacket = await audioSink.getFirstPacket();
-            let audioFirst = true;
-            let prevAudioTs = -Infinity;
-            while (audioPacket) {
-                if (isCancelled?.()) {
-                    try { await out.cancel(); } catch { /* noop */ }
-                    throw new Error('CANCELLED');
-                }
-                let ts = audioPacket.timestamp + audioOffset;
-                if (ts < prevAudioTs) ts = prevAudioTs + 1e-4;
-                prevAudioTs = ts;
-                const shifted = new EncodedPacket(
-                    audioPacket.data,
-                    audioPacket.type,
-                    ts,
-                    audioPacket.duration,
-                    audioPacket.sequenceNumber,
-                    audioPacket.byteLength,
-                    audioPacket.sideData,
-                );
-                await audioSource.add(shifted, audioFirst ? { decoderConfig: (await audioTrack.getDecoderConfig()) ?? undefined } : undefined);
-                audioFirst = false;
-                audioPacket = await audioSink.getNextPacket(audioPacket);
-                await yieldToUIThrottled();
+            try {
+                await copyAudioTrackNormalized({ mb, audioTrack, audioSource, isCancelled });
             }
-            try { audioSource.close?.(); } catch { /* noop */ }
+            catch (err) {
+                if (String(err?.message || err) === 'CANCELLED') {
+                    try { await out.cancel(); } catch { /* noop */ }
+                }
+                throw err;
+            }
         }
         await out.finalize();
 

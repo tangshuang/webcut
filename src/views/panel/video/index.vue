@@ -99,7 +99,8 @@ async function repairPitch() {
   fixingPitch.value = true;
   try {
     await repairVideoPitchByPlaybackRate(currentSource.value.key);
-    playbackRate.value = 1;
+    // 修复后素材被合成为 1x 播放的变速不变调视频（playbackRate 重置 1），从源状态重新同步滑杆
+    syncPlaybackRateToForm();
     await pushHistory({ title: t('声调修复') });
   } finally {
     fixingPitch.value = false;
@@ -112,16 +113,18 @@ async function repairPitch() {
     <n-alert class="webcut-message" v-if="!currentSource" type="warning">{{ t('请先选择视频片段') }}</n-alert>
     <template v-else>
       <n-form-item :label="t('音量')">
-        <n-slider v-model:value="volume" :min="0" :max="4" :step="0.01"></n-slider>
-        <n-input-number v-model:value="volume" :min="0" :max="4" :step="0.01" :precision="2"></n-input-number>
-        <n-button size="small" secondary @click="resetVolume" style="margin-left: 8px;">{{ t('重置') }}</n-button>
+        <div class="webcut-form-item-row">
+          <n-slider v-model:value="volume" :min="0" :max="4" :step="0.01"></n-slider>
+          <n-input-number v-model:value="volume" :min="0" :max="4" :step="0.01" :precision="2"></n-input-number>
+          <n-button size="small" secondary @click="resetVolume">{{ t('重置') }}</n-button>
+        </div>
       </n-form-item>
       <n-form-item :label="t('速度')">
         <div class="webcut-form-item-column">
-          <div class="webcut-form-item-speed">
+          <div class="webcut-form-item-row">
             <n-slider v-model:value="playbackRate" :min="0.25" :max="4" :step="0.01"></n-slider>
             <n-input-number v-model:value="playbackRate" :min="0.25" :max="4" :step="0.01" :precision="2"></n-input-number>
-            <n-button size="small" secondary @click="resetPlaybackRate" style="margin-left: 8px;">{{ t('重置') }}</n-button>
+            <n-button size="small" secondary @click="resetPlaybackRate">{{ t('重置') }}</n-button>
           </div>
           <n-button type="primary" text :disabled="!canRepairPitch" @click="repairPitch">{{ fixingPitch ? t('处理中...') : t('声调修复') }}</n-button>
         </div>
@@ -144,7 +147,8 @@ async function repairPitch() {
   align-items: flex-start;
   gap: 4px;
 }
-.webcut-form-item-speed {
+/* 音量行/速度行同构容器：滑杆按 naive 默认宽度行为在 flex 容器内自动收缩，固定间距保证纵向对齐 */
+.webcut-form-item-row {
   display: flex;
   width: 100%;
   align-items: center;
