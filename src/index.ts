@@ -205,6 +205,14 @@ export {
     setFFmpegScripts,
 } from './libs/ffmpeg';
 
+// mediabunny 系（纯前端流式 remux，无 wasm 内存文件系统开销；失败可回退同名 ffmpeg 版 API）
+export {
+    remuxToMp4,
+    sliceMediaByRemux,
+    composeSpeedChangedVideo,
+} from './libs/remux';
+export { extractAudioByRemux } from './libs/split-av';
+
 // transitions
 export {
     transitionManager,

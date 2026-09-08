@@ -210,6 +210,123 @@ export async function composeSpeedChangedVideo(opts: {
     }
 }
 
+/**
+ * 音视频截段（纯前端 mediabunny，零重编码）：保留 [startSec, startSec+durationSec) 内容
+ * remux 为单一 mp4（画面+主音轨），时间轴平移到 0。sliceByFFmpeg（-ss -t -c copy）的
+ * mediabunny 对应版：画面从 start 前最近关键帧开始（copy 切片的关键帧对齐语义一致），
+ * 音轨按包时间戳过滤；容器/编码与 mp4 不兼容时抛错，调用方回退 sliceByFFmpeg。
+ *
+ * 错误以 message code 抛出：NO_VIDEO_TRACK / SLICE_FAILED。
+ */
+export async function sliceMediaByRemux(opts: {
+    blob: Blob;
+    startSec: number;
+    durationSec: number;
+    onProgress?: (progress: number) => void;
+    isCancelled?: () => boolean;
+}): Promise<Blob> {
+    const { blob, startSec, durationSec, onProgress, isCancelled } = opts;
+    if (!Number.isFinite(startSec) || startSec < 0) throw new Error('INVALID_START');
+    if (!Number.isFinite(durationSec) || durationSec <= 0) throw new Error('INVALID_DURATION');
+
+    // @ts-ignore 运行时动态 import（保持按需加载）
+    const mb: any = await import('mediabunny');
+    const {
+        Input, BlobSource, Output, Mp4OutputFormat, BufferTarget, EncodedPacket,
+        EncodedPacketSink, EncodedVideoPacketSource, EncodedAudioPacketSource, ALL_FORMATS,
+    } = mb;
+
+    const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+    const yieldToUIThrottled = createUIYielder();
+    try {
+        const videoTrack = await input.getPrimaryVideoTrack();
+        if (!videoTrack) throw new Error('NO_VIDEO_TRACK');
+        const audioTrack = await input.getPrimaryAudioTrack();
+        const endSec = startSec + durationSec;
+
+        const target = new BufferTarget();
+        const out = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target });
+        const videoSource = new EncodedVideoPacketSource(videoTrack.codec as string || 'avc');
+        out.addVideoTrack(videoSource, {
+            rotation: videoTrack.rotation ?? undefined,
+            decoderConfig: (await videoTrack.getDecoderConfig()) ?? undefined,
+        });
+        let audioSource: any = null;
+        if (audioTrack) {
+            audioSource = new EncodedAudioPacketSource(audioTrack.codec);
+            out.addAudioTrack(audioSource, {
+                decoderConfig: (await audioTrack.getDecoderConfig()) ?? undefined,
+            });
+        }
+        await out.start();
+
+        const decoderConfig = (await videoTrack.getDecoderConfig()) ?? undefined;
+
+        // 画面轨：从 start 前最近关键帧开始（关键帧对齐，语义同 -ss -c copy），到 endSec 为止
+        const videoSink = new EncodedPacketSink(videoTrack);
+        let packet = await videoSink.getKeyPacket(Math.max(0, startSec));
+        let first = true;
+        let baseTs = Infinity;
+        while (packet) {
+            if (isCancelled?.()) {
+                try { await out.cancel(); } catch { /* noop */ }
+                throw new Error('CANCELLED');
+            }
+            if (packet.timestamp > endSec) break;
+            if (first) baseTs = Math.min(baseTs, packet.timestamp);
+            const ts = packet.timestamp - baseTs;
+            const shifted = ts === packet.timestamp
+                ? packet
+                : new EncodedPacket(packet.data, packet.type, ts, packet.duration, packet.sequenceNumber, packet.byteLength, packet.sideData);
+            await videoSource.add(shifted, first ? { decoderConfig } : undefined);
+            first = false;
+            onProgress?.(Math.min(1, Math.max(0, (packet.timestamp - startSec) / durationSec)));
+            packet = await videoSink.getNextPacket(packet);
+            await yieldToUIThrottled();
+        }
+        try { videoSource.close?.(); } catch { /* noop */ }
+
+        // 音轨：按包时间戳过滤 [start, end)，平移到 0（近似对齐画面关键帧起点，误差为 GOP 内偏移）
+        if (audioSource && Number.isFinite(baseTs)) {
+            const audioSink = new EncodedPacketSink(audioTrack);
+            const audioDecoderConfig = (await audioTrack.getDecoderConfig()) ?? undefined;
+            let audioPacket = await audioSink.getFirstPacket();
+            let audioFirst = true;
+            while (audioPacket) {
+                if (isCancelled?.()) {
+                    try { await out.cancel(); } catch { /* noop */ }
+                    throw new Error('CANCELLED');
+                }
+                const ts = audioPacket.timestamp;
+                if (ts >= baseTs && ts < endSec) {
+                    const shiftedTs = ts - baseTs;
+                    const shifted = shiftedTs === audioPacket.timestamp
+                        ? audioPacket
+                        : new EncodedPacket(audioPacket.data, audioPacket.type, shiftedTs, audioPacket.duration, audioPacket.sequenceNumber, audioPacket.byteLength, audioPacket.sideData);
+                    await audioSource.add(shifted, audioFirst ? { decoderConfig: audioDecoderConfig } : undefined);
+                    audioFirst = false;
+                }
+                if (ts >= endSec) break;
+                audioPacket = await audioSink.getNextPacket(audioPacket);
+                await yieldToUIThrottled();
+            }
+            try { audioSource.close?.(); } catch { /* noop */ }
+        }
+        else if (audioSource) {
+            // 画面轨为空（起点异常）时兜底关闭音轨源
+            try { audioSource.close?.(); } catch { /* noop */ }
+        }
+
+        await out.finalize();
+        const buffer = target.buffer;
+        if (!buffer) throw new Error('SLICE_FAILED');
+        return new Blob([buffer], { type: 'video/mp4' });
+    }
+    finally {
+        try { input.dispose?.(); } catch { /* noop */ }
+    }
+}
+
 export async function remuxToMp4(blob: Blob, opts: RemuxToMp4Options = {}): Promise<Blob> {
     const { onProgress, isCancelled } = opts;
 

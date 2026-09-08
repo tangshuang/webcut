@@ -10,7 +10,7 @@ import {
 import { base64ToFile, blobToFile, downloadBlob } from '../libs/file';
 import { assignNotEmpty } from '../libs/object';
 import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-fns';
-import { exportBlobOffscreen, measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap, calcAspectRatio } from '../libs';
+import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap, calcAspectRatio } from '../libs';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { safeCloseFrame, trackVideoFrameCreated } from '../libs';
 import { execFFmpeg, extractAudioFromVideo, extractAudioFromVideoByCopy } from '../libs/ffmpeg';
@@ -1283,17 +1283,33 @@ export function useWebCutPlayer() {
             const oldClip = source.clip as AudioClip;
             await oldClip.ready;
 
-            // 链路优化：Combinator 直接导出 m4a（跳过 decodeAudioData→WAV 的全量 PCM 往返），
-            // ffmpeg atempo time-stretch 后输出 m4a（体积远小于 PCM WAV，落盘与后续解码更快）；
-            // atempo 滤镜链复用视频版的分段写法（rate 超出 0.5~2 单段范围时 ffmpeg 会报错）
-            const m4aBlob = await exportBlobOffscreen([oldClip]);
-            const inputFile = blobToFile(m4aBlob, 'audio.m4a');
+            // 输入链路优化：直接读源文件按 clip 内容范围裁剪（-ss/-t 输入级精确 seek），
+            // 省去 Combinator 对 clip 的整段 AAC 重编码往返（原：解码→AAC→ffmpeg 再解码）。
+            // clip 内容起点 = meta.audio.offset（微秒，push 时 split 的偏移）；
+            // 内容时长 = 时间轴占用 × 速率（变速前实际消耗的源内容长度）
+            let inputFile: File | null = null;
+            if (source.fileId) {
+                inputFile = await readFile(source.fileId);
+            } else if (source.url) {
+                const res = await fetch(source.url);
+                const blob = await res.blob();
+                inputFile = blobToFile(blob, `audio-source-${Date.now()}.mp3`);
+            }
+            if (!inputFile) {
+                return;
+            }
+
+            const contentStartSec = Number(source.meta.audio?.offset) / 1e6 || 0;
+            const contentDurSec = (oldSprite.time.duration * rate) / 1e6;
+
+            // atempo time-stretch：变速不变调（分段滤镜链兼容 rate 超出 0.5~2 单段范围）
             const filterChain = buildAtempoFilterChain(rate);
             const { buffer } = await execFFmpeg({
                 input: inputFile,
-                inputFormat: 'm4a',
                 outputFormat: 'm4a',
                 command: ({ input, output }) => [
+                    '-ss', contentStartSec.toFixed(3),
+                    '-t', contentDurSec.toFixed(3),
                     '-i', input,
                     '-filter:a', filterChain,
                     '-c:a', 'aac',
@@ -1311,8 +1327,8 @@ export function useWebCutPlayer() {
             const newSprite = new VisibleSprite(newClip);
             newSprite.time.offset = oldSprite.time.offset;
             newSprite.time.playbackRate = 1;
-            // ready 后 meta.duration（微秒）即 atempo 后实际时长，省一次 measureAudioDuration 全量解码
-            newSprite.time.duration = Math.round(newClip.meta.duration);
+            // 时间轴占用保持不变（atempo 产物内容时长=原时长/rate，与时间轴一致），segment 无需变动
+            newSprite.time.duration = oldSprite.time.duration;
             newSprite.zIndex = oldSprite.zIndex;
             newSprite.opacity = oldSprite.opacity;
             newSprite.flip = oldSprite.flip;

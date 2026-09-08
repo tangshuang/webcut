@@ -202,7 +202,12 @@ export async function execFFmpeg(args: {
     const outputExt = outputFormat || inputExt;
     const outputFileName = `${createRandomString(8)}.${outputExt}`;
     const argv = typeof command === 'function' ? command({ input: inputFileName, output: outputFileName }) : ['-i', inputFileName, ...command, outputFileName];
-    await ffmpeg.exec(argv);
+    const exitCode = await ffmpeg.exec(argv);
+    // 检查返回码：命令失败时 readFile 只会抛 "File not found"，错误信息误导排查
+    if (typeof exitCode === 'number' && exitCode !== 0) {
+        await ffmpeg.deleteFile(inputFileName).catch(() => {});
+        throw new Error(`ffmpeg exec failed with exit code ${exitCode}: ${argv.join(' ')}`);
+    }
 
     const data = await ffmpeg.readFile(outputFileName);
 
