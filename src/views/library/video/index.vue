@@ -25,6 +25,7 @@ function stopVideo(file: any) {
     materialType="video"
     accept="video/*,.mkv"
     :enableMultipleSelect="true"
+    :enablePreview="true"
     @leaveListItem="stopVideo"
     @clickListItem="toggleVideo"
     supportsDirectoryUpload

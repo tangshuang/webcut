@@ -374,7 +374,12 @@ export async function readFile(fileId: string): Promise<File | null> {
             });
         }
 
-        if (fileData) {
+        // 仅当元数据（名称/类型/时间）与文件不一致时才重新包装，避免大文件多余的一次全量拷贝
+        if (fileData
+            && (outFile.name !== fileData.name
+                || outFile.type !== fileData.type
+                || outFile.lastModified !== fileData.time)
+        ) {
             const { name, type, time } = fileData;
             return new File([outFile], name, { type, lastModified: time });
         }

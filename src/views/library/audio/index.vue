@@ -25,6 +25,7 @@ function stopAudio(file: any) {
     materialType="audio"
     accept="audio/*"
     :enableMultipleSelect="true"
+    :enablePreview="true"
     @leaveListItem="stopAudio"
     @clickListItem="toggleAudio"
     supportsDirectoryUpload

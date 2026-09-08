@@ -11,6 +11,7 @@ const { fileUrl } = useWebCutLocalFile();
     materialType="image"
     accept="image/*"
     :enableMultipleSelect="true"
+    :enablePreview="true"
     supportsDirectoryUpload
   >
     <template #listItemContent="{ file }">

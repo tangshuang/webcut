@@ -28,6 +28,8 @@ const props = defineProps<{
   supportsDirectoryUpload?: boolean;
   /** 是否开启多选模式 */
   enableMultipleSelect?: boolean;
+  /** 是否开启素材预览（放大镜按钮 + 右键菜单预览，仅视频/图片） */
+  enablePreview?: boolean;
 }>();
 
 const { push } = useWebCutPlayer();
@@ -141,6 +143,7 @@ function onResetNav() {
           :thingType="props.thingType"
           :materialType="props.materialType"
           :enableMultipleSelect="props.enableMultipleSelect"
+          :enablePreview="props.enablePreview"
           @clickItem="emit('clickListItem', $event)"
           @leaveItem="emit('leaveListItem', $event)"
           @enterItem="emit('enterListItem', $event)"
@@ -160,6 +163,7 @@ function onResetNav() {
           :thingType="props.thingType"
           :materialType="props.materialType"
           :enableMultipleSelect="props.enableMultipleSelect"
+          :enablePreview="props.enablePreview"
           deleteFromAll
           enableAddToProject
           @clickItem="emit('clickListItem', $event)"

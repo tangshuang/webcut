@@ -5,14 +5,16 @@ import {
     NIcon,
     NDropdown,
     NTag,
+    NPopover,
 } from 'naive-ui';
-import { Add } from '@vicons/carbon';
+import { Add, Magnify } from '@vicons/carbon';
 import { useWebCutLibrary } from '../../../hooks/library';
 import { useWebCutPlayer } from '../../../hooks';
 import { useWebCutHistory } from '../../../hooks/history';
 import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../i18n/hooks';
 import { WebCutMaterial, WebCutThingType, WebCutMaterialType } from '../../../types';
+import PreviewModal from './preview-modal.vue';
 
 const fileList = defineModel<WebCutMaterial[]>('files', { default: [] });
 const emit = defineEmits(['added', 'deleted', 'leaveItem', 'enterItem', 'clickItem']);
@@ -26,6 +28,8 @@ const props = defineProps<{
     enableAddToProject?: boolean;
     /** 是否开启多选模式 */
     enableMultipleSelect?: boolean;
+    /** 是否开启素材预览（放大镜按钮 + 右键菜单预览，仅视频/图片） */
+    enablePreview?: boolean;
 }>();
 
 const t = useT();
@@ -45,16 +49,43 @@ const currentFile = ref<any>(null);
 const selectedFiles = ref<Map<string, number>>(new Map()); // 存储选中文件ID和选择顺序
 const isMultiSelectMode = ref(false); // 是否处于多选模式
 
+// 预览相关状态
+const showPreview = ref(false);
+const previewFile = ref<WebCutMaterial | null>(null);
+
+function openPreview(file: any) {
+    previewFile.value = file;
+    showPreview.value = true;
+    // 暂停列表内正在播放的同一素材（列表 audio/video 元素以 file.id 为 id），避免与弹窗 autoplay 双播放
+    const media = document.getElementById(file.id) as HTMLVideoElement | HTMLAudioElement | null;
+    if (media && !media.paused) {
+        media.pause();
+    }
+}
+
 // 右键菜单选项
-const options = computed(() => [
-    {
+const options = computed(() => {
+    const opts: any[] = [
+        {
+            label: t('添加'),
+            key: 'add',
+        },
+    ];
+    if (props.enablePreview) {
+        opts.push({
+            label: t('预览'),
+            key: 'preview',
+        });
+    }
+    opts.push({
         label: props.deleteFromAll ? t('从所有素材中删除') : t('删除'),
         key: 'delete',
         disabled: !!props.deleteFromAll
             && !!currentFile.value
             && projectFiles.value.some((item: any) => item.id === currentFile.value.id),
-    }
-]);
+    });
+    return opts;
+});
 
 // 处理右键菜单点击
 function handleContextMenu(e: MouseEvent, file: any) {
@@ -75,6 +106,14 @@ function handleContextMenu(e: MouseEvent, file: any) {
 // 处理菜单项选择
 async function handleSelect(key: string | number) {
     showDropdown.value = false;
+    if (key === 'add' && currentFile.value) {
+        await handleAdd(currentFile.value);
+        return;
+    }
+    if (key === 'preview' && currentFile.value) {
+        openPreview(currentFile.value);
+        return;
+    }
     if (key === 'delete' && currentFile.value) {
         const shouldDisableDeleteFromAll = !!props.deleteFromAll
             && projectFiles.value.some((item: any) => item.id === currentFile.value.id);
@@ -277,14 +316,33 @@ function toggleMultiSelectMode() {
                 <slot name="preview" :file="file"></slot>
                 <slot :file="file"></slot>
 
-                <!-- 添加按钮 -->
-                <n-button v-if="!isMultiSelectMode" class="webcut-add-button" size="tiny" type="primary" circle @click.stop="handleAdd(file)">
-                    <template #icon>
-                        <n-icon>
-                            <Add />
-                        </n-icon>
+                <!-- 预览按钮 -->
+                <n-popover v-if="!isMultiSelectMode && props.enablePreview" trigger="hover" :delay="300" class="webcut-tooltip">
+                    <template #trigger>
+                        <n-button class="webcut-add-button webcut-preview-button" size="tiny" type="primary" circle @click.stop="openPreview(file)">
+                            <template #icon>
+                                <n-icon>
+                                    <Magnify />
+                                </n-icon>
+                            </template>
+                        </n-button>
                     </template>
-                </n-button>
+                    {{ t('预览素材') }}
+                </n-popover>
+
+                <!-- 添加按钮 -->
+                <n-popover v-if="!isMultiSelectMode" trigger="hover" :delay="300" class="webcut-tooltip">
+                    <template #trigger>
+                        <n-button class="webcut-add-button" size="tiny" type="primary" circle @click.stop="handleAdd(file)">
+                            <template #icon>
+                                <n-icon>
+                                    <Add />
+                                </n-icon>
+                            </template>
+                        </n-button>
+                    </template>
+                    {{ t('添加素材到轨道') }}
+                </n-popover>
             </div>
             <div class="webcut-material-title">
                 {{ file.name }}
@@ -298,6 +356,9 @@ function toggleMultiSelectMode() {
         <!-- 右键菜单组件 -->
         <n-dropdown placement="bottom-start" trigger="manual" :x="x" :y="y" :options="options" :show="showDropdown"
             :on-clickoutside="onClickoutside" size="small" @select="handleSelect" />
+
+        <!-- 素材预览弹窗 -->
+        <PreviewModal v-model:show="showPreview" :file="previewFile" :materialType="props.materialType" />
     </div>
 </template>
 

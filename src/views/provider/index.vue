@@ -305,5 +305,6 @@ provideToastContext();
 
 :global(.webcut-tooltip) {
   padding: 4px 8px !important;
+  font-size: 12px !important;
 }
 </style>
