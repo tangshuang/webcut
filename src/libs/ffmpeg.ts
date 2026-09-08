@@ -280,6 +280,26 @@ export async function extractAudioFromVideo(inputFileSource: string | File | Blo
 }
 
 /**
+ * 从视频中提取音频（零重编码：音轨直接 copy 到 m4a 容器，纯 demux/IO，速度远快于重编码）。
+ * 源音轨编码与 m4a 容器不兼容时 ffmpeg 会失败，调用方需回退到 extractAudioFromVideo（mp3 重编码）。
+ */
+export async function extractAudioFromVideoByCopy(inputFileSource: string | File | Blob, ffmpeg?: FFmpeg, onLog?: ProgressEventCallback | LogEventCallback): Promise<ArrayBuffer> {
+    return await runFFmpeg({
+        input: inputFileSource,
+        outputFormat: 'm4a',
+        command: ({ input, output }) => [
+            '-i', input,
+            '-vn',
+            '-c:a', 'copy',
+            '-f', 'ipod',
+            output,
+        ],
+        ffmpeg,
+        onLog,
+    });
+}
+
+/**
  * 截取音/视频文件
  */
 export async function sliceByFFmpeg(inputFileSource: string | File | Blob, start: number, duration: number, ffmpeg?: FFmpeg, onLog?: ProgressEventCallback | LogEventCallback): Promise<ArrayBuffer> {

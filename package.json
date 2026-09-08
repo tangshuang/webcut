@@ -53,6 +53,7 @@
     "fods-vue": "^2.3.0",
     "indb": "^4.0.1",
     "marked": "^18.0.5",
+    "mediabunny": "1.55.4",
     "naive-ui": "^2.38.0",
     "opfs-tools": "^0.7.4",
     "ts-fns": "^13.1.3",

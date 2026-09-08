@@ -13,7 +13,8 @@ import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-f
 import { exportAsWavBlobOffscreen, measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap, calcAspectRatio } from '../libs';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { safeCloseFrame, trackVideoFrameCreated } from '../libs';
-import { execFFmpeg, extractAudioFromVideo } from '../libs/ffmpeg';
+import { execFFmpeg, extractAudioFromVideo, extractAudioFromVideoByCopy } from '../libs/ffmpeg';
+import { extractAudioByRemux } from '../libs/split-av';
 import { ensureWebCutOpfsPathMigration, readFile, updateProjectState, writeFile } from '../db';
 import { PerformanceMark, mark } from '../libs/performance';
 import { aspectRatioMap, aspectRatioResolutionMaps } from '../constants';
@@ -1501,30 +1502,35 @@ export function useWebCutPlayer() {
                 return;
             }
 
-            const [audioBuffer, muteVideoResult] = await Promise.all([
-                extractAudioFromVideo(inputFile),
-                execFFmpeg({
-                    input: inputFile,
-                    inputFormat: 'mp4',
-                    outputFormat: 'mp4',
-                    command: ({ input, output }) => [
-                        '-i', input,
-                        '-c:v', 'copy',
-                        '-an',
-                        '-movflags', 'faststart',
-                        output,
-                    ],
-                }),
-            ]);
+            // 音轨提取三级链：mediabunny 流式 remux（纯 JS，无 wasm 内存文件系统开销，速度≈IO）
+            // → ffmpeg copy（remux 不兼容时兜底）→ ffmpeg mp3 重编码（源音轨编码特殊时最终兜底）
+            let audioBlob: Blob;
+            try {
+                audioBlob = await extractAudioByRemux(inputFile);
+            }
+            catch {
+                try {
+                    const audioBuffer = await extractAudioFromVideoByCopy(inputFile);
+                    audioBlob = new Blob([audioBuffer], { type: 'audio/mp4' });
+                }
+                catch {
+                    const audioBuffer = await extractAudioFromVideo(inputFile);
+                    audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+                }
+            }
 
-            const audioFile = blobToFile(new Blob([audioBuffer], { type: 'audio/mpeg' }), `separated-audio-${Date.now()}.mp3`);
-            const muteVideoFile = blobToFile(new Blob([muteVideoResult.buffer], { type: 'video/mp4' }), `mute-video-${Date.now()}.mp4`);
-
+            const audioExtension = audioBlob.type === 'audio/mpeg' ? 'mp3' : 'm4a';
+            const audioFile = blobToFile(audioBlob, `separated-audio-${Date.now()}.${audioExtension}`);
             const audioFileId = await writeFile(audioFile);
-            const muteVideoFileId = await writeFile(muteVideoFile);
 
-            // 1) 替换当前视频为无声视频（保持同一轨道/同一segment）
-            const muteVideoClip = new MP4Clip(muteVideoFile.stream(), { audio: false });
+            // url 来源的源视频首次落盘（保证项目恢复可用）
+            if (!source.fileId) {
+                source.fileId = await writeFile(inputFile);
+            }
+
+            // 1) 原视频直接以 audio:false 重建 clip（不再用 ffmpeg 重写无声视频副本：
+            //    省去 wasm 全文件重写 + OPFS 再写一份大视频；meta.video.volume=0 保证项目恢复时同样禁用音轨）
+            const muteVideoClip = new MP4Clip(inputFile.stream(), { audio: false });
             const newVideoSprite = new VisibleSprite(muteVideoClip);
             newVideoSprite.time.offset = oldSegmentOffset;
             newVideoSprite.time.duration = oldSegmentDuration;
@@ -1546,7 +1552,7 @@ export function useWebCutPlayer() {
 
             source.clip = muteVideoClip;
             source.sprite = newVideoSprite;
-            source.fileId = muteVideoFileId;
+            // source.fileId 保留原视频（clip 已 audio:false，恢复时按 meta.video.volume=0 重建无声 clip）
             source.url = undefined;
             source.meta.video = {
                 ...oldVideoMeta,
