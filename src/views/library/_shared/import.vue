@@ -11,7 +11,8 @@ import { Upload } from '@vicons/carbon';
 import { useWebCutLibrary } from '../../../hooks/library';
 import { useT } from '../../../i18n/hooks';
 import { WebCutThingType } from '../../../types';
-import { loadFFmpeg, transcodeToMP4ByFFmpeg } from '../../../libs/ffmpeg';
+import { loadFFmpeg, isFFmpegLoaded, transcodeToMP4ByFFmpeg } from '../../../libs/ffmpeg';
+import { remuxToMp4 } from '../../../libs/remux';
 
 const emit = defineEmits(['fileImport', 'fileImported', 'dirImport', 'dirImported']);
 // 上传中的文件列表
@@ -46,8 +47,9 @@ const t = useT();
 const { addNewFile } = useWebCutLibrary();
 
 onMounted(() => {
-    // 初始化FFmpeg
-    setTimeout(loadFFmpeg, 2000);
+    // 面板挂载即预热 FFmpeg（在 worker 中加载，不阻塞 UI；模块级单例，重复调用安全），
+    // 使视频导入转码尽可能走运行更快的 ffmpeg 路径
+    loadFFmpeg().catch(() => {});
 });
 
 async function handleFileChange(e: any) {
@@ -195,35 +197,27 @@ async function importVideo(file: File) {
             isTranscoding.value = true;
             transcodingProgress.value = 0;
 
-            // 加载FFmpeg
-            const ffmpeg = await loadFFmpeg((event: ProgressEvent | LogEvent) => {
-                // 区分是进度事件还是日志事件
-                if (event && 'progress' in event && typeof event.progress === 'number') {
-                    // 进度事件
-                    transcodingProgress.value = (event as ProgressEvent).progress * 0.5; // 加载进度占50%
-                } else if (event && 'message' in event) {
-                    // 日志事件
-                    console.log('FFmpeg加载日志:', (event as LogEvent).message);
+            // 分流：ffmpeg 已就绪 → 走 ffmpeg（wasm 运行效率更高，在 worker 中执行不卡 UI）；
+            // 未就绪（首访 wasm 仍在下载）→ mediabunny 容器级 remux 立即处理（流式、无内存文件系统开销），
+            // 不支持的容器/编码组合时回退 ffmpeg
+            if (isFFmpegLoaded()) {
+                await transcodeByFFmpeg(file);
+            }
+            else {
+                try {
+                    const mp4Blob = await remuxToMp4(file, {
+                        onProgress: (progress) => {
+                            transcodingProgress.value = progress;
+                        },
+                    });
+                    const mp4File = blobToMp4File(mp4Blob, file);
+                    await addNewFile(mp4File);
                 }
-            });
-
-            // 转码为MP4
-            const transcodedBuffer = await transcodeToMP4ByFFmpeg(file, ffmpeg, (event: ProgressEvent | LogEvent) => {
-                // 区分是进度事件还是日志事件
-                if (event && 'progress' in event && typeof event.progress === 'number') {
-                    // 进度事件
-                    transcodingProgress.value = 50 + (event as ProgressEvent).progress * 0.5; // 转码进度占50%
-                } else if (event && 'message' in event) {
-                    // 日志事件
-                    console.log('FFmpeg转码日志:', (event as LogEvent).message);
+                catch (remuxErr) {
+                    console.log('mediabunny remux 失败，回退 ffmpeg 转码:', remuxErr);
+                    await transcodeByFFmpeg(file);
                 }
-            });
-
-            // 将转码后的ArrayBuffer转换为File对象
-            const mp4File = arrayBufferToFile(transcodedBuffer, file);
-
-            // 添加转码后的文件
-            await addNewFile(mp4File);
+            }
 
             isTranscoding.value = false;
             transcodingProgress.value = 0;
@@ -237,6 +231,37 @@ async function importVideo(file: File) {
         uploadingFiles.value.delete(file.name);
     }
 
+
+    // ffmpeg 转码为MP4（加载进度占50% + 转码进度占50%）
+    async function transcodeByFFmpeg(file: File) {
+        // 加载FFmpeg
+        const ffmpeg = await loadFFmpeg((event: ProgressEvent | LogEvent) => {
+            // 区分是进度事件还是日志事件
+            if (event && 'progress' in event && typeof event.progress === 'number') {
+                // 进度事件
+                transcodingProgress.value = (event as ProgressEvent).progress * 0.5; // 加载进度占50%
+            } else if (event && 'message' in event) {
+                // 日志事件
+                console.log('FFmpeg加载日志:', (event as LogEvent).message);
+            }
+        });
+
+        // 转码为MP4
+        const transcodedBuffer = await transcodeToMP4ByFFmpeg(file, ffmpeg, (event: ProgressEvent | LogEvent) => {
+            // 区分是进度事件还是日志事件
+            if (event && 'progress' in event && typeof event.progress === 'number') {
+                // 进度事件
+                transcodingProgress.value = 50 + (event as ProgressEvent).progress * 0.5; // 转码进度占50%
+            } else if (event && 'message' in event) {
+                // 日志事件
+                console.log('FFmpeg转码日志:', (event as LogEvent).message);
+            }
+        });
+
+        // 将转码后的ArrayBuffer转换为File对象，并添加
+        const mp4File = arrayBufferToFile(transcodedBuffer, file);
+        await addNewFile(mp4File);
+    }
 
     // 检查文件是否为MP4格式
     function isMP4Format(file: File): boolean {
@@ -253,6 +278,12 @@ async function importVideo(file: File) {
     // 将ArrayBuffer转换为File对象
     function arrayBufferToFile(buffer: ArrayBuffer, originalFile: File): File {
         const blob = new Blob([buffer], { type: 'video/mp4' });
+        const fileName = originalFile.name.replace(/\.[^/.]+$/, '.mp4');
+        return new File([blob], fileName, { type: 'video/mp4' });
+    }
+
+    // 将remux产出的Blob转换为File对象（沿用原文件名，扩展名改为mp4）
+    function blobToMp4File(blob: Blob, originalFile: File): File {
         const fileName = originalFile.name.replace(/\.[^/.]+$/, '.mp4');
         return new File([blob], fileName, { type: 'video/mp4' });
     }

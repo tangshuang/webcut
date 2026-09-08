@@ -35,12 +35,16 @@ export async function extractAudioByRemux(blob: Blob): Promise<Blob> {
 
         let packet = await sink.getFirstPacket();
         let first = true;
+        let yieldCounter = 0;
         while (packet) {
             await packetSource.add(packet, first ? { decoderConfig: (await audioTrack.getDecoderConfig()) ?? undefined } : undefined);
             first = false;
             packet = await sink.getNextPacket(packet);
-            // 让出主线程，避免长音轨阻塞 UI
-            await new Promise<void>((r) => setTimeout(r, 0));
+            // 批量让出主线程（逐包让出的 setTimeout 最小间隔会让长音轨凭空多出秒级开销）
+            yieldCounter += 1;
+            if (yieldCounter % 30 === 0) {
+                await new Promise<void>((r) => setTimeout(r, 0));
+            }
         }
         try { packetSource.close?.(); } catch { /* noop */ }
         await out.finalize();
