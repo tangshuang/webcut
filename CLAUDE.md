@@ -48,11 +48,13 @@ pnpm release
 
 ### Dual Build System
 
-The project produces two distinct outputs:
+The project produces these outputs (plus a React bridge entry):
 
 1. **ESM Build** (`src/index.ts` → `esm/`): Standard ES module library for Vue 3 applications. Exports Vue components, composables, utility functions, and TypeScript types.
 
 2. **WebComponents Build** (`src/webcomponents.ts` → `webcomponents/`): Custom elements using Vue's `defineCustomElement`. All components are registered as web components (e.g., `<webcut-editor>`, `<webcut-player>`).
+
+3. **React Build** (`src/react.ts` → `react/`): React 接口层，基于 veaury 的 `applyVueInReact` 把全部视图组件桥接为 React 组件（`import { WebCutEditor } from 'webcut/react'`）。产物打包 Vue 运行时 / naive-ui / veaury，仅 external react / react-dom（peer）。桥接约定：v-model → 值 prop + `onUpdateXxx` 回调；具名插槽 → 同名 ReactNode prop；children → 默认插槽。Vue 组合式 hooks 不在 React 入口导出（无法在 React 中调用）。注意：根目录 `react/` 构建产物目录与 npm 包 `react` 同名，tsconfig 已移除 `baseUrl` 避免类型解析遮蔽，勿加回。
 
 ### Core Architecture Pattern
 

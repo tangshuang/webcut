@@ -16,9 +16,13 @@ const allDependencies = [
 ];
 
 // 根据环境变量选择构建配置
-// webcomponents | esm | webcomponents_bundle
+// webcomponents | esm | webcomponents_bundle | react
 // 默认为esm
 const buildType = process.env.BUILD_TYPE || 'esm';
+
+// react 构建：将 vue / naive-ui / veaury 及全部实现打进产物，
+// 仅把 react / react-dom 作为 peer 依赖 external（由宿主 React 应用提供）
+const reactExternals = [/^react$/, /^react\/.*$/, /^react-dom$/, /^react-dom\/.*$/];
 
 // 导出配置
 export default defineConfig(({ mode }) => ({
@@ -34,13 +38,28 @@ export default defineConfig(({ mode }) => ({
         'src/webcomponents.ts',
       ],
     }) : undefined,
+    // react 入口的类型声明：输出完整类型树（排除两个 Vue 入口，避免 index.d.ts 冲突），
+    // 构建后由 package.json 的 rename 后处理把 react/react.d.ts 改名为 index.d.ts
+    buildType === 'react' ? dts({
+      insertTypesEntry: false,
+      cleanVueFileName: true,
+      copyDtsFiles: false,
+      include: ['src/**/*'],
+      exclude: [
+        'src/**/*.test.ts', 'src/**/*.spec.ts', 'src/**/*.md',
+        'src/index.ts',
+        'src/webcomponents.ts',
+      ],
+    }) : undefined,
   ].filter(Boolean),
   define: buildType.endsWith('_bundle') ? {
     'process.env.NODE_ENV': JSON.stringify(mode),
   } : undefined,
   build: {
     lib: {
-      entry: buildType.startsWith('webcomponents') ? resolve(__dirname, 'src/webcomponents.ts') : resolve(__dirname, 'src/index.ts'),
+      entry: buildType.startsWith('webcomponents') ? resolve(__dirname, 'src/webcomponents.ts')
+        : buildType === 'react' ? resolve(__dirname, 'src/react.ts')
+        : resolve(__dirname, 'src/index.ts'),
       name: 'WebCut',
       fileName: () => 'index.js',
       formats: [buildType.endsWith('_bundle') ? 'iife' : 'es'],
@@ -50,15 +69,19 @@ export default defineConfig(({ mode }) => ({
     outDir: {
       webcomponents: 'webcomponents',
       webcomponents_bundle: 'webcomponents/bundle',
+      react: 'react',
       esm: 'esm',
     }[buildType],
     commonjsOptions: {
       transformMixedEsModules: true,
     },
     rollupOptions: {
-      external: buildType.endsWith('_bundle') ? [] : allDependencies,
+      external: buildType === 'react'
+        ? reactExternals
+        : buildType.endsWith('_bundle') ? [] : allDependencies,
       output: {
-        inlineDynamicImports: false,
+        // IIFE bundle 不支持代码分割；动态导入内联（其余构建保持多 chunk）
+        inlineDynamicImports: buildType.endsWith('_bundle'),
         manualChunks: buildType.startsWith('webcomponents') ? undefined : (id) => {
           if (id.includes('ffmpeg.wasm/ffmpeg-core.js')) {
             return 'ffmpeg.wasm-core';
@@ -75,4 +98,3 @@ export default defineConfig(({ mode }) => ({
     },
   },
 }));
-

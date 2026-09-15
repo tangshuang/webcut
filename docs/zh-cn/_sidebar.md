@@ -1,6 +1,7 @@
 - [首页](/zh-cn/README)
 - [快速开始](/zh-cn/getting-started)
 - [Web Components](/zh-cn/webcomponents)
+- [在 React 中使用](/zh-cn/react)
 - [组件](/zh-cn/components)
 - [钩子](/zh-cn/hooks)
 - [工具函数](/zh-cn/libs)

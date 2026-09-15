@@ -13,6 +13,7 @@ dist-ssr
 *.local
 /esm
 /webcomponents
+/react
 .trae
 .claude
 .vscode

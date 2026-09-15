@@ -109,6 +109,21 @@ const yourProjectId = 'example-project';
 
 > **提示**：上述代码将渲染一个完整的视频编辑界面，包括视频画布、工具栏与时间线。你也可以按需从 `webcut` 引入组件与工具进行定制。
 
+### 在 React 项目中集成
+
+WebCut 基于 [veaury](https://github.com/gloriasoft/veaury) 提供了官方 React 接口（`webcut/react`，产物内已打包 Vue 运行时，宿主无需安装 Vue）：
+
+```tsx
+import { WebCutEditor } from 'webcut/react';
+import 'webcut/react/style.css';
+
+export function EditorPage() {
+  return <WebCutEditor projectId="example-project" />;
+}
+```
+
+详细用法（v-model / 插槽 / 事件桥接约定）见 [docs/zh-cn/react.md](docs/zh-cn/react.md)。
+
 ## 安装
 
 WebCut 支持多种包管理器安装方式：
@@ -150,6 +165,7 @@ WebCut 的开发离不开以下优秀开源项目的支持：
 - [@webav/av-canvas](https://github.com/bilibili/webav/tree/main/packages/av-canvas) - 提供底层视频渲染能力
 - [@webav/av-cliper](https://github.com/bilibili/webav/tree/main/packages/av-cliper) - 视频剪辑功能支持
 - [Vue 3](https://vuejs.org/) - 响应式前端框架
+- [veaury](https://github.com/gloriasoft/veaury) - React 接口桥接（`webcut/react`）
 
 ### 开发工具
 

@@ -305,11 +305,9 @@ function handleDragging(data: AdjustEventData, segment: WebCutSegment, rail: Web
     const segmentWidth = dragState.value.width;
 
     let newStart = start + offsetX;
-    let newEnd = newStart + segmentWidth;
 
     // 边界限制：不能拖出轨道左侧
     newStart = Math.max(0, newStart);
-    newEnd = newStart + segmentWidth;
 
     // 计算悬停轨道
     let targetRail: WebCutRail | null = rail;

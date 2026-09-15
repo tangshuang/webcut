@@ -109,6 +109,19 @@ const yourProjectId = 'example-project';
 
 > **Tip**: The above code will render a complete video editing interface, including video canvas, toolbar and timeline. You can also import components and tools from `webcut` as needed for customization.
 
+### Integration in React Project
+
+WebCut provides an official React interface via [veaury](https://github.com/gloriasoft/veaury) (`webcut/react`, with the Vue runtime bundled — no Vue installation required in the host app):
+
+```tsx
+import { WebCutEditor } from 'webcut/react';
+import 'webcut/react/style.css';
+
+export function EditorPage() {
+  return <WebCutEditor projectId="example-project" />;
+}
+```
+
 ## Installation
 
 WebCut supports installation via multiple package managers:
@@ -150,6 +163,7 @@ WebCut's development would not be possible without the support of the following 
 - [@webav/av-canvas](https://github.com/bilibili/webav/tree/main/packages/av-canvas) - Provides underlying video rendering capabilities
 - [@webav/av-cliper](https://github.com/bilibili/webav/tree/main/packages/av-cliper) - Supports video editing functionality
 - [Vue 3](https://vuejs.org/) - Responsive frontend framework
+- [veaury](https://github.com/gloriasoft/veaury) - React interface bridge (`webcut/react`)
 
 ### Development Tools
 
