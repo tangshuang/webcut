@@ -95,8 +95,11 @@ export interface VueInReactBridgeOptions {
  * - onUpdateXxx（React 风格回调）→ Vue emit('update:xxx')，即 v-model 桥
  * - slotProps 声明的 ReactNode props → v-slots 具名插槽
  * - children → 默认插槽
+ *
+ * 同时作为通用桥接工厂导出：React 宿主可用它把「基于 webcut Vue hooks 的自有容器组件」
+ * （webcut 组合式 API 无法在 React 中调用，只能封装为 Vue 容器再桥接）包装为 React 组件。
  */
-function vueInReact(VueComponent: any, options: VueInReactBridgeOptions = {}) {
+export function vueInReact(VueComponent: any, options: VueInReactBridgeOptions = {}) {
     const Base = applyVueInReact(VueComponent);
     const { displayName, slotProps = [] } = options;
 
