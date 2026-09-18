@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { isEqual, throttle } from 'ts-fns';
 import { ref, watch, nextTick, computed } from 'vue';
 import { AudioClip, MP4Clip } from '@webav/av-cliper';
 import { useWebCutLocalFile } from '../../hooks/local-file';
@@ -8,10 +7,21 @@ import { progressiveClipToPCMData } from '../../libs';
 // 使用local-file hook
 const { readFile } = useWebCutLocalFile();
 
+// 共享解码上下文：AudioContext 有页面实例数上限（Chrome 约 6 个），
+// 旧实现每次解码 new 一个且从不关闭，组件反复挂载（滚动/重建）后配额耗尽，
+// new AudioContext() 抛错被 catch 吞掉，波形静默消失
+let sharedAudioCtx: AudioContext | null = null;
+function getAudioContext(): AudioContext {
+  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+    sharedAudioCtx = new AudioContext();
+  }
+  return sharedAudioCtx;
+}
+
 // Web Audio API解码
 async function decodeAudioFile(file: Blob): Promise<Float32Array | null> {
   try {
-    const context = new AudioContext();
+    const context = getAudioContext();
     const arrayBuffer = await file.arrayBuffer();
     const audioBuffer = await context.decodeAudioData(arrayBuffer);
     return audioBuffer.getChannelData(0);
@@ -108,7 +118,8 @@ watch(() => props.data, async (newData) => {
   // string作为fileId读取并解码
   if (typeof newData === 'string') {
     const audioBlob = await readFile(newData);
-    if (audioBlob) {
+    // 异步期间 data 可能已切换（如 PCM 先就绪），丢弃过期解码结果避免覆盖新数据
+    if (audioBlob && props.data === newData) {
       internalData.value = await decodeAudioFile(audioBlob);
     }
     return;
@@ -166,12 +177,19 @@ watch(() => [props.width, props.height, internalData.value], () => {
     });
 }, { immediate: true });
 
-const redraw = throttle((next, prev) => {
-    if (next && !isEqual(next, prev)) {
-        drawWave();
+// 可视区间变化即重绘（scroll 事件本身已按帧合并，频率可控）：
+// canvas 的 width 属性绑定 visibleRange 派生的 canvasWidth，resize 会清空画布内容，
+// 必须同步重绘；此前用 throttle 包裹会丢弃窗口内调用的参数，滚动停止后
+// 最后一次画布清空可能等不到正确参数的重绘，导致波形消失
+watch(() => [props.visibleRange, canvasWidth.value], () => {
+    if (!internalData.value || !canvas.value || !props.width || !props.height) {
+        return;
     }
-}, 16);
-watch(() => props.visibleRange, redraw);
+
+    nextTick(() => {
+        drawWave();
+    });
+});
 
 defineExpose({
   container,

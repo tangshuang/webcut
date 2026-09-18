@@ -41,13 +41,16 @@ watch(source, async () => {
     const { clip } = source.value;
     if (!clip) return;
     await clip.ready;
-    // 一次性加载波形图
-    audioF32.value = (clip as AudioClip).getPCMData()[0];
+    // 一次性加载波形图；clip 销毁后 getPCMData 返回空数组，置空避免空数据绘制
+    const pcm = (clip as AudioClip).getPCMData()[0];
+    audioF32.value = pcm && pcm.length ? pcm : undefined;
 }, { immediate: true });
 
 const audioOriginalDuration = computed(() => {
-    const { sprite } = source.value || {};
-    return sprite ? sprite.time.duration || 0 : 0;
+    // 用响应式的 segment 时间计算（与 video.vue 一致）：
+    // sprite 是 markRaw 对象，其字段读取不建立响应式依赖，
+    // 曾导致宽度不随时间轴状态（变速等）重算而渲染异常
+    return props.segment.end - props.segment.start;
 });
 // 容器的总宽度
 const audioWidth = computed(() => {
@@ -111,7 +114,10 @@ async function handleSelectContextMenu(key: string) {
 }
 
 const data = computed(() => {
-    return source.value?.fileId || source.value?.clip as AudioClip || audioF32.value || null;
+    // 优先使用一次性提取好的 PCM（getPCMData，零额外解码、无竞态）；
+    // fileId 解码只作兜底——其依赖 WebAudio 解码，AudioContext 有页面实例配额，
+    // 反复挂载耗尽配额后波形会静默消失
+    return audioF32.value || source.value?.fileId || null;
 });
 </script>
 
