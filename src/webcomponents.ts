@@ -16,6 +16,7 @@ import WebCutPlayerScreen from './views/player/screen.vue';
 import WebCutPlayerButton from './views/player/button.vue';
 import WebCutSelectAspectRatio from './views/select-aspect-ratio/index.vue';
 import WebCutSelectResolution from './views/select-resolution/index.vue';
+import WebCutSelectFps from './views/select-fps/index.vue';
 import WebCutTimeClock from './views/time-clock/index.vue';
 // 管理器
 import WebCutManager from './views/manager/index.vue'; // 集成所有管理器组件
@@ -65,6 +66,7 @@ customElements.define('webcut-manager-scaler', defineCustomElement(WebCutManager
 customElements.define('webcut-player', defineCustomElement(WebCutPlayer, { shadowRoot: false }));
 customElements.define('webcut-select-aspect-ratio', defineCustomElement(WebCutSelectAspectRatio, { shadowRoot: false }));
 customElements.define('webcut-select-resolution', defineCustomElement(WebCutSelectResolution, { shadowRoot: false }));
+customElements.define('webcut-select-fps', defineCustomElement(WebCutSelectFps, { shadowRoot: false }));
 customElements.define('webcut-library', defineCustomElement(WebCutLibrary, { shadowRoot: false }));
 customElements.define('webcut-video-segment', defineCustomElement(WebCutVideoSegment, { shadowRoot: false }));
 customElements.define('webcut-audio-segment', defineCustomElement(WebCutAudioSegment, { shadowRoot: false }));

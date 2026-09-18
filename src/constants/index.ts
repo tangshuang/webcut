@@ -82,6 +82,9 @@ export const aspectRatio540PMap = {
 // 画布分辨率档位（按清晰度从高到低）
 export const RESOLUTIONS = ['1080P', '768P', '720P', '576P', '544P', '540P', '480P', '360P'] as const;
 
+// 画布帧率档位（平台支持的常用值，15~120）
+export const FPS_OPTIONS = [15, 20, 24, 25, 30, 48, 50, 60, 90, 120] as const;
+
 // 分辨率档位对应的长宽比尺寸映射表
 export const aspectRatioResolutionMaps = {
   '1080P': aspectRatioMap,

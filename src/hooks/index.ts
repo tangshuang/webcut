@@ -251,6 +251,17 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         await updateByAspectRatio(aspectRatio, resolutionValue);
     }
 
+    /**
+     * 切换全局帧率，时间轴网格/帧吸附等会随之响应式更新，并持久化到项目状态
+     */
+    async function updateByFps(fpsValue: number) {
+        if (!Number.isFinite(fpsValue) || fpsValue <= 0) {
+            return;
+        }
+        fps.value = fpsValue;
+        await updateProjectState(id.value, { fps: fpsValue });
+    }
+
     async function registerExtensionPack(mod: new () => WebCutExtensionPack) {
         if (modules.value.has(mod)) {
             return;
@@ -299,6 +310,7 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         currentSource,
         updateByAspectRatio,
         updateByResolution,
+        updateByFps,
         registerExtensionPack,
         findRailExtensionPack,
     };
@@ -316,6 +328,7 @@ export function useWebCutPlayer() {
         cursorTime,
         disableSelectSprite,
         autoResetWhenStop,
+        fps,
         clips,
         sources,
         sprites,
@@ -483,7 +496,7 @@ export function useWebCutPlayer() {
     }
 
     async function exportBlob() {
-        const com = await canvas.value!.createCombinator();
+        const com = await canvas.value!.createCombinator({ fps: fps.value });
         const readable = com.output();
         const reader = readable.getReader();
         const chunks: any[] = [];
@@ -504,7 +517,7 @@ export function useWebCutPlayer() {
      * @param writable 目标 WritableStream
      */
     async function exportToWritable(writable: WritableStream) {
-        const com = await canvas.value!.createCombinator();
+        const com = await canvas.value!.createCombinator({ fps: fps.value });
         const readable = com.output();
         try {
             await readable.pipeTo(writable, { preventClose: true });

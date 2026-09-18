@@ -449,6 +449,10 @@ export async function updateProjectState(projectId: string, state: Partial<WebCu
         data.resolution = state.resolution;
         neeedToUpdate = true;
     }
+    if ('fps' in state) {
+        data.fps = state.fps;
+        neeedToUpdate = true;
+    }
 
     if (neeedToUpdate) {
         const prevState = await getProjectState(projectId) || {};

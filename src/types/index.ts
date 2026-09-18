@@ -478,6 +478,7 @@ export type WebCutProjectState = {
     historyAt: string;
     aspectRatio: string;
     resolution?: string;
+    fps?: number;
 };
 
 export type WebCutProjectHistoryState = {

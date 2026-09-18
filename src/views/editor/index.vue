@@ -10,6 +10,7 @@ import ThemeSwitch from '../theme-switch/index.vue';
 import LangSwitch from '../lang-switch/index.vue';
 import WebCutSelectAspectRatio from '../select-aspect-ratio/index.vue';
 import WebCutSelectResolution from '../select-resolution/index.vue';
+import WebCutSelectFps from '../select-fps/index.vue';
 import WebCutTimeClock from '../time-clock/index.vue';
 import WebCutLibrary from '../library/index.vue';
 import { computed, ref, watch, shallowRef } from 'vue';
@@ -153,6 +154,7 @@ watch(activeDockKey, (v) => {
                                             </div>
                                             <WebCutPlayerButton></WebCutPlayerButton>
                                             <div class="webcut-editor-video-player-buttons-right">
+                                                <WebCutSelectFps display-fps></WebCutSelectFps>
                                                 <WebCutSelectResolution display-resolution></WebCutSelectResolution>
                                                 <WebCutSelectAspectRatio display-aspect></WebCutSelectAspectRatio>
                                             </div>

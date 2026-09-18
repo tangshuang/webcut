@@ -16,6 +16,7 @@ import WebCutPlayerScreen from './views/player/screen.vue';
 import WebCutPlayerButton from './views/player/button.vue';
 import WebCutSelectAspectRatio from './views/select-aspect-ratio/index.vue';
 import WebCutSelectResolution from './views/select-resolution/index.vue';
+import WebCutSelectFps from './views/select-fps/index.vue';
 import WebCutTimeClock from './views/time-clock/index.vue';
 // 管理器
 import WebCutManager from './views/manager/index.vue'; // 集成所有管理器组件
@@ -86,6 +87,7 @@ export {
     WebCutEditor,
     WebCutSelectAspectRatio,
     WebCutSelectResolution,
+    WebCutSelectFps,
     WebCutTimeClock,
     WebCutLibrary,
     WebCutLibraryAside,

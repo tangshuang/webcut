@@ -43,6 +43,7 @@ import WebCutPlayerScreenVue from './views/player/screen.vue';
 import WebCutPlayerButtonVue from './views/player/button.vue';
 import WebCutSelectAspectRatioVue from './views/select-aspect-ratio/index.vue';
 import WebCutSelectResolutionVue from './views/select-resolution/index.vue';
+import WebCutSelectFpsVue from './views/select-fps/index.vue';
 import WebCutTimeClockVue from './views/time-clock/index.vue';
 // 管理器
 import WebCutManagerVue from './views/manager/index.vue';
@@ -168,6 +169,7 @@ export const WebCutPlayerScreen = vueInReact(WebCutPlayerScreenVue, { displayNam
 export const WebCutPlayerButton = vueInReact(WebCutPlayerButtonVue, { displayName: 'WebCutPlayerButton' });
 export const WebCutSelectAspectRatio = vueInReact(WebCutSelectAspectRatioVue, { displayName: 'WebCutSelectAspectRatio' });
 export const WebCutSelectResolution = vueInReact(WebCutSelectResolutionVue, { displayName: 'WebCutSelectResolution' });
+export const WebCutSelectFps = vueInReact(WebCutSelectFpsVue, { displayName: 'WebCutSelectFps' });
 export const WebCutTimeClock = vueInReact(WebCutTimeClockVue, { displayName: 'WebCutTimeClock' });
 
 // 管理器

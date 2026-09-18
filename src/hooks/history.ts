@@ -66,6 +66,7 @@ export function useWebCutHistory() {
         selected,
         current,
         updateByAspectRatio,
+        updateByFps,
         loading,
         memory,
         disableRecoverHistory,
@@ -127,9 +128,12 @@ export function useWebCutHistory() {
             dataToRecover.value = savedData;
             canRecover.value = true;
             // 恢复一些视频基础配置
-            const { aspectRatio, resolution } = savedData;
+            const { aspectRatio, resolution, fps } = savedData;
             if (aspectRatio) {
                 updateByAspectRatio(aspectRatio, resolution as WebCutResolution | undefined);
+            }
+            if (typeof fps === 'number' && fps > 0) {
+                updateByFps(fps);
             }
             // 页面刷新后自动恢复到最近一次历史镜像
             await recover();
@@ -659,9 +663,12 @@ export function useWebCutHistory() {
                     return;
                 }
 
-                const { aspectRatio, resolution, state } = projectState;
+                const { aspectRatio, resolution, fps, state } = projectState;
                 if (aspectRatio) {
                     updateByAspectRatio(aspectRatio, resolution as WebCutResolution | undefined);
+                }
+                if (typeof fps === 'number' && fps > 0) {
+                    updateByFps(fps);
                 }
                 await recoverHistory(state);
 

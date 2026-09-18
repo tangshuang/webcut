@@ -11,7 +11,7 @@ import {
 import { WebCutExportVideoParams, WebCutExportAudioParams } from './types';
 import { useWebCutContext, useWebCutPlayer } from '../../hooks';
 import { useT } from '../../i18n/hooks';
-import { aspectRatioMap, aspectRatioResolutionMaps, RESOLUTIONS } from '../../constants';
+import { aspectRatioMap, aspectRatioResolutionMaps, RESOLUTIONS, FPS_OPTIONS } from '../../constants';
 import type { WebCutResolution } from '../../types';
 import { calcAspectRatio, resampleAudioWithOfflineContext, saveAsFile } from '../../libs';
 
@@ -44,6 +44,15 @@ const audioData = ref<WebCutExportAudioParams>({
 });
 
 const autoClose = ref(true);
+
+// 帧率选项：平台支持的常用档位；当前全局帧率不在档位中时补入，避免默认值无法回显
+const fpsOptions = computed(() => {
+    const options: Array<{ label: string; value: number }> = FPS_OPTIONS.map((value) => ({ label: `${value}FPS`, value }));
+    if (!FPS_OPTIONS.includes(videoData.value.fps as never)) {
+        options.unshift({ label: `${videoData.value.fps}FPS`, value: videoData.value.fps });
+    }
+    return options;
+});
 
 const codecOptions = computed(() => {
     if (exportType.value === 'video' && videoData.value.format === 'mp4') {
@@ -234,12 +243,7 @@ function calcVideoSize() {
                 </n-form-item>
 
                 <n-form-item :label="t('帧率')" v-if="videoData.format === 'mp4'">
-                    <n-select v-model:value="videoData.fps" :options="[
-                        { label: '15 fps', value: 15 },
-                        { label: '24 fps', value: 24 },
-                        { label: '30 fps', value: 30 },
-                        { label: '60 fps', value: 60 },
-                    ]" size="tiny" />
+                    <n-select v-model:value="videoData.fps" :options="fpsOptions" size="tiny" />
                 </n-form-item>
 
                 <n-form-item :label="t('视频比特率')">
