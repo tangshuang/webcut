@@ -387,7 +387,8 @@ watch(activeDockKey, (v) => {
     top: 50%;
     transform: translateY(-50%);
     opacity: .6;
-    z-index: 10;
+    /* 高于播放按钮容器（width:100% 整行覆盖、z-index:10），保证左右两侧可点击 */
+    z-index: 20;
 }
 .webcut-editor-video-player-buttons-right {
     right: 0;

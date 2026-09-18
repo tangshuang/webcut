@@ -209,6 +209,7 @@ export default {
   "输出格式": "Formato de salida",
   "分辨率": "Resolución",
   "帧率": "FPS",
+  "时间/帧切换": "Alternar tiempo/fotograma",
   "视频比特率": "Bitrate de video",
   "编码格式": "Codec",
   "包含音频": "Incluir audio",
