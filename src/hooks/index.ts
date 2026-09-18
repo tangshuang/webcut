@@ -622,6 +622,21 @@ export function useWebCutPlayer() {
         };
         clip.tickInterceptor = tickInterceptor;
 
+        // @webav 的 Combinator.addSprite 会经 sprite.clone() → clip.clone() 克隆素材后合成，
+        // 但 AudioClip.clone 不复制 tickInterceptor（MP4Clip/ImgClip 会复制），导致导出产物
+        // 丢失音量调节/轨道静音等处理（播放走原 clip 实例不受影响）。
+        // 此处 patch clip.clone，让克隆链继续携带最新的 tickInterceptor，保证导出与播放行为一致。
+        const anyClip = clip as any;
+        if (!anyClip.__webcutOriginalClone) {
+            anyClip.__webcutOriginalClone = clip.clone.bind(clip);
+        }
+        const originalClone: () => Promise<MP4Clip | ImgClip | AudioClip> = anyClip.__webcutOriginalClone;
+        anyClip.clone = async () => {
+            const cloned = await originalClone();
+            cloned.tickInterceptor = tickInterceptor;
+            return cloned;
+        };
+
         // 通过前后移动来更新预览帧
         const currentTime = cursorTime.value;
         canvas.value?.previewFrame(currentTime + 1);
@@ -645,7 +660,9 @@ export function useWebCutPlayer() {
             if (type === 'video') {
                 const volume = meta.video?.volume;
                 const offset = meta.video?.offset;
-                const options = typeof volume === 'undefined' ? {} : typeof volume === 'number' && volume > 0 ? { audio: { volume }} : { audio: false };
+                // 音量统一由 tickInterceptor 实时处理（播放/导出同链路），构造 opts 不传 volume：
+                // 避免历史恢复场景 PCM 烘入叠加 tickInterceptor 双重降音量；volume=0 仍走 audio:false 省音轨解码
+                const options = typeof volume === 'number' && volume <= 0 ? { audio: false } as const : {};
                 mark(PerformanceMark.GenVideoClipStart);
                 if (source instanceof File) {
                     file = source;
@@ -678,7 +695,10 @@ export function useWebCutPlayer() {
                 }
             }
             else if (type === 'audio') {
-                const options = meta.audio || {};
+                // 音量统一由 tickInterceptor 实时处理（播放/导出同链路），构造 opts 必须剔除 volume：
+                // AudioClip 构造时会把 volume 直接烘入 PCM，历史恢复/重建场景叠加 tickInterceptor 再乘一次会双重降音量
+                const { volume: _audioVolume, ...audioOptions } = (meta.audio || {}) as Record<string, any>;
+                const options = audioOptions;
                 const offset = meta.audio?.offset;
                 if (source instanceof File) {
                     file = source;
@@ -1334,7 +1354,9 @@ export function useWebCutPlayer() {
             const outBlob = new Blob([buffer], { type: 'audio/mp4' });
             const outFile = blobToFile(outBlob, `audio-pitch-fixed-${Date.now()}.m4a`);
             const newFileId = await writeFile(outFile);
-            const newClip = new AudioClip(outFile.stream(), source.meta.audio || {});
+            // 构造 opts 剔除 volume：音量统一走 tickInterceptor，避免 PCM 烘入后叠加再乘（双重音量）
+            const { volume: _repairedVolume, ...repairedAudioOptions } = (source.meta.audio || {}) as Record<string, any>;
+            const newClip = new AudioClip(outFile.stream(), repairedAudioOptions);
             await newClip.ready;
 
             const newSprite = new VisibleSprite(newClip);
@@ -1485,8 +1507,10 @@ export function useWebCutPlayer() {
             const oldTimeMeta = source.meta.time || {};
             const oldVideoMeta = source.meta.video || {};
             const videoVolume = oldVideoMeta.volume;
-            const newClipOptions = typeof videoVolume === 'number'
-                ? (videoVolume > 0 ? { audio: { volume: videoVolume } } : { audio: false })
+            // 构造 opts 不传 volume：音量统一走 tickInterceptor（重建后 syncSourceTickInterceptor 会重新挂载），
+            // 避免 PCM 烘入叠加 tickInterceptor 双重降音量；volume=0 仍走 audio:false 省音轨解码
+            const newClipOptions = typeof videoVolume === 'number' && videoVolume <= 0
+                ? { audio: false } as const
                 : {};
 
             // 4) 重建 clip（画面+修复音轨，1x 播放即变速不变调）；时间轴占用不变（内容时长=oldDuration）
