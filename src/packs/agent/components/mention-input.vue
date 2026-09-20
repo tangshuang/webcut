@@ -820,11 +820,13 @@ function parseTextToSegments(text: string): Segment[] {
             segments.push({ kind: 'mention', index: idx, name: cand?.name || `#${idx}`, type: cand?.type, sourceKey: cand?.sourceKey });
         } else if (m[2]) {
             // @{name} 格式（外部引用）：从 candidates 恢复 type/sourceKey/url/viewOptions
-            const cand = props.candidates.find((c) => c.external && (c.name === m[2] || c.sourceKey === m[2]));
+            // 注意：m 是可变 let，闭包回调内不会保持非空收窄，先取局部常量
+            const name = m[2];
+            const cand = props.candidates.find((c) => c.external && (c.name === name || c.sourceKey === name));
             segments.push({
                 kind: 'mention',
                 index: 0,
-                name: m[2],
+                name,
                 external: true,
                 type: cand?.type,
                 sourceKey: cand?.sourceKey,
@@ -866,9 +868,10 @@ onBeforeUnmount(() => {
     document.removeEventListener('mousedown', onDocMousedown);
 });
 
-/** 暴露给父组件：读取当前所有 mention segments（含 external 角色/布景/道具），用于提交时同步上下文 */
+/** 暴露给父组件：读取当前所有 mention segments（含 external 角色/布景/道具），用于提交时同步上下文；按偏移定位光标 */
 defineExpose({
     getMentions: () => readSegmentsFromDom().filter((s) => s.kind === 'mention') as MentionSegment[],
+    setCaretByOffset,
 });
 </script>
 

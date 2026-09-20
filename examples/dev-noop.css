@@ -1,0 +1,3 @@
+/* 空占位：examples 中 `webcut/esm|webcomponents|react/style.css` 的 dev 别名目标。
+   dev 下组件样式由 vite vue 插件从 SFC 自动注入，无需产物级联样式表；
+   产物 css 仅在外部宿主消费构建产物时需要（见 vite.config.ts 的 resolve.alias）。 */

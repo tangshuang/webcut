@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import type { WebCutAgentAdapter, WebCutAgentUploadedFile } from '../adapter';
 
 /**

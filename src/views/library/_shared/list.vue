@@ -16,7 +16,7 @@ import { useT } from '../../../i18n/hooks';
 import { WebCutMaterial, WebCutThingType, WebCutMaterialType } from '../../../types';
 import PreviewModal from './preview-modal.vue';
 
-const fileList = defineModel<WebCutMaterial[]>('files', { default: [] });
+const fileList = defineModel<WebCutMaterial[]>('files', { default: () => [] });
 const emit = defineEmits(['added', 'deleted', 'leaveItem', 'enterItem', 'clickItem']);
 const props = defineProps<{
     thingType: WebCutThingType;

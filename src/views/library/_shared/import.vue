@@ -16,10 +16,10 @@ import { remuxToMp4 } from '../../../libs/remux';
 
 const emit = defineEmits(['fileImport', 'fileImported', 'dirImport', 'dirImported']);
 // 上传中的文件列表
-const uploadingFiles = defineModel<Set<string>>('uploadingFiles', { default: new Set() });
+const uploadingFiles = defineModel<Set<string>>('uploadingFiles', { default: () => new Set<string>() });
 // 转码相关状态
-const isTranscoding = defineModel('isTranscoding', { default: false });
-const transcodingProgress = defineModel('transcodingProgress', { default: 0 });
+const isTranscoding = defineModel<boolean>('isTranscoding', { default: false });
+const transcodingProgress = defineModel<number>('transcodingProgress', { default: 0 });
 
 const props = defineProps<{
     thingType: WebCutThingType;

@@ -13,7 +13,8 @@ import { useWebCutContext, useWebCutPlayer } from '../../hooks';
 import { useT } from '../../i18n/hooks';
 import { aspectRatioResolutionMaps, RESOLUTIONS, FPS_OPTIONS } from '../../constants';
 import type { WebCutResolution } from '../../types';
-import { resampleAudioWithOfflineContext, saveAsFile } from '../../libs';
+import { canEncodeMp3ByMediabunny, convertWavToMp3ByMediabunny, resampleAudioWithOfflineContext, saveAsFile } from '../../libs';
+import { convertAudioToMp3ByFFmpeg } from '../../libs/ffmpeg';
 
 const t = useT();
 const { fps, canvas, aspectRatio, resolution } = useWebCutContext();
@@ -95,6 +96,9 @@ async function handleExport() {
             }
             else if (audioData.value.format === 'wav') {
                 await exportWAV();
+            }
+            else if (audioData.value.format === 'mp3') {
+                await exportMP3();
             }
         }
 
@@ -180,6 +184,20 @@ async function exportWAV() {
         wavBlob = await resampleAudioWithOfflineContext(wavBlob, audioData.value.sampleRate as 44100);
     }
     await saveAsFile(wavBlob, { type: 'audio/wav', name: `webcut-${Date.now()}.wav` });
+}
+
+async function exportMP3() {
+    const wavBlob = await exportAsWavBlob();
+    let mp3Blob: Blob;
+    if (await canEncodeMp3ByMediabunny()) {
+        mp3Blob = await convertWavToMp3ByMediabunny(wavBlob, audioData.value.bitrate);
+    }
+    else {
+        // 浏览器 WebCodecs 不支持 mp3 编码（Safari/Firefox），回落 ffmpeg.wasm libmp3lame 重编码
+        const arrbuff = await convertAudioToMp3ByFFmpeg(wavBlob, audioData.value.bitrate);
+        mp3Blob = new Blob([arrbuff], { type: 'audio/mpeg' });
+    }
+    await saveAsFile(mp3Blob, { type: 'audio/mpeg', name: `webcut-${Date.now()}.mp3` });
 }
 
 function getSupportedMimeType(highPriority: string): string {
@@ -280,7 +298,7 @@ function calcVideoSize() {
             <section v-if="exportType === 'audio'">
                 <n-form-item :label="t('输出格式')">
                     <n-select v-model:value="audioData.format" :options="[
-                        // { label: 'MP3', value: 'mp3' },
+                        { label: 'MP3', value: 'mp3' },
                         { label: 'WAV', value: 'wav' },
                         { label: 'M4A', value: 'm4a' },
                     ]" size="tiny" />

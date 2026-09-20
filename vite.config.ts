@@ -26,6 +26,17 @@ const reactExternals = [/^react$/, /^react\/.*$/, /^react-dom$/, /^react-dom\/.*
 
 // 导出配置
 export default defineConfig(({ mode }) => ({
+  // examples 以「外部宿主」视角裸导入 webcut（webcut / webcut/webcomponents / webcut/react），
+  // 本仓库既无自链接也无 exports 自引用，dev 下别名到源码入口（免先构建、支持 HMR）。
+  // 产物 style.css 在 dev 下无需导入：组件样式由 vue 插件从 SFC 自动注入，别名到空占位。
+  resolve: {
+    alias: [
+      { find: /^webcut\/(esm|webcomponents|react)\/style\.css$/, replacement: resolve(__dirname, 'examples/dev-noop.css') },
+      { find: /^webcut\/webcomponents$/, replacement: resolve(__dirname, 'src/webcomponents.ts') },
+      { find: /^webcut\/react$/, replacement: resolve(__dirname, 'src/react.ts') },
+      { find: /^webcut$/, replacement: resolve(__dirname, 'src/index.ts') },
+    ],
+  },
   plugins: [
     vue(),
     buildType === 'esm' ? dts({

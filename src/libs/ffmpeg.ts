@@ -14,7 +14,7 @@ import wasmURL from '../../ffmpeg.wasm/ffmpeg-core.wasm?url';
 // const classWorkerURL = new URL('./ffmpeg.wasm/ffmpeg.worker.js', import.meta.url).href;
 // const wasmURL = new URL('./ffmpeg.wasm/ffmpeg-core.wasm', import.meta.url).href;
 
-const globalFFmpegScripts = {};
+const globalFFmpegScripts: { coreURL?: string; wasmURL?: string; classWorkerURL?: string } = {};
 
 /**
  * 设置FFmpeg脚本地址
@@ -297,6 +297,29 @@ export async function extractAudioFromVideoByCopy(inputFileSource: string | File
             '-vn',
             '-c:a', 'copy',
             '-f', 'ipod',
+            output,
+        ],
+        ffmpeg,
+        onLog,
+    });
+}
+
+/**
+ * 音频转码为 mp3（ffmpeg.wasm libmp3lame 重编码）。
+ * 用于浏览器 WebCodecs 不支持 mp3 编码（Safari/Firefox）时的导出兜底。
+ * @param inputFileSource 输入音频（wav/m4a 等任意 ffmpeg 支持的格式）
+ * @param bitrate 目标码率（bps）
+ */
+export async function convertAudioToMp3ByFFmpeg(inputFileSource: string | File | Blob, bitrate = 128000, ffmpeg?: FFmpeg, onLog?: ProgressEventCallback | LogEventCallback): Promise<ArrayBuffer> {
+    return await runFFmpeg({
+        input: inputFileSource,
+        inputFormat: 'wav',
+        outputFormat: 'mp3',
+        command: ({ input, output }) => [
+            '-i', input,
+            '-vn',
+            '-c:a', 'libmp3lame',
+            '-b:a', `${bitrate}`,
             output,
         ],
         ffmpeg,

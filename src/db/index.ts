@@ -769,7 +769,7 @@ export async function deleteProject(projectId: string): Promise<{ filesRemoved: 
     // 1) 删除该项目全部历史（列表行 + 快照）
     const projectHistory = await historyStorage.query('projectId', projectId);
     if (projectHistory.length) {
-        await deleteProjectHistoryEntries(projectHistory.map(({ id }) => id));
+        await deleteProjectHistoryEntries(projectHistory.map((item: any) => item.id));
     }
 
     // 2) 删除 project_state

@@ -193,7 +193,7 @@ export async function composeSpeedChangedVideo(opts: {
             await copyAudioTrackNormalized({ mb, audioTrack, audioSource, isCancelled });
         }
         catch (err) {
-            if (String(err?.message || err) === 'CANCELLED') {
+            if (String((err as Error)?.message || err) === 'CANCELLED') {
                 try { await out.cancel(); } catch { /* noop */ }
             }
             throw err;
@@ -396,7 +396,7 @@ export async function remuxToMp4(blob: Blob, opts: RemuxToMp4Options = {}): Prom
                 await copyAudioTrackNormalized({ mb, audioTrack, audioSource, isCancelled });
             }
             catch (err) {
-                if (String(err?.message || err) === 'CANCELLED') {
+                if (String((err as Error)?.message || err) === 'CANCELLED') {
                     try { await out.cancel(); } catch { /* noop */ }
                 }
                 throw err;

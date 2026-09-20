@@ -899,6 +899,40 @@ export async function mp4BlobToWavBlob(mp4Blob: Blob): Promise<Blob> {
     return wavBlob;
 }
 
+/**
+ * 探测浏览器 mp3 编码能力（mediabunny 的 mp3 编码依赖 WebCodecs AudioEncoder，Chrome 133+ 支持，Safari/Firefox 不支持）
+ */
+export async function canEncodeMp3ByMediabunny(): Promise<boolean> {
+    try {
+        // @ts-ignore 运行时动态 import（保持按需加载，仿 probeVideoFps 先例）
+        const mb: any = await import('mediabunny');
+        return await mb.canEncodeAudio('mp3');
+    }
+    catch (err) {
+        return false;
+    }
+}
+
+/**
+ * wav → mp3 转码（纯前端 mediabunny 流式转码，速度快于 ffmpeg.wasm 全量重编码）
+ * 依赖浏览器 WebCodecs mp3 编码能力，调用前应先经 canEncodeMp3ByMediabunny() 探测，不支持时回落 ffmpeg libmp3lame
+ * @param wavBlob PCM wav 音频
+ * @param bitrate 目标码率（bps），非 mp3 合法档位时 mediabunny 自动就近取合法值
+ */
+export async function convertWavToMp3ByMediabunny(wavBlob: Blob, bitrate: number): Promise<Blob> {
+    // @ts-ignore 运行时动态 import（保持按需加载，仿 probeVideoFps 先例）
+    const mb: any = await import('mediabunny');
+    const { Input, BlobSource, Output, Mp3OutputFormat, BufferTarget, Conversion, Quality, ALL_FORMATS } = mb;
+    const target = new BufferTarget();
+    const conversion = await Conversion.init({
+        input: new Input({ source: new BlobSource(wavBlob), formats: ALL_FORMATS }),
+        output: new Output({ format: new Mp3OutputFormat(), target }),
+        audio: { codec: 'mp3', quality: new Quality({ bitrate }) },
+    });
+    await conversion.execute();
+    return new Blob([target.buffer], { type: 'audio/mpeg' });
+}
+
 export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
     iteratorCallback?: (data: { video: VideoFrame, ts: number, index: number }) => void | Promise<void>,
     step?: number, // step in microseconds, will be auto-calculated if not provided

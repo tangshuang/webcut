@@ -495,13 +495,13 @@ export function useWebCutPlayer() {
     }
 
     function reset() {
-        return new Promise((resolve) => {
+        return new Promise<void>((resolve) => {
             status.value = 0;
             canvas.value?.pause();
             setTimeout(() => {
                 cursorTime.value = 0;
                 canvas.value?.previewFrame(0);
-                resolve(null);
+                resolve();
             }, 16);
         });
     }
@@ -1501,11 +1501,12 @@ export function useWebCutPlayer() {
             }
             catch (err) {
                 // 无音轨的变速视频无需修复音调，直接跳过（画面保持 @webav 原生变速即可）
-                if (String(err?.message || err).includes('NO_AUDIO_TRACK')) {
+                if (String((err as Error)?.message || err).includes('NO_AUDIO_TRACK')) {
                     console.warn('[WebCut] repairVideoPitch: 源视频无音轨，无需修复音调');
                     return;
                 }
-                const { buffer: audioTrackBuffer } = await extractAudioFromVideoByCopy(inputFile);
+                // extractAudioFromVideoByCopy 直接返回 ArrayBuffer（原先误从其上解构 .buffer，得到 undefined 产生损坏产物）
+                const audioTrackBuffer = await extractAudioFromVideoByCopy(inputFile);
                 audioTrackBlob = new Blob([audioTrackBuffer], { type: 'audio/mp4' });
             }
 
@@ -1642,7 +1643,7 @@ export function useWebCutPlayer() {
             }
             catch (err) {
                 // 无音轨的源做声音分离无意义，跳过（避免走完整条失败链后无提示地抛错）
-                if (String(err?.message || err).includes('NO_AUDIO_TRACK')) {
+                if (String((err as Error)?.message || err).includes('NO_AUDIO_TRACK')) {
                     console.warn('[WebCut] separateAudioFromVideo: 源视频无音轨，跳过分离');
                     return;
                 }

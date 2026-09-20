@@ -7,9 +7,10 @@ import { WebCutThingType } from '../../../types';
 export type Nav = { label: string; key: string; component?: any };
 
 const navKey = defineModel<string>('current', { default: '' });
-const selectedNav = defineModel<Nav>('selected', { default: null });
+// vue 的 defineModel default 类型（InferDefault）不允许「对象|null」联合，需断言绕过
+const selectedNav = defineModel<Nav | null>('selected', { default: () => null as unknown as Nav });
 const thingNavs = defineModel<Nav[]>('navs', {
-  default: [
+  default: () => [
     {
       label: '当前',
       key: 'this',
