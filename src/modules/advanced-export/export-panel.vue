@@ -188,12 +188,18 @@ async function exportWAV() {
 
 async function exportMP3() {
     const wavBlob = await exportAsWavBlob();
-    let mp3Blob: Blob;
+    let mp3Blob: Blob | null = null;
+    // 探测通过 ≠ 运行时编码必然成功（编码器初始化/配置异常等），失败时统一回落 ffmpeg
     if (await canEncodeMp3ByMediabunny()) {
-        mp3Blob = await convertWavToMp3ByMediabunny(wavBlob, audioData.value.bitrate);
+        try {
+            mp3Blob = await convertWavToMp3ByMediabunny(wavBlob, audioData.value.bitrate);
+        }
+        catch (err) {
+            console.warn('[WebCut] exportMP3: mediabunny 转码失败，回落 ffmpeg libmp3lame', err);
+        }
     }
-    else {
-        // 浏览器 WebCodecs 不支持 mp3 编码（Safari/Firefox），回落 ffmpeg.wasm libmp3lame 重编码
+    if (!mp3Blob) {
+        // 浏览器无 WebCodecs mp3 编码能力（Safari/Firefox）或 mediabunny 运行时失败：ffmpeg.wasm libmp3lame 重编码
         const arrbuff = await convertAudioToMp3ByFFmpeg(wavBlob, audioData.value.bitrate);
         mp3Blob = new Blob([arrbuff], { type: 'audio/mpeg' });
     }

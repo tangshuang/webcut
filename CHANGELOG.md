@@ -16,9 +16,13 @@ All notable changes to this project will be documented in this file. See [standa
 * 画布长宽比提升为 context 一等状态（`aspectRatio` + 会话级 `canvasPresetLocked` 标志）：宽高永远是「分辨率+长宽比」查表的派生值，消除运行时反推——切换分辨率不再从宽高反推当前比例（此前为分辨率/长宽比相互影响的机制温床），比例切换器、导出面板、agent 工具全部直读状态；画布设定一经确立（用户/宿主显式设置、恢复持久化、首素材反推任一发生）即锁定，不再被覆盖 (2026-09-20)
 * 新增首开画布反推：画布从未确立时，推入首个视频/图片素材自动按素材原始尺寸确立比例与分辨率档位，视频同时按原始帧率确立 fps（mediabunny 纯 demux 探测，对齐 FPS_OPTIONS 最近档位如 29.97→30，探测失败不阻塞推入）；优先级为「恢复持久化 > 宿主/editor props 显式设置 > 首素材反推 > 默认 4:3@1080P/30」(2026-09-20)
 * 新增并导出 `inferCanvasFromVideo`（素材尺寸→比例+分辨率档位反推，log 距离度量天然兼容 21:9 降档列与竖屏场景，供宿主复用）、`nearestFpsOption`、`probeVideoFps`、`calcAspectRatio` 工具函数；旧项目持久数据缺 `aspectRatio` 字段时恢复链路自动反推补写完成迁移 (2026-09-20)
+* 新增导出 MP3 音频格式：导出面板音频格式下拉恢复 MP3 选项；优先 mediabunny 流式转码（WebCodecs mp3 编码，Chrome 133+），浏览器无 mp3 编码能力（Safari/Firefox）或运行时转码失败时自动回落 ffmpeg.wasm libmp3lame 重编码，非合法码率档位自动就近对齐 (2026-09-21)
 
 ### Bug Fixes
 
+* 修复变速修复音调（repairPitch）兜底链路产物损坏的问题：从 `extractAudioFromVideoByCopy` 返回的 ArrayBuffer 上错误解构 `.buffer` 得到 undefined，生成的音轨 Blob 内容为字符串 "undefined"，变速素材在 remux 提取音轨失败时会走入此链路 (2026-09-21)
+* 清理全部 47 个既有 TypeScript 类型错误（`vue-tsc --noEmit` 归零，typecheck 与构建通过）：`defineModel` 的对象/数组/Set default 改工厂函数（消除 library 组件的连锁类型崩溃）、`import.vue` 补 `boolean`/`number` 显式泛型（原推断为字面量 `false`/`0` 导致赋值报错）、正则匹配变量在闭包内取局部常量保持空收窄、`reset()` 明确返回 `Promise<void>`、`globalFFmpegScripts` 补类型注解、catch 错误对象改 `(err as Error)?.message` 等 (2026-09-21)
+* 修复本地 dev 启动报「webcut could not be resolved」的问题：examples 以外部宿主视角裸导入 `webcut`/`webcut/webcomponents`/`webcut/react` 及产物 style.css，此前靠 `.vite` 旧缓存侥幸工作，lockfile 变化触发依赖重新预构建后暴露；vite 配置新增 `resolve.alias` 将三个裸导入别名到源码入口（免先构建、支持 HMR），产物 style.css 别名到空占位（dev 下组件样式由 SFC 自动注入） (2026-09-21)
 * 修复画布分辨率与长宽比相互影响的问题：旧分辨率档位尺寸表中 12 处错误条目（如 720P 的 9:16 实为 2:3、3:4 实为 9:10，480P/360P 的 21:9 与 16:9 同尺寸、9:16 与 1:1 同尺寸）导致「切换长宽比在特定分辨率下不生效」「切换分辨率后长宽比被静默改写」；8 张手写尺寸表统一改为 `buildAspectRatioSizeMap` 按比例精确生成（偶数取整，所有条目均可反解回自身档位），本来正确的档位数值保持不变 (2026-09-20)
 * 修复 undo 点击无效果的问题：串行化历史操作消除与未 await 的 `pushHistory` 之间的竞态；恢复完成后统一补齐动画重算、tickInterceptor 刷新、总时长更新与画面重绘；撤销/重做按钮在恢复期间禁用防止堆积 (2026-08-17)
 * 修复撤销后状态与画面不刷新的问题：恢复时同步 source 与新 rails 的关联（跨轨道移动场景），并按新 rails 过滤保留选中状态而非全部清空 (2026-08-17)
