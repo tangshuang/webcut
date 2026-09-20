@@ -311,7 +311,9 @@ export {
 } from './i18n/core';
 
 // constants
-export { aspectRatioMap } from './constants';
+export { aspectRatioMap, aspectRatioResolutionMaps, RESOLUTIONS, FPS_OPTIONS, ASPECT_RATIOS } from './constants';
+export type { WebCutAspectRatio } from './constants';
+export { inferCanvasFromVideo, nearestFpsOption, probeVideoFps } from './libs';
 
 // db（持久化，纯函数）
 export {

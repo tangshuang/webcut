@@ -2,6 +2,7 @@ import { AVCanvas } from '@webav/av-canvas';
 import { VisibleSprite, MP4Clip, ImgClip, AudioClip } from '@webav/av-cliper';
 import { Evt } from '../libs/evt';
 import { Component } from 'vue';
+import type { WebCutAspectRatio } from '../constants';
 
 /** 画布分辨率档位 */
 export type WebCutResolution = '1080P' | '768P' | '720P' | '576P' | '544P' | '540P' | '480P' | '360P';
@@ -47,6 +48,10 @@ export type WebCutContext = {
 
     // 画布分辨率档位
     resolution: WebCutResolution;
+    // 画布长宽比档位（一等状态，width/height 永远是 表[resolution][aspectRatio] 的派生值）
+    aspectRatio: WebCutAspectRatio;
+    // 画布设定是否已确立（用户/宿主显式设置、恢复持久化或首素材反推任一发生即置位；会话级标志，不持久化）
+    canvasPresetLocked: boolean;
 
     // 时间轴缩放比例, [0, 100], step:10
     scale: number;

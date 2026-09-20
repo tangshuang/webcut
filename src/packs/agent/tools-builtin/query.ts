@@ -1,5 +1,5 @@
 import type { WebCutAgentTool } from '../tools';
-import { detectRatio, mimeToKind, ASPECT_RATIOS } from './common';
+import { mimeToKind, ASPECT_RATIOS } from './common';
 import { transitionManager } from '../../../modules/transitions';
 import { filterManager } from '../../../modules/filters';
 import { animationManager } from '../../../modules/animations';
@@ -43,7 +43,7 @@ export const getTimelineState: WebCutAgentTool = {
             canvas: {
                 width: ctx.width,
                 height: ctx.height,
-                aspectRatio: detectRatio(ctx.width, ctx.height),
+                aspectRatio: ctx.aspectRatio,
                 fps: ctx.fps,
                 durationUs: ctx.duration,
             },
@@ -68,7 +68,7 @@ export const getPlayerState: WebCutAgentTool = {
             fps: ctx.fps,
             canUndo: ctx.canUndo,
             canRedo: ctx.canRedo,
-            canvasAspectRatio: detectRatio(ctx.width, ctx.height),
+            canvasAspectRatio: ctx.aspectRatio,
         };
     },
 };

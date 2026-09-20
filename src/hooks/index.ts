@@ -10,7 +10,7 @@ import {
 import { base64ToFile, blobToFile, downloadBlob } from '../libs/file';
 import { assignNotEmpty } from '../libs/object';
 import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-fns';
-import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap, calcAspectRatio } from '../libs';
+import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap, inferCanvasFromVideo, probeVideoFps, resolveSourceBlob } from '../libs';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { safeCloseFrame, trackVideoFrameCreated } from '../libs';
 import { execFFmpeg, extractAudioFromVideo, extractAudioFromVideoByCopy } from '../libs/ffmpeg';
@@ -49,6 +49,8 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         autoFitSize: undefined,
         fps: 30,
         resolution: '1080P',
+        aspectRatio: '4:3',
+        canvasPresetLocked: false,
         scale: 70,
         enableMainVideoMagnet: true,
         scroll1: null,
@@ -101,7 +103,7 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         context = null;
     }, 0);
 
-    const { id, sprites, status, cursorTime, fps, selected, current, rails, sources, width, height, modules, evt, duration, resolution } = refs;
+    const { id, sprites, status, cursorTime, fps, selected, current, rails, sources, width, height, modules, evt, duration, resolution, aspectRatio, canvasPresetLocked } = refs;
 
     // 总时长，纳秒，1000*1000=1秒
     const updateDuration = debounce(async () => {
@@ -231,24 +233,27 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         return source;
     });
 
-    async function updateByAspectRatio(aspectRatio: keyof typeof aspectRatioMap, resolutionValue?: WebCutResolution) {
+    async function updateByAspectRatio(aspectRatioValue: keyof typeof aspectRatioMap, resolutionValue?: WebCutResolution) {
         // 未指定档位时沿用当前档位，保证切换比例时分辨率不变
         const res = resolutionValue || (resolution.value as WebCutResolution);
         const map = aspectRatioResolutionMaps[res] || aspectRatioMap;
-        const size = map[aspectRatio];
+        const size = map[aspectRatioValue];
+        // 长宽比是一等状态，宽高永远是「分辨率+长宽比」查表的派生值
+        aspectRatio.value = aspectRatioValue;
         // 更新宽度和高度
         width.value = size.width;
         height.value = size.height;
         resolution.value = res;
-        await updateProjectState(id.value, { aspectRatio, resolution: res });
+        // 画布设定就此确立：用户/宿主显式设置、恢复持久化、首素材反推均经此置位
+        canvasPresetLocked.value = true;
+        await updateProjectState(id.value, { aspectRatio: aspectRatioValue, resolution: res });
     }
 
     /**
      * 切换画布分辨率档位，保持当前长宽比不变，仅更换宽高基准
      */
     async function updateByResolution(resolutionValue: WebCutResolution) {
-        const aspectRatio = calcAspectRatio(width.value, height.value, aspectRatioMap);
-        await updateByAspectRatio(aspectRatio, resolutionValue);
+        await updateByAspectRatio(aspectRatio.value, resolutionValue);
     }
 
     /**
@@ -259,6 +264,8 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
             return;
         }
         fps.value = fpsValue;
+        // 用户显式配置过画布（含帧率），首素材反推不应再覆盖
+        canvasPresetLocked.value = true;
         await updateProjectState(id.value, { fps: fpsValue });
     }
 
@@ -342,6 +349,10 @@ export function useWebCutPlayer() {
         modules,
         autoFitSize,
         updateDuration,
+        canRecover,
+        canvasPresetLocked,
+        updateByAspectRatio,
+        updateByFps,
     } = refs;
 
     const opts = {
@@ -791,10 +802,34 @@ export function useWebCutPlayer() {
 
             const spr = new VisibleSprite(clip!);
 
+            // 首开反推：画布从未确立（用户/宿主未显式设置、无待恢复持久化、也未反推过）时，
+            // 首个视频/图片素材按原始尺寸确立画布的比例与分辨率档位。
+            // 必须在下方 autoFitRect 之前完成，保证素材按新画布尺寸适配。
+            let inferredSize: { width: number; height: number } | null = null;
+            if (['video', 'image'].includes(type) && !canvasPresetLocked.value && !canRecover.value) {
+                // 先置位，防止并发 push 双重反推
+                canvasPresetLocked.value = true;
+                const src = (file || url) as string;
+                inferredSize = type === 'video' ? await measureVideoSize(src) : await measureImageSize(src);
+                const { aspectRatio: inferredRatio, resolution: inferredResolution } = inferCanvasFromVideo(inferredSize.width, inferredSize.height);
+                await updateByAspectRatio(inferredRatio, inferredResolution);
+                if (type === 'video') {
+                    // fps 探测走异步旁路（探测失败不阻塞画布反推与素材推入）
+                    resolveSourceBlob(file as File | null, url as string | null)
+                        .then(blob => blob ? probeVideoFps(blob) : null)
+                        .then(fpsValue => {
+                            if (fpsValue) {
+                                void updateByFps(fpsValue);
+                            }
+                        })
+                        .catch(() => {});
+                }
+            }
+
             // 自动适配
             if ((meta.autoFitSize || (meta as any).autoFitRect || autoFitSize?.value) && ['image', 'video'].includes(type)) {
                 const src = (file || url) as string;
-                const size = type === 'image' ? await measureImageSize(src) : await measureVideoSize(src);
+                const size = inferredSize || (type === 'image' ? await measureImageSize(src) : await measureVideoSize(src));
                 const canvasSize = {
                     width: width.value,
                     height: height.value,

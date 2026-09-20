@@ -166,6 +166,10 @@ export {
     measureVideoDuration,
     measureVideoSize,
     autoFitRect,
+    calcAspectRatio,
+    inferCanvasFromVideo,
+    nearestFpsOption,
+    probeVideoFps,
     formatTime,
     mp4ClipToBlob,
     mp4ClipToFile,
@@ -248,7 +252,8 @@ export {
 } from './i18n/hooks';
 
 // constants
-export { aspectRatioMap } from './constants';
+export { aspectRatioMap, aspectRatioResolutionMaps, RESOLUTIONS, FPS_OPTIONS, ASPECT_RATIOS } from './constants';
+export type { WebCutAspectRatio } from './constants';
 
 export {
     getProject,

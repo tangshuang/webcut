@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, h, computed, watch } from 'vue';
+import { h, computed } from 'vue';
 import { NDropdown, NButton, NIcon } from 'naive-ui';
 import {
     Tablet20Regular,
@@ -11,18 +11,15 @@ import {
 } from '@vicons/fluent';
 import { useWebCutContext } from '../../hooks';
 import { aspectRatioMap } from '../../constants';
-import { calcAspectRatio } from '../../libs';
 
 const props = defineProps<{
   /** 是否展示比例文字 */
   displayAspect?: boolean;
 }>();
 
-const { width, height, updateByAspectRatio } = useWebCutContext();
+const { aspectRatio, updateByAspectRatio } = useWebCutContext();
 
-// 长宽比状态
-const aspectRatio = ref('4:3');
-// 定义长宽比选项
+// 长宽比是一等状态，直读 context，不再从宽高反推
 const AspectRatioOptions = computed(() => [
   {
     label: '21:9',
@@ -62,14 +59,8 @@ const AspectRatioOptions = computed(() => [
   },
 ]);
 
-watch([width, height], ([width, height]) => {
-  const closestRatio = calcAspectRatio(width, height, aspectRatioMap);
-  aspectRatio.value = closestRatio;
-}, { immediate: true });
-
 // 处理长宽比选择
 async function handleSelectAspectRatio(value: keyof typeof aspectRatioMap) {
-  aspectRatio.value = value;
   await updateByAspectRatio(value);
 }
 </script>

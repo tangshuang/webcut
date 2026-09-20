@@ -1,12 +1,12 @@
 import { each, isNone, padLeft } from "ts-fns";
 import { MP4Clip, AudioClip, OffscreenSprite, Combinator, ImgClip } from "@webav/av-cliper";
+import { WebCutHighlightOfText, WebCutResolution } from "../types";
 import { base64ToFile, blobToBase64DataURL, fileToBase64DataURL } from './file';
-import { WebCutHighlightOfText } from "../types";
 import { blobToFile, downloadBlob } from "./file";
 // @ts-ignore
 import toWav from 'audiobuffer-to-wav';
 import { PerformanceMark, mark } from './performance';
-import { aspectRatioMap } from "../constants";
+import { aspectRatioMap, aspectRatioResolutionMaps, RESOLUTIONS, FPS_OPTIONS, WebCutAspectRatio } from "../constants";
 import { safeCloseFrame } from './video-frame';
 
 function isUserAbortError(error: unknown) {
@@ -1219,6 +1219,96 @@ export function calcAspectRatio(width: number, height: number, map: typeof aspec
     }, 0);
     const closestRatio = ratios[closestIndex];
     return closestRatio as any;
+}
+
+/**
+ * 根据素材（视频/图片）原始尺寸反推画布比例与分辨率档位（仅用于「画布未确立」时的首开初始化）。
+ *
+ * 比例用最近匹配；分辨率在该比例列内取与素材尺寸对数距离最小的档位——
+ * 该度量按整体缩放距离比较，天然兼容 21:9 列的降档高度（768/576）与竖屏场景（如 1080×1920 → 9:16@1080P）。
+ */
+export function inferCanvasFromVideo(vw: number, vh: number): { aspectRatio: WebCutAspectRatio; resolution: WebCutResolution } {
+    if (!Number.isFinite(vw) || !Number.isFinite(vh) || vw <= 0 || vh <= 0) {
+        return { aspectRatio: '4:3', resolution: '1080P' };
+    }
+    const aspectRatio = calcAspectRatio(vw, vh, aspectRatioMap);
+    let resolution: WebCutResolution = '1080P';
+    let minDistance = Infinity;
+    for (const res of RESOLUTIONS) {
+        const size = aspectRatioResolutionMaps[res][aspectRatio];
+        const distance = Math.abs(Math.log(size.width / vw)) + Math.abs(Math.log(size.height / vh));
+        if (distance < minDistance) {
+            minDistance = distance;
+            resolution = res;
+        }
+    }
+    return { aspectRatio: aspectRatio as WebCutAspectRatio, resolution };
+}
+
+/**
+ * 取与原始帧率最接近的帧率档位（如 23.976→24、29.97→30）；输入非法时返回默认 30
+ */
+export function nearestFpsOption(raw: number): number {
+    if (!Number.isFinite(raw) || raw <= 0) {
+        return 30;
+    }
+    return FPS_OPTIONS.reduce((acc, opt) => Math.abs(opt - raw) < Math.abs(acc - raw) ? opt : acc, FPS_OPTIONS[0]);
+}
+
+/** fps 探测超时（毫秒），超时返回 null 不阻塞调用方 */
+const PROBE_VIDEO_FPS_TIMEOUT = 3000;
+
+/**
+ * 探测视频原始帧率（纯 demux 不解码，探测前 128 个包），并对齐到帧率档位。
+ * 无视频轨、解析失败或超时返回 null。
+ */
+export async function probeVideoFps(blob: Blob): Promise<number | null> {
+    try {
+        // @ts-ignore 运行时动态 import（保持按需加载，仿 split-av.ts 先例）
+        const mb: any = await import('mediabunny');
+        const { Input, BlobSource, ALL_FORMATS } = mb;
+        const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+        try {
+            const metrics = await Promise.race([
+                (async () => {
+                    const videoTrack = await input.getPrimaryVideoTrack();
+                    if (!videoTrack) {
+                        return null;
+                    }
+                    return await videoTrack.computeFrameRateMetrics({ targetPacketCount: 128 });
+                })(),
+                new Promise(resolve => setTimeout(() => resolve(null), PROBE_VIDEO_FPS_TIMEOUT)),
+            ]);
+            const raw = metrics?.bestGuessFrameRate;
+            return Number.isFinite(raw) && raw > 0 ? nearestFpsOption(raw) : null;
+        }
+        finally {
+            try { input.dispose?.(); } catch (err) { /* noop */ }
+            try { input.close?.(); } catch (err) { /* noop */ }
+        }
+    }
+    catch (err) {
+        return null;
+    }
+}
+
+/**
+ * 从 push 流程中已解析的素材源取 Blob（优先 File；http(s) url 时 fetch 一次；失败返回 null）
+ */
+export async function resolveSourceBlob(file: File | null, url: string | null): Promise<Blob | null> {
+    if (file) {
+        return file;
+    }
+    if (url && /^https?:/i.test(url)) {
+        try {
+            const res = await fetch(url);
+            if (res.ok) {
+                return await res.blob();
+            }
+        }
+        catch (err) { /* noop */ }
+    }
+    return null;
 }
 
 /**

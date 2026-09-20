@@ -11,12 +11,12 @@ import {
 import { WebCutExportVideoParams, WebCutExportAudioParams } from './types';
 import { useWebCutContext, useWebCutPlayer } from '../../hooks';
 import { useT } from '../../i18n/hooks';
-import { aspectRatioMap, aspectRatioResolutionMaps, RESOLUTIONS, FPS_OPTIONS } from '../../constants';
+import { aspectRatioResolutionMaps, RESOLUTIONS, FPS_OPTIONS } from '../../constants';
 import type { WebCutResolution } from '../../types';
-import { calcAspectRatio, resampleAudioWithOfflineContext, saveAsFile } from '../../libs';
+import { resampleAudioWithOfflineContext, saveAsFile } from '../../libs';
 
 const t = useT();
-const { fps, canvas, width, height, resolution } = useWebCutContext();
+const { fps, canvas, aspectRatio, resolution } = useWebCutContext();
 const { exportAsWavBlob } = useWebCutPlayer();
 
 const emit = defineEmits<{
@@ -205,9 +205,9 @@ function getSupportedMimeType(highPriority: string): string {
 }
 
 function calcVideoSize() {
-    const aspectRatio = calcAspectRatio(width.value, height.value, aspectRatioMap);
+    // 长宽比是一等状态，直接读取，不再从画布宽高反推
     const map = aspectRatioResolutionMaps[videoData.value.resolution];
-    const size = map[aspectRatio];
+    const size = map[aspectRatio.value];
     return size;
 }
 </script>

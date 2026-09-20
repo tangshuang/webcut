@@ -3,23 +3,6 @@
 /** 支持的画幅比例 */
 export const ASPECT_RATIOS = ['21:9', '16:9', '4:3', '9:16', '3:4', '1:1'] as const;
 
-/** 由画布宽高推断最接近的画幅比例 */
-export function detectRatio(width: number, height: number): string {
-    if (!width || !height) return '16:9';
-    const target = width / height;
-    let best = '16:9';
-    let diff = Infinity;
-    for (const key of ASPECT_RATIOS) {
-        const [w, h] = key.split(':').map(Number);
-        const d = Math.abs(w / h - target);
-        if (d < diff) {
-            diff = d;
-            best = key;
-        }
-    }
-    return best;
-}
-
 /** 由 mimetype 推断媒体大类（video/audio/image/text） */
 export function mimeToKind(mime: string): 'video' | 'audio' | 'image' | 'text' {
     if (!mime) return 'text';

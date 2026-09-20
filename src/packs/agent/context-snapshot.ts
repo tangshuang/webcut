@@ -1,5 +1,5 @@
 import type { WebCutAgentToolRuntime } from './tools';
-import { detectRatio, mimeToKind, ASPECT_RATIOS } from './tools-builtin/common';
+import { mimeToKind, ASPECT_RATIOS } from './tools-builtin/common';
 import { transitionManager } from '../../modules/transitions';
 import { filterManager } from '../../modules/filters';
 import { animationManager } from '../../modules/animations';
@@ -68,7 +68,7 @@ export function buildContextSnapshot(runtime: WebCutAgentToolRuntime): Record<st
         canvas: {
             width: ctx.width,
             height: ctx.height,
-            aspectRatio: detectRatio(ctx.width, ctx.height),
+            aspectRatio: ctx.aspectRatio,
             fps: ctx.fps,
             durationUs: ctx.duration,
         },

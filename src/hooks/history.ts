@@ -12,6 +12,8 @@ import {
 import { clone, isEqual } from 'ts-fns';
 import { createHistoryPatches } from '../libs/history-patch';
 import { AsyncQueue } from '../libs/async-queue';
+import { calcAspectRatio } from '../libs';
+import { aspectRatioMap } from '../constants';
 import { detachSourceToPark, disposeSourcePark, salvageSourceFromPark } from './source-park';
 import { useT } from '../i18n/hooks';
 
@@ -65,6 +67,8 @@ export function useWebCutHistory() {
         canvas,
         selected,
         current,
+        width,
+        height,
         updateByAspectRatio,
         updateByFps,
         loading,
@@ -131,6 +135,10 @@ export function useWebCutHistory() {
             const { aspectRatio, resolution, fps } = savedData;
             if (aspectRatio) {
                 updateByAspectRatio(aspectRatio, resolution as WebCutResolution | undefined);
+            }
+            else {
+                // 旧项目缺 aspectRatio：按当前宽高一次性兜底反推并补写持久层（完成数据迁移）
+                updateByAspectRatio(calcAspectRatio(width.value, height.value, aspectRatioMap), resolution as WebCutResolution | undefined);
             }
             if (typeof fps === 'number' && fps > 0) {
                 updateByFps(fps);
@@ -666,6 +674,10 @@ export function useWebCutHistory() {
                 const { aspectRatio, resolution, fps, state } = projectState;
                 if (aspectRatio) {
                     updateByAspectRatio(aspectRatio, resolution as WebCutResolution | undefined);
+                }
+                else {
+                    // 旧项目缺 aspectRatio：按当前宽高一次性兜底反推并补写持久层（完成数据迁移）
+                    updateByAspectRatio(calcAspectRatio(width.value, height.value, aspectRatioMap), resolution as WebCutResolution | undefined);
                 }
                 if (typeof fps === 'number' && fps > 0) {
                     updateByFps(fps);
