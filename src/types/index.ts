@@ -53,6 +53,9 @@ export type WebCutContext = {
     // 画布设定是否已确立（用户/宿主显式设置、恢复持久化或首素材反推任一发生即置位；会话级标志，不持久化）
     canvasPresetLocked: boolean;
 
+    // 画布预览区缩放倍数（相对适配屏幕后的尺寸），1 表示适配；会话级状态，不持久化
+    canvasZoom: number;
+
     // 时间轴缩放比例, [0, 100], step:10
     scale: number;
     // 是否默认开启主轨视频磁吸

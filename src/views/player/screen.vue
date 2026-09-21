@@ -10,7 +10,7 @@ const props = defineProps<{
     maxHeight?: number;
 }>();
 
-const { viewport, width, height, player, editTextState, currentSource } = useWebCutContext();
+const { viewport, width, height, player, editTextState, currentSource, canvasZoom, evt: contextEvt } = useWebCutContext();
 const { init, destroy } = useWebCutPlayer();
 const canvasSizeRef = inject('videoCanvasSizeRef', null);
 
@@ -55,7 +55,12 @@ function fitBoxSize() {
         canvasMaxWidth.value = canvasWidth * scale;
         canvasMaxHeight.value = canvasHeight * scale;
     }
-    canvasScale.value = scale;
+    else {
+        canvasMaxWidth.value = 0;
+        canvasMaxHeight.value = 0;
+    }
+    // 有效显示缩放 = 适配缩放（放不下时缩小，放得下时按原尺寸 1:1）× 用户缩放倍数
+    canvasScale.value = (scale < 1 ? scale : 1) * canvasZoom.value;
 
     if (canvasSizeRef) {
         nextTick(() => {
@@ -67,16 +72,130 @@ function fitBoxSize() {
             };
         });
     }
+    // 视口尺寸变化后测量是否产生溢出（决定拖动查看是否可用）
+    nextTick(updateCanPan);
 }
+
+// ------- 拖动查看（平移）-------
+// 滚动条以 overflow: hidden 隐藏，仅在当前缩放产生溢出时可拖动查看：
+// (a) 按住鼠标中键直接拖动；(b) 按住空格 + 鼠标左键拖动
+const isSpaceHeld = ref(false);
+const isPanning = ref(false);
+const canPan = ref(false);
+let panStart: { x: number; y: number; scrollLeft: number; scrollTop: number } | null = null;
+
+function updateCanPan() {
+    const el = box.value;
+    if (!el) {
+        canPan.value = false;
+        return;
+    }
+    // +1px 容差，避免亚像素临界抖动
+    canPan.value = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+}
+
+function isEditableTarget(target: EventTarget | null) {
+    return target instanceof HTMLElement
+        && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+}
+
+function handleSpaceKeyDown(e: KeyboardEvent) {
+    if (e.code !== 'Space') {
+        return;
+    }
+    // 输入框/文本编辑中不占用空格
+    if (isEditableTarget(e.target)) {
+        return;
+    }
+    // 阻止空格滚动页面/触发按钮
+    e.preventDefault();
+    isSpaceHeld.value = true;
+}
+
+function handleSpaceKeyUp(e: KeyboardEvent) {
+    if (e.code !== 'Space') {
+        return;
+    }
+    isSpaceHeld.value = false;
+}
+
+function handleWindowBlur() {
+    // 切走窗口时 keyup 可能丢失，兜底复位
+    isSpaceHeld.value = false;
+}
+
+function handlePanMove(e: PointerEvent) {
+    if (!panStart || !box.value) {
+        return;
+    }
+    box.value.scrollLeft = panStart.scrollLeft - (e.clientX - panStart.x);
+    box.value.scrollTop = panStart.scrollTop - (e.clientY - panStart.y);
+}
+
+function endPan() {
+    if (!isPanning.value) {
+        return;
+    }
+    isPanning.value = false;
+    panStart = null;
+    window.removeEventListener('pointermove', handlePanMove);
+    window.removeEventListener('pointerup', endPan);
+}
+
+function handlePanPointerDown(e: PointerEvent) {
+    const isMiddleButton = e.button === 1;
+    const isLeftWithSpace = e.button === 0 && isSpaceHeld.value;
+    if (!isMiddleButton && !isLeftWithSpace) {
+        return;
+    }
+    // 仅在当前缩放产生溢出时才可拖动查看
+    updateCanPan();
+    if (!canPan.value || !box.value) {
+        return;
+    }
+    // 捕获阶段拦截，避免触发画布内 sprite 选中/拖拽
+    e.preventDefault();
+    e.stopPropagation();
+    isPanning.value = true;
+    panStart = {
+        x: e.clientX,
+        y: e.clientY,
+        scrollLeft: box.value.scrollLeft,
+        scrollTop: box.value.scrollTop,
+    };
+    window.addEventListener('pointermove', handlePanMove);
+    window.addEventListener('pointerup', endPan);
+    // 通知全局：画布拖拽平移开始（如缩放 popover 需要随之关闭）
+    contextEvt.value?.emit('canvasPanStart');
+}
+
+// 滚轮不用于平移画布（避免与页面/时间轴滚动冲突），查看溢出内容仅通过拖拽
+
+// 视口实际展示尺寸：基准为适配尺寸（放不下取适配值，放得下取原始尺寸），再乘以用户缩放倍数
+const viewportSize = computed(() => {
+    const baseWidth = canvasMaxWidth.value || width.value;
+    const baseHeight = canvasMaxHeight.value || height.value;
+    return {
+        width: baseWidth * canvasZoom.value,
+        height: baseHeight * canvasZoom.value,
+    };
+});
 
 watchEffect(fitBoxSize);
 
 onMounted(() => {
     window.addEventListener('resize', fitBoxSize);
+    window.addEventListener('keydown', handleSpaceKeyDown);
+    window.addEventListener('keyup', handleSpaceKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
 });
 
 onBeforeUnmount(() => {
     window.removeEventListener('resize', fitBoxSize);
+    window.removeEventListener('keydown', handleSpaceKeyDown);
+    window.removeEventListener('keyup', handleSpaceKeyUp);
+    window.removeEventListener('blur', handleWindowBlur);
+    endPan();
     destroy();
 });
 
@@ -99,18 +218,16 @@ player.value = exports;
     <div class="webcut-screen-box" ref="box" :class="{
         'webcut-screen-box--text-edit-active': editTextState?.isActive,
         'webcut-screen-box--only-selectable': isOnlySelectable,
-    }" :style="{
+        'webcut-screen-box--pan-ready': isSpaceHeld && canPan,
+        'webcut-screen-box--panning': isPanning,
+    }" @pointerdown.capture="handlePanPointerDown" :style="{
         '--video-width': width + 'px',
         '--video-height': height + 'px',
-        '--video-max-width': canvasMaxWidth ? canvasMaxWidth + 'px' : undefined,
-        '--video-max-height': canvasMaxHeight ? canvasMaxHeight + 'px' : undefined,
         '--video-scale': canvasScale,
     }">
         <div class="webcut-screen-viewport" ref="viewport" :style="{
-            width: width + 'px',
-            height: height + 'px',
-            maxWidth: canvasMaxWidth ? canvasMaxWidth + 'px' : undefined,
-            maxHeight: canvasMaxHeight ? canvasMaxHeight + 'px' : undefined,
+            width: viewportSize.width + 'px',
+            height: viewportSize.height + 'px',
         }"></div>
         <slot></slot>
     </div>
@@ -120,8 +237,27 @@ player.value = exports;
 .webcut-screen-box {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    /* 居中完全交给 viewport 的 margin: auto——
+       保留 align-items/justify-content: center 时，溢出（负剩余空间）场景下
+       alignment 依旧生效，会把起始边（顶部/左侧）裁出可滚动范围，导致拖不到顶 */
+    overflow: hidden;
+}
+/* 空格按住且当前可平移时提示抓手 */
+.webcut-screen-box--pan-ready,
+.webcut-screen-box--pan-ready :deep(*) {
+    cursor: grab !important;
+}
+.webcut-screen-box--panning {
+    cursor: grabbing !important;
+    user-select: none;
+}
+.webcut-screen-box--panning :deep(*) {
+    cursor: grabbing !important;
+}
+.webcut-screen-viewport {
+    /* auto 边距居中优先于 flex 居中属性，且溢出时不会裁掉起始边（flex 居中溢出陷阱） */
+    margin: auto;
+    flex-shrink: 0;
 }
 .webcut-screen-box--text-edit-active :deep(.sprite-rect) {
     display: none;

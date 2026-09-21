@@ -51,6 +51,7 @@ export function useWebCutContext(provideContext?: () => Partial<WebCutContext> |
         resolution: '1080P',
         aspectRatio: '4:3',
         canvasPresetLocked: false,
+        canvasZoom: 1,
         scale: 70,
         enableMainVideoMagnet: true,
         scroll1: null,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import WebCutManagerScaler from '../scaler/index.vue';
+import WebCutSelectFps from '../../select-fps/index.vue';
 import AddRailButton from '../add-rail-button.vue';
 import RefreshTool from '../../tools/refresh/index.vue';
 import ClearTool from '../../tools/clear/index.vue';
@@ -53,6 +54,7 @@ const props = defineProps<{
             <slot name="right"></slot>
             <MagnetTool></MagnetTool>
             <WebCutManagerScaler></WebCutManagerScaler>
+            <WebCutSelectFps display-fps class="webcut-manager-tools-bar-fps"></WebCutSelectFps>
         </div>
     </div>
 </template>
@@ -89,5 +91,9 @@ const props = defineProps<{
 .webcut-divider-icon {
     font-size: var(--webcut-font-size-large);
     opacity: .1;
+}
+.webcut-manager-tools-bar-fps {
+    margin-left: 4px;
+    flex-shrink: 0;
 }
 </style>
