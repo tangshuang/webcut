@@ -1,6 +1,21 @@
 import { inject, provide, ref, computed, watch, type InjectionKey, type Ref, type ComputedRef } from 'vue';
 import type { WebCutAgentAdapter, WebCutAgentChatMeta } from './adapter';
 
+/** init 各步请求的兜底超时（ms）：传输层挂起（如标签页跨服务重启后旧连接上的请求永不返回）时，
+ *  防止 try 内 await 永不结算 → finally 不执行 → ready 恒 false，面板永久卡「…」。 */
+const INIT_TIMEOUT_MS = 10_000;
+
+/** 给 init 内的 await 加超时：超时按异常处理（走 catch 的本地会话兜底），不影响其他调用方。 */
+function withInitTimeout<T>(p: Promise<T>, ms = INIT_TIMEOUT_MS): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('webcut agent init timeout')), ms);
+        p.then(
+            (value) => { clearTimeout(timer); resolve(value); },
+            (err) => { clearTimeout(timer); reject(err); },
+        );
+    });
+}
+
 /** agent 对话消息。结构贴近 OpenAI 风格，便于直接作为 LLM 请求的 messages。 */
 export interface AgentMessage {
     id: string;
@@ -152,17 +167,17 @@ export function createWebCutAgentStore(opts: { adapter?: WebCutAgentAdapter; get
     async function init() {
         if (!hasChats) { ready.value = true; return; }
         try {
-            const list = await adapter!.listChats!();
+            const list = await withInitTimeout(adapter!.listChats!());
             chats.value = (list || []).map((c: WebCutAgentChatMeta) => newChat(c.id, c.title || '', []));
             // 选定初始 chat：localStorage 持久化的 > 列表第一个 > 新建
             const persisted = readActiveChatId();
             let target = (persisted && chats.value.some((c) => c.id === persisted)) ? persisted : (chats.value[0]?.id || '');
             if (!target) {
-                const created = await adapter!.createChat!();
+                const created = await withInitTimeout(adapter!.createChat!());
                 chats.value.unshift(newChat(created.id, created.title || ''));
                 target = created.id;
             }
-            await switchChat(target);
+            await withInitTimeout(switchChat(target));
         } catch {
             // 后端异常兜底：建一个本地空 chat，避免 UI 卡死
             if (!chats.value.length) {
