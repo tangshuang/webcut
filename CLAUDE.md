@@ -194,6 +194,8 @@ Locales in `src/locales/` (zh-HK, zh-TW, en-US, ja-JP, de-DE, es-ES, fr-FR). The
 
 - **Rail Auto-assignment**: When pushing materials without specifying a rail, the system automatically finds or creates an appropriate rail, avoiding overlapping segments.
 
+- **Theme Scope**: `WebCutThemeBox` (`src/views/theme-box/index.vue`) is the color-scheme boundary. It marks its root with `prefers-color-scheme="<dark|light>"` and `color-scheme` from webcut's own `isDarkMode`, so everything inside follows webcut's mode regardless of the surrounding container / OS theme. This matters because hosts pass theme *variable references* through `colors` (e.g. `railBgColor: 'var(--grey-color)'` — same value for the light and dark variant), whose resolved value depends on the outer scope. Keep theme-dependent surfaces inside a theme box, and derive colors from `isDarkMode` / `--webcut-*` vars rather than reading the OS (`matchMedia`) directly.
+
 ## 代码语言
 
 代码注释、文档使用中文。项目由中文团队开发，因此代码中常见中文注释。
