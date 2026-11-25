@@ -13,6 +13,7 @@ import { isEmpty, createRandomString, clone, assign, debounce, each } from 'ts-f
 import { measureAudioDuration, measureVideoDuration, mp4BlobToWavBlob, renderTxt2ImgBitmap, inferCanvasFromVideo, probeVideoFps, resolveSourceBlob } from '../libs';
 import { autoFitRect, measureVideoSize, measureImageSize } from '../libs';
 import { safeCloseFrame, trackVideoFrameCreated } from '../libs';
+import { splitClipSafely } from '../libs';
 import { execFFmpeg, extractAudioFromVideo, extractAudioFromVideoByCopy } from '../libs/ffmpeg';
 import { extractAudioByRemux } from '../libs/split-av';
 import { composeSpeedChangedVideo } from '../libs/remux';
@@ -26,6 +27,36 @@ import { mergeLangPkg } from '../i18n/core';
 import { requestHistoryTouch } from './history';
 
 let context: WebCutContext | null | undefined = null;
+
+/**
+ * 记录每个视频/音频 clip 的内容在源文件中的起点（文件入点，微秒）。
+ *
+ * 约定：clip 的内容恒从片段的文件入点（meta[type].offset）开始，播放、缩略图、导出都以入点处的内容为起点，
+ * 裁掉尾部只改展示时长，裁掉头部则要把 clip 重新锚定到新入点。
+ * 重新锚定是异步的，期间 meta[type].offset（目标入点）可能与 clip 实际的入点不一致，
+ * 所以 clip 自身的入点单独记录，重新锚定时以它为基准切分。
+ */
+const clipInPoints = new WeakMap<MP4Clip | AudioClip, number>();
+// 同一素材的重新锚定串行执行：上一次完成前不开始下一次
+const reanchorJobs = new Map<string, Promise<boolean>>();
+
+/** 把 sprite 的时间轴与画面属性复制到另一个 sprite（替换 clip 时保持素材表现不变） */
+function copySpriteProps(from: VisibleSprite, to: VisibleSprite) {
+    to.time.offset = from.time.offset;
+    to.time.duration = from.time.duration;
+    to.time.playbackRate = from.time.playbackRate;
+    to.zIndex = from.zIndex;
+    to.opacity = from.opacity;
+    to.flip = from.flip;
+    to.visible = from.visible;
+    to.interactable = from.interactable;
+    to.rect.x = from.rect.x;
+    to.rect.y = from.rect.y;
+    to.rect.w = from.rect.w;
+    to.rect.h = from.rect.h;
+    to.rect.angle = from.rect.angle;
+}
+
 export function useWebCutContext(provideContext?: () => Partial<WebCutContext> | undefined | null) {
     // 每次启动触发一次 OPFS 旧路径迁移（/webcut/file/* -> /file/*）
     // 不阻塞初始化，读取流程里还有按需迁移兜底
@@ -656,6 +687,192 @@ export function useWebCutPlayer() {
         canvas.value?.previewFrame(currentTime);
     };
 
+    /** 读取素材的源文件：优先本地文件库，其次网络地址；都不可用时返回 null */
+    async function resolveSourceFile(source: WebCutSource): Promise<File | Blob | null> {
+        if (source.fileId) {
+            return await readFile(source.fileId);
+        }
+        if (source.url) {
+            const res = await fetch(source.url);
+            return await res.blob();
+        }
+        return null;
+    }
+
+    /**
+     * 用素材的源文件重建「完整」clip（从文件开头到结尾），构造参数与 push 保持一致
+     */
+    function buildSourceClip(source: WebCutSource, file: File | Blob): MP4Clip | AudioClip {
+        if (source.type === 'video') {
+            const volume = source.meta.video?.volume;
+            // 音量统一由 tickInterceptor 实时处理，构造 opts 不传 volume；volume=0 走 audio:false 省音轨解码
+            return new MP4Clip(file.stream(), typeof volume === 'number' && volume <= 0 ? { audio: false } : {});
+        }
+        const { volume: _volume, ...audioOptions } = (source.meta.audio || {}) as Record<string, any>;
+        return new AudioClip(file.stream(), audioOptions);
+    }
+
+    /**
+     * 用新 clip 替换素材的运行时（clip + sprite），时间轴区间、位置、层级等属性保持不变。
+     * 替换后重挂 tickInterceptor、重算动画，并刷新 sources 中该素材的引用——
+     * 缩略图、波形等依赖素材引用的视图据此按新内容重新生成。
+     * 等待期间素材已被移除（如撤销、删除）时放弃替换，返回 false。
+     */
+    async function swapSourceRuntime(sourceKey: string, nextClip: MP4Clip | AudioClip) {
+        const source = sources.value.get(sourceKey);
+        await nextClip.ready;
+        if (!source || !canvas.value) {
+            nextClip.destroy();
+            return false;
+        }
+        const oldSprite = source.sprite;
+        const oldClip = source.clip as MP4Clip | AudioClip;
+
+        const nextSprite = new VisibleSprite(nextClip);
+        copySpriteProps(oldSprite, nextSprite);
+
+        await canvas.value.addSprite(nextSprite);
+        // addSprite 期间素材可能已被摘除或再次替换，此时放弃接管
+        if (sources.value.get(sourceKey)?.sprite !== oldSprite) {
+            canvas.value.removeSprite(nextSprite);
+            return false;
+        }
+        source.clip = nextClip;
+        source.sprite = nextSprite;
+
+        clips.value.push(markRaw(nextClip));
+        sprites.value.push(markRaw(nextSprite));
+
+        // 素材在画布上处于选中状态时，先把选中转移到新 sprite，避免移除旧 sprite 触发取消选中
+        if (canvas.value.activeSprite === oldSprite) {
+            canvas.value.activeSprite = nextSprite;
+        }
+        canvas.value.removeSprite(oldSprite);
+        oldSprite.destroy();
+
+        const oldClipIdx = clips.value.indexOf(oldClip);
+        if (oldClipIdx !== -1) {
+            clips.value.splice(oldClipIdx, 1);
+        }
+        const oldSpriteIdx = sprites.value.indexOf(oldSprite);
+        if (oldSpriteIdx !== -1) {
+            sprites.value.splice(oldSpriteIdx, 1);
+        }
+
+        syncSourceTickInterceptor(sourceKey);
+        if (source.meta.animation) {
+            await applyAnimation(sourceKey, source.meta.animation);
+        }
+        updateDuration();
+        sources.value.set(sourceKey, { ...source });
+        canvas.value.previewFrame(cursorTime.value);
+        return true;
+    }
+
+    async function doReanchorSourceClip(sourceKey: string): Promise<boolean> {
+        const source = sources.value.get(sourceKey);
+        if (!source || (source.type !== 'video' && source.type !== 'audio')) {
+            return false;
+        }
+        const targetInPoint = Number((source.meta as any)[source.type]?.offset) || 0;
+        const oldSprite = source.sprite;
+        const oldClip = source.clip as MP4Clip | AudioClip;
+        // clip 当前的内容起点；来源不明（未经 push 创建）时视为已与目标入点一致，不做无依据的切分
+        const clipInPoint = clipInPoints.get(oldClip) ?? targetInPoint;
+        if (clipInPoint === targetInPoint) {
+            return true;
+        }
+
+        await oldClip.ready;
+        if (sources.value.get(sourceKey)?.sprite !== oldSprite) {
+            // 等待期间素材已被替换或移除
+            return false;
+        }
+
+        /**
+         * 取 clip 中「从 from 起到结尾」的内容：在 from 处切分并丢弃前半段。
+         * 引擎要求切点落在有效帧范围内（例如切点晚于最后一帧的起点会抛错），切分失败时返回 null
+         */
+        const sliceFrom = async (clip: MP4Clip | AudioClip, from: number): Promise<MP4Clip | AudioClip | null> => {
+            if (!(from > 0)) {
+                return clip;
+            }
+            try {
+                const [head, rest] = await splitClipSafely(clip, from);
+                head.destroy();
+                return rest;
+            }
+            catch (err) {
+                console.error('[WebCut] reanchorSourceClip: split clip failed:', err);
+                return null;
+            }
+        };
+
+        try {
+            let nextClip: MP4Clip | AudioClip | null;
+            if (targetInPoint > clipInPoint) {
+                // 裁掉头部：入点后移，在现有 clip 上切分并取入点之后的部分（零解码，共享同一 localFile）
+                if (targetInPoint - clipInPoint >= oldClip.meta.duration) {
+                    return false;
+                }
+                nextClip = await sliceFrom(oldClip, targetInPoint - clipInPoint);
+            }
+            else {
+                // 把头部拉回来：入点前移，需要当前入点之前的内容，从源文件重建完整 clip 后再切到新入点（较慢）
+                loading.value = true;
+                try {
+                    const file = await resolveSourceFile(source);
+                    if (!file) {
+                        return false;
+                    }
+                    const fullClip = buildSourceClip(source, file);
+                    await fullClip.ready;
+                    nextClip = await sliceFrom(fullClip, targetInPoint);
+                    if (nextClip !== fullClip) {
+                        fullClip.destroy();
+                    }
+                }
+                finally {
+                    loading.value = false;
+                }
+            }
+            if (!nextClip) {
+                return false;
+            }
+            clipInPoints.set(nextClip, targetInPoint);
+            return await swapSourceRuntime(sourceKey, nextClip);
+        }
+        catch (err) {
+            console.error('[WebCut] reanchorSourceClip:', err);
+            return false;
+        }
+    }
+
+    /**
+     * 把视频/音频素材的 clip 重新锚定到它的文件入点（meta[type].offset）。
+     *
+     * 片段实际展示的内容恒为「文件入点起、展示时长 × 播放速率」这一段，所以：
+     * - 裁掉头部（入点后移）后在现有 clip 上切分即可；
+     * - 把裁掉的头部拉回来（入点前移）需要入点之前的内容，从源文件重建后再切分。
+     * 重新锚定完成前 meta[type].offset 可能领先于 clip，本函数始终以执行时刻的实际状态为基准，同一素材串行执行。
+     *
+     * @param sourceKey 素材 key
+     * @returns 是否已与目标入点一致；失败（源文件不可用等）时素材保持原样，由调用方回退时间轴区间
+     */
+    async function reanchorSourceClip(sourceKey: string): Promise<boolean> {
+        const run = () => doReanchorSourceClip(sourceKey);
+        const job = (reanchorJobs.get(sourceKey) ?? Promise.resolve(true)).then(run, run);
+        reanchorJobs.set(sourceKey, job);
+        try {
+            return await job;
+        }
+        finally {
+            if (reanchorJobs.get(sourceKey) === job) {
+                reanchorJobs.delete(sourceKey);
+            }
+        }
+    }
+
     /**
      * 将素材推送到当前视频中
      * @param type 素材类型，注意，素材类型是固定的，它决定了素材在canvas中如何使用
@@ -701,10 +918,12 @@ export function useWebCutPlayer() {
                 }
                 mark(PerformanceMark.GenVideoClipEnd);
                 if (offset) {
-                    const [clip1, clip2] = await clip.split(offset);
+                    // 从文件入点开始：切掉入点之前的内容，clip 的第 0 帧即片段的起点
+                    const [clip1, clip2] = await splitClipSafely(clip as MP4Clip, offset);
                     clip1.destroy();
                     clip = clip2;
                 }
+                clipInPoints.set(clip as MP4Clip, Number(offset) || 0);
             }
             else if (type === 'audio') {
                 // 音量统一由 tickInterceptor 实时处理（播放/导出同链路），构造 opts 必须剔除 volume：
@@ -736,10 +955,12 @@ export function useWebCutPlayer() {
                     clip = new AudioClip(res.body!, options);
                 }
                 if (offset) {
-                    const [clip1, clip2] = await clip.split(offset);
+                    // 从文件入点开始：切掉入点之前的内容，clip 的起始采样即片段的起点
+                    const [clip1, clip2] = await splitClipSafely(clip as AudioClip, offset);
                     clip1.destroy();
                     clip = clip2;
                 }
+                clipInPoints.set(clip as AudioClip, Number(offset) || 0);
             }
             else if (type === 'image') {
                 if (source instanceof File) {
@@ -1394,6 +1615,8 @@ export function useWebCutPlayer() {
             const { volume: _repairedVolume, ...repairedAudioOptions } = (source.meta.audio || {}) as Record<string, any>;
             const newClip = new AudioClip(outFile.stream(), repairedAudioOptions);
             await newClip.ready;
+            // 产物只含片段实际展示的内容（-ss 入点 -t 展示内容时长），新文件的内容起点即 0
+            clipInPoints.set(newClip, 0);
 
             const newSprite = new VisibleSprite(newClip);
             newSprite.time.offset = oldSprite.time.offset;
@@ -1423,6 +1646,8 @@ export function useWebCutPlayer() {
             source.meta.time.playbackRate = 1;
             source.meta.time.duration = newSprite.time.duration;
             source.meta.time.originalDuration = newSprite.time.duration;
+            // 新文件的内容从 0 开始，文件入点随之归零（与新 clip 的内容起点保持一致）
+            source.meta.audio = { ...(source.meta.audio || {}), offset: 0 };
 
             const rail = rails.value.find(r => r.id === source.railId);
             if (rail) {
@@ -1551,8 +1776,19 @@ export function useWebCutPlayer() {
                 : {};
 
             // 4) 重建 clip（画面+修复音轨，1x 播放即变速不变调）；时间轴占用不变（内容时长=oldDuration）
-            const newClip = new MP4Clip(outFile.stream(), newClipOptions);
-            await newClip.ready;
+            const fullClip = new MP4Clip(outFile.stream(), newClipOptions);
+            await fullClip.ready;
+            // 合成产物覆盖整个源文件，时间轴 = 源时间 / rate。片段可能裁过头部（文件入点），
+            // 需按新时间轴重新切掉入点之前的内容，新入点 = 源入点 / rate
+            const newInPoint = (Number(oldVideoMeta.offset) || 0) / rate;
+            let newClip = fullClip;
+            if (newInPoint > 0) {
+                const [head, rest] = await splitClipSafely(fullClip, newInPoint);
+                head.destroy();
+                fullClip.destroy();
+                newClip = rest;
+            }
+            clipInPoints.set(newClip, newInPoint);
 
             const newSprite = new VisibleSprite(newClip);
             newSprite.time.offset = oldOffset;
@@ -1577,7 +1813,7 @@ export function useWebCutPlayer() {
             source.sprite = newSprite;
             source.fileId = newFileId;
             source.url = undefined;
-            source.meta.video = { ...oldVideoMeta };
+            source.meta.video = { ...oldVideoMeta, offset: newInPoint };
             source.meta.time = {
                 ...oldTimeMeta,
                 playbackRate: 1,
@@ -1669,7 +1905,16 @@ export function useWebCutPlayer() {
 
             // 1) 原视频直接以 audio:false 重建 clip（不再用 ffmpeg 重写无声视频副本：
             //    省去 wasm 全文件重写 + OPFS 再写一份大视频；meta.video.volume=0 保证项目恢复时同样禁用音轨）
-            const muteVideoClip = new MP4Clip(inputFile.stream(), { audio: false });
+            // 视频片段可能裁过头部（文件入点非 0）：重建的 clip 同样要从文件入点开始，切掉入点之前的内容
+            const sourceInPoint = Number(oldVideoMeta.offset) || 0;
+            let muteVideoClip = new MP4Clip(inputFile.stream(), { audio: false });
+            if (sourceInPoint > 0) {
+                const [head, rest] = await splitClipSafely(muteVideoClip, sourceInPoint);
+                head.destroy();
+                muteVideoClip.destroy();
+                muteVideoClip = rest;
+            }
+            clipInPoints.set(muteVideoClip, sourceInPoint);
             const newVideoSprite = new VisibleSprite(muteVideoClip);
             newVideoSprite.time.offset = oldSegmentOffset;
             newVideoSprite.time.duration = oldSegmentDuration;
@@ -1717,11 +1962,18 @@ export function useWebCutPlayer() {
             const audioRailId = createRandomString(16);
             const audioSourceKey = await push('audio', `file:${audioFileId}`, {
                 withRailId: audioRailId,
+                // push 的 duration 是「内容时长」，会再除以 playbackRate 得到展示时长，
+                // 因此传「展示时长 × 速率」，分离出的音频才与视频片段在时间轴上等长
                 time: {
                     start: oldSegmentOffset,
-                    duration: oldSegmentDuration,
+                    duration: oldSegmentDuration * oldPlaybackRate,
                     playbackRate: oldPlaybackRate,
                     originalDuration: oldTimeMeta.originalDuration || oldSegmentDuration,
+                },
+                // 与视频片段的文件入点对齐：视频裁过头部时，分离出的音频同样从入点开始
+                audio: {
+                    offset: sourceInPoint,
+                    volume: 1,
                 },
             });
             const audioSource = sources.value.get(audioSourceKey);
@@ -1895,11 +2147,15 @@ export function useWebCutPlayer() {
             source.meta.time = source.meta.time || {};
             Object.assign(source.meta.time, time);
             if (time.playbackRate !== undefined) {
-                source.sprite.time.playbackRate = time.playbackRate;
+                const prevRate = source.sprite.time.playbackRate || 1;
+                const nextRate = time.playbackRate > 0 ? time.playbackRate : prevRate;
+                // 片段实际消耗的内容时长（展示时长 × 速率）保持不变：变速只改变它在时间轴上的展示时长。
+                // 不能用 originalDuration（文件全长）换算，否则被裁掉的尾部会被重新撑开
+                const contentDuration = source.sprite.time.duration * prevRate;
+                source.sprite.time.playbackRate = nextRate;
+                source.meta.time.playbackRate = nextRate;
 
-                // 根据播放速度更新显示时长和轨道片段
-                const originalDuration = source.meta.time.originalDuration || source.sprite.time.duration;
-                const newDuration = Math.round(originalDuration / time.playbackRate);
+                const newDuration = Math.round(contentDuration / nextRate);
                 source.sprite.time.duration = newDuration;
                 source.meta.time.duration = newDuration;
 
@@ -1965,6 +2221,7 @@ export function useWebCutPlayer() {
         syncSourceMeta,
         syncSourceTickInterceptor,
         separateAudioFromVideo,
+        reanchorSourceClip,
     };
 }
 

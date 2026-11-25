@@ -505,19 +505,20 @@ export function useWebCutHistory() {
         delete metaAny.autoFitRect;
         const metaRect = metaAny.rect;
         const hasRect = !!metaRect && Object.keys(metaRect).length > 0;
-        // push 内部在 playbackRate !== 1 时会按「文件时长 / rate」换算显示时长，
-        // 因此这里必须传文件时长（originalDuration），否则变速素材会被二次换算
+        // push 内部在 playbackRate !== 1 时会按「文件时长 / rate」换算显示时长，因此这里必须传内容时长。
+        // 内容时长 = 快照中的显示时长 × 速率，即片段被裁剪后实际用到的范围；
+        // 不能传 originalDuration（文件全长），否则被裁掉的尾部会在恢复时重新长回来
         const rate = sprite.time.playbackRate || 1;
-        const fileDuration = (meta as any).time?.originalDuration ?? sprite.time.duration * rate;
+        const contentDuration = Math.round(sprite.time.duration * rate);
         await pushToPlayer(type as any, src, {
             id: sourceKey,
             // 仅在有明确 rect 时传入，避免空对象覆盖 autoFitSize 分支
             rect: hasRect ? metaRect : undefined,
             time: {
                 start: sprite.time.offset,
-                duration: fileDuration,
+                duration: contentDuration,
                 playbackRate: sprite.time.playbackRate,
-                // 恢复文件原始时长，供后续变速换算使用
+                // 随快照保留的原始时长字段
                 originalDuration: (meta as any).time?.originalDuration,
             },
             zIndex: sprite.zIndex,
@@ -525,6 +526,8 @@ export function useWebCutHistory() {
             flip: sprite.flip,
             visible: sprite.visible,
             interactable: sprite.interactable,
+            // 重建会重新生成 meta，滤镜必须一并带回（文件入点变化的重建——如裁剪头部的撤销/重做——否则滤镜会丢失）
+            filters: clone((meta as any).filters),
             audio: clone((meta as any).audio),
             video: clone((meta as any).video),
             text: clone((meta as any).text),

@@ -5,6 +5,7 @@ import { transitionManager } from '../modules/transitions';
 import { createRandomString } from 'ts-fns';
 import { markRaw } from 'vue';
 import { createTrackedVideoFrame, safeCloseFrame } from '../libs/video-frame';
+import { splitClipSafely } from '../libs';
 
 export function useWebCutTransition() {
     const {
@@ -47,6 +48,10 @@ export function useWebCutTransition() {
         const { name, config } = transition;
         const dur = transition.end - transition.start;
         const half = dur / 2;
+        // 片段可能被裁剪、变速：转场衔接的是两段「实际展示内容」的尾部与头部，
+        // 时间轴上的时长要按各自的播放速率换算成 clip 内时间后再截取
+        const rate1 = spr1.time.playbackRate || 1;
+        const rate2 = spr2.time.playbackRate || 1;
         const getTimestamp = (frame: VideoFrame | ImageBitmap, fallback: number) => {
             if (frame instanceof VideoFrame) {
                 return frame.timestamp || fallback;
@@ -54,10 +59,10 @@ export function useWebCutTransition() {
             return fallback;
         };
 
-        const [tmp1, tranClip1] = await clip1.split(clip1.meta.duration - half);
+        const [tmp1, tranClip1] = await splitClipSafely(clip1, (spr1.time.duration - half) * rate1);
         tmp1.destroy();
 
-        const [tranClip2, tmp2] = await clip2.split(half);
+        const [tranClip2, tmp2] = await splitClipSafely(clip2, half * rate2);
         tmp2.destroy();
 
         await tranClip1.ready;
@@ -109,7 +114,8 @@ export function useWebCutTransition() {
                 }
                 temporaryFrames.push(clip2FirstFrame);
 
-                const progress = time / dur;
+                // time 是 clip 内时间，除以播放速率才是时间轴上的进度
+                const progress = time / rate1 / dur;
                 const frame = await transitionManager.applyTransition(
                     clip1Frame,
                     clip2FirstFrame,
@@ -146,7 +152,7 @@ export function useWebCutTransition() {
                 }
                 temporaryFrames.push(clip1LastFrame);
 
-                const progress = (half + time) / dur;
+                const progress = (half + time / rate2) / dur;
                 const frame = await transitionManager.applyTransition(
                     clip1LastFrame,
                     clip2Frame,
@@ -178,6 +184,7 @@ export function useWebCutTransition() {
         Object.assign(tranSpr1.time, {
             offset: transition.start,
             duration: half,
+            playbackRate: rate1,
         });
         tranSpr1.opacity = spr1.opacity;
         if (spr1.flip) {
@@ -196,6 +203,7 @@ export function useWebCutTransition() {
         Object.assign(tranSpr2.time, {
             offset: transition.start + half,
             duration: half,
+            playbackRate: rate2,
         });
         tranSpr2.opacity = spr2.opacity;
         if (spr2.flip) {

@@ -405,7 +405,7 @@ export type WebCutSourceMeta = {
         start?: number;
         /** 在时间轴中的持续时间 */
         duration?: number;
-        /** 原始素材时长（不考虑播放速度），用于计算实际显示时长 */
+        /** 素材原始内容时长（不考虑播放速度）。历史遗留字段，仅随数据保存，不再参与显示时长换算 */
         originalDuration?: number;
         /** 播放速率，1为正常速率，0.5为半速，2为双倍速 */
         playbackRate?: number;
@@ -415,13 +415,21 @@ export type WebCutSourceMeta = {
     animation?: WebCutAnimationData | null;
 
     audio?: {
-        /** 偏移时间，即音频将从该位置进行播放，单位：纳秒 */
+        /**
+         * 文件入点：片段从源文件的该位置开始播放，单位：微秒。
+         * clip 的内容恒从此处起算（裁剪头部即移动该入点），片段展示的范围是
+         * 「入点起、时间轴时长 × 播放速率」这一段
+         */
         offset?: number;
         volume?: number;
         loop?: boolean;
     },
     video?: {
-        /** 偏移时间，即视频将从该位置进行播放，单位：纳秒 */
+        /**
+         * 文件入点：片段从源文件的该位置开始播放，单位：微秒。
+         * clip 的内容恒从此处起算（裁剪头部即移动该入点），片段展示的范围是
+         * 「入点起、时间轴时长 × 播放速率」这一段
+         */
         offset?: number;
         volume?: number;
     },

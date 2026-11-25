@@ -1,5 +1,5 @@
 import { each, isNone, padLeft } from "ts-fns";
-import { MP4Clip, AudioClip, OffscreenSprite, Combinator, ImgClip } from "@webav/av-cliper";
+import { MP4Clip, AudioClip, OffscreenSprite, Combinator, ImgClip, VisibleSprite } from "@webav/av-cliper";
 import { WebCutHighlightOfText, WebCutResolution } from "../types";
 import { base64ToFile, blobToBase64DataURL, fileToBase64DataURL } from './file';
 import { blobToFile, downloadBlob } from "./file";
@@ -585,6 +585,22 @@ export async function audioClipToFile(clip: AudioClip) {
     return file;
 }
 
+/**
+ * 在 clip 内时间 time 处切分 clip，返回前后两段。
+ * 与 clip.split 的区别：切点越界时会被钳制到有效范围内——引擎要求切点落在 (0, 时长) 内，否则抛错；
+ * 静态图片的时长为 Infinity，任意切点等价。
+ * @param clip
+ * @param time 切点，微秒
+ */
+export async function splitClipSafely<T extends MP4Clip | ImgClip | AudioClip>(clip: T, time: number): Promise<[T, T]> {
+    await clip.ready;
+    const { duration } = clip.meta;
+    const at = Number.isFinite(duration)
+        ? Math.min(Math.max(time, 1), Math.max(duration - 1, 1))
+        : time;
+    return await clip.split(at) as [T, T];
+}
+
 export function pcmToWav(pcmData: Float32Array[], sampleRate = 44100) {
     // pcmData 预期格式为：[channel1Data, channel2Data, ...]
     // 其中 channel1Data, channel2Data 是 Float32Array 或普通数字数组，包含该声道的样本数据
@@ -673,19 +689,79 @@ export function pcmToWav(pcmData: Float32Array[], sampleRate = 44100) {
 
 
 /**
- * 创建并配置Combinator实例，添加所有剪辑
- * @param clips
- * @param options
- * @returns
+ * 离屏导出的时间轴单元：clip 及它在时间轴上的展示时长与播放速率。
+ * 展示时长可以短于 clip 自身时长（片段被裁剪），导出只取「展示时长 × 播放速率」范围内的内容。
  */
-async function createCombinatorWithClips(clips: Array<MP4Clip | ImgClip | AudioClip>, options?: {
+type OffscreenExportItem = {
+    clip: MP4Clip | ImgClip | AudioClip;
+    /** 时间轴上的展示时长（微秒） */
+    duration: number;
+    /** 播放速率 */
+    playbackRate: number;
+};
+
+type OffscreenExportOptions = {
+    type?: string;
     size?: {
         width: number;
         height: number;
     };
     /** 主素材索引，最终导出的视频时长以该素材的时长为duration，多余的部分被截断 */
     main?: number;
-}) {
+};
+
+function isVisualClip(clip: MP4Clip | ImgClip | AudioClip) {
+    return clip instanceof MP4Clip || clip instanceof ImgClip;
+}
+
+/** 导出文件的 MIME 类型：未指定时，全部是音频则导出音频（文件名后缀为 .m4a），否则为视频 */
+function resolveOffscreenExportType(items: OffscreenExportItem[], type?: string) {
+    if (type) {
+        return type;
+    }
+    return items.every(item => item.clip instanceof AudioClip) ? 'audio/mp4' : 'video/mp4';
+}
+
+/**
+ * 把 clips 包装为导出单元：每个 clip 按自身完整时长、原速依次参与导出
+ */
+async function createExportItemsFromClips(clips: Array<MP4Clip | ImgClip | AudioClip>): Promise<OffscreenExportItem[]> {
+    const items: OffscreenExportItem[] = [];
+    for (const clip of clips) {
+        await clip.ready;
+        items.push({ clip, duration: clip.meta.duration, playbackRate: 1 });
+    }
+    return items;
+}
+
+/**
+ * 按 sprite 在时间轴上实际展示的范围（裁剪、变速后）生成导出单元
+ */
+async function createExportItemsFromSprites(sprites: VisibleSprite[]): Promise<OffscreenExportItem[]> {
+    const items: OffscreenExportItem[] = [];
+    for (const sprite of sprites) {
+        const clip = sprite.getClip() as MP4Clip | ImgClip | AudioClip;
+        const playbackRate = sprite.time.playbackRate || 1;
+        await clip.ready;
+        // 展示时长不超过 clip 实际能提供的内容：时间轴按帧取整可能多出不足一帧，
+        // 而引擎在内容耗尽的那一帧不再绘制，继续合成会输出黑帧（故上限再留 1 微秒余量）
+        const clipDuration = clip.meta.duration;
+        const contentDuration = clipDuration / playbackRate;
+        const duration = !Number.isFinite(clipDuration) || sprite.time.duration < contentDuration
+            ? sprite.time.duration
+            : Math.max(contentDuration - 1, 1);
+        items.push({ clip, duration, playbackRate });
+    }
+    return items;
+}
+
+/**
+ * 创建并配置Combinator实例，各导出单元按顺序首尾相接
+ * @param items 导出单元
+ * @param options
+ * @returns
+ */
+async function createCombinatorWithItems(items: OffscreenExportItem[], options?: OffscreenExportOptions) {
     const {
         size,
         main,
@@ -696,29 +772,32 @@ async function createCombinatorWithClips(clips: Array<MP4Clip | ImgClip | AudioC
         width = size.width;
         height = size.height;
     }
-    else if (typeof main === 'number' && clips[main] && (clips[main] instanceof MP4Clip || clips[main] instanceof ImgClip)) {
-        const mainClip = clips[main];
-        await mainClip.ready;
-        width = mainClip.meta.width;
-        height = mainClip.meta.height;
+    else if (typeof main === 'number' && items[main] && isVisualClip(items[main].clip)) {
+        const mainItem = items[main];
+        await mainItem.clip.ready;
+        width = mainItem.clip.meta.width;
+        height = mainItem.clip.meta.height;
     }
-    else if (clips.some(clip => clip instanceof MP4Clip || clip instanceof ImgClip)) {
-        const mainClip = clips.find(clip => clip instanceof MP4Clip || clip instanceof ImgClip)!;
-        await mainClip.ready;
-        width = mainClip.meta.width;
-        height = mainClip.meta.height;
+    else if (items.some(item => isVisualClip(item.clip))) {
+        const mainItem = items.find(item => isVisualClip(item.clip))!;
+        await mainItem.clip.ready;
+        width = mainItem.clip.meta.width;
+        height = mainItem.clip.meta.height;
     }
 
     let offsetTime = 0;
     const com = new Combinator({ width, height });
-    for (const clip of clips) {
+    for (const [index, item] of items.entries()) {
+        const { clip, duration, playbackRate } = item;
         await clip.ready;
         const spr = new OffscreenSprite(clip);
 
         spr.time.offset = offsetTime;
-        offsetTime += clip.meta.duration;
+        spr.time.duration = duration;
+        spr.time.playbackRate = playbackRate;
+        offsetTime += duration;
 
-        if (width && height && (clip instanceof MP4Clip || clip instanceof ImgClip)) {
+        if (width && height && isVisualClip(clip)) {
             const calcRect = autoFitRect({ width, height }, clip.meta, 'contain');
             Object.assign(spr.rect, calcRect);
         }
@@ -727,39 +806,13 @@ async function createCombinatorWithClips(clips: Array<MP4Clip | ImgClip | AudioC
             spr.rect.y = -1000;
         }
 
-        await com.addSprite(spr, { main: typeof main === 'number' && clip === clips[main] });
+        await com.addSprite(spr, { main: typeof main === 'number' && index === main });
     }
 
     return com;
 }
 
-/**
- * 以离屏渲染的方式导出clips为blob
- * @param clips
- * @returns
- */
-export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>, options?: {
-    type?: string;
-    size?: {
-        width: number;
-        height: number;
-    };
-    /** 主素材索引，最终导出的视频时长以该素材的时长为duration，多余的部分被截断 */
-    main?: number;
-}) {
-    let defaultType = 'video/mp4';
-    if (clips.every(clip => clip instanceof AudioClip)) {
-        defaultType = 'audio/mp4'; // 文件名后缀为 .m4a
-    }
-
-    const {
-        type = defaultType,
-        size,
-        main,
-    } = options || {};
-
-    const com = await createCombinatorWithClips(clips, { size, main });
-
+async function outputCombinatorAsBlob(com: Combinator, type: string) {
     const readable = com.output();
     const reader = readable.getReader();
     const chunks: any[] = [];
@@ -775,36 +828,35 @@ export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | Audio
     return blob;
 }
 
+async function exportItemsBlobOffscreen(items: OffscreenExportItem[], options?: OffscreenExportOptions) {
+    const {
+        size,
+        main,
+    } = options || {};
+    const type = resolveOffscreenExportType(items, options?.type);
+
+    const com = await createCombinatorWithItems(items, { size, main });
+    return await outputCombinatorAsBlob(com, type);
+}
+
 /**
- * 以离屏渲染的方式下载clips，优先使用showSaveFilePicker和stream方式，不支持时回退到blob方式
- * @param clips
+ * 以离屏渲染的方式下载，优先使用showSaveFilePicker和stream方式，不支持时回退到blob方式
+ * @param items 导出单元
  * @returns
  */
-export async function downloadOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>, options?: {
-    type?: string;
-    size?: {
-        width: number;
-        height: number;
-    };
-    /** 主素材索引，最终导出的视频时长以该素材的时长为duration，多余的部分被截断 */
-    main?: number;
+async function downloadItemsOffscreen(items: OffscreenExportItem[], options?: OffscreenExportOptions & {
     filename?: string;
 }) {
-    let defaultType = 'video/mp4';
-    if (clips.every(clip => clip instanceof AudioClip)) {
-        defaultType = 'audio/mp4';
-    }
-
     const {
-        type = defaultType,
         size,
         main,
         filename = `webcut-${Date.now()}.mp4`,
     } = options || {};
+    const type = resolveOffscreenExportType(items, options?.type);
 
     // 检查是否支持showSaveFilePicker
     if (typeof window.showSaveFilePicker === 'function') {
-        const com = await createCombinatorWithClips(clips, { size, main });
+        const com = await createCombinatorWithItems(items, { size, main });
         try {
             // 使用showSaveFilePicker获取文件句柄
             const fileHandle = await window.showSaveFilePicker({
@@ -834,8 +886,76 @@ export async function downloadOffscreen(clips: Array<MP4Clip | ImgClip | AudioCl
     }
 
     // 回退到blob方式
-    const blob = await exportBlobOffscreen(clips, { type, size, main });
-    await downloadBlob(blob, filename);
+    const com = await createCombinatorWithItems(items, { size, main });
+    await downloadBlob(await outputCombinatorAsBlob(com, type), filename);
+}
+
+/**
+ * 以离屏渲染的方式导出clips为blob
+ * @param clips
+ * @returns
+ */
+export async function exportBlobOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>, options?: {
+    type?: string;
+    size?: {
+        width: number;
+        height: number;
+    };
+    /** 主素材索引，最终导出的视频时长以该素材的时长为duration，多余的部分被截断 */
+    main?: number;
+}) {
+    return await exportItemsBlobOffscreen(await createExportItemsFromClips(clips), options);
+}
+
+/**
+ * 以离屏渲染的方式，按 sprite 在时间轴上实际展示的范围（裁剪、变速后）导出为blob，多个sprite按顺序首尾相接。
+ * 与直接导出 clip 的区别：只输出片段实际用到的内容，时长与时间轴上的片段一致；
+ * 视频按素材原始分辨率输出，不含画布上的位置、缩放、旋转与动画。
+ * @param sprites
+ * @returns
+ */
+export async function exportSpritesBlobOffscreen(sprites: VisibleSprite[], options?: {
+    type?: string;
+    size?: {
+        width: number;
+        height: number;
+    };
+}) {
+    return await exportItemsBlobOffscreen(await createExportItemsFromSprites(sprites), options);
+}
+
+/**
+ * 以离屏渲染的方式下载clips，优先使用showSaveFilePicker和stream方式，不支持时回退到blob方式
+ * @param clips
+ * @returns
+ */
+export async function downloadOffscreen(clips: Array<MP4Clip | ImgClip | AudioClip>, options?: {
+    type?: string;
+    size?: {
+        width: number;
+        height: number;
+    };
+    /** 主素材索引，最终导出的视频时长以该素材的时长为duration，多余的部分被截断 */
+    main?: number;
+    filename?: string;
+}) {
+    await downloadItemsOffscreen(await createExportItemsFromClips(clips), options);
+}
+
+/**
+ * 以离屏渲染的方式下载，内容为各 sprite 在时间轴上实际展示的范围（裁剪、变速后），按顺序首尾相接
+ * @param sprites
+ * @returns
+ */
+export async function downloadSpritesOffscreen(sprites: VisibleSprite[], options?: {
+    type?: string;
+    size?: {
+        width: number;
+        height: number;
+    };
+    filename?: string;
+}) {
+    await downloadItemsOffscreen(await createExportItemsFromSprites(sprites), options);
 }
 
 export async function saveAsFile(source: Blob | ReadableStream, meta: { type: string, name: string }) {
@@ -879,6 +999,16 @@ export async function saveAsFile(source: Blob | ReadableStream, meta: { type: st
  */
 export async function exportAsWavBlobOffscreen(clips: Array<AudioClip>) {
     const mp4Blob = await exportBlobOffscreen(clips);
+    return await mp4BlobToWavBlob(mp4Blob);
+}
+
+/**
+ * 按音频 sprite 在时间轴上实际展示的范围（裁剪、变速后）导出为wav音频，多个sprite按顺序首尾相接
+ * @param sprites
+ * @returns
+ */
+export async function exportSpritesAsWavBlobOffscreen(sprites: VisibleSprite[]) {
+    const mp4Blob = await exportItemsBlobOffscreen(await createExportItemsFromSprites(sprites));
     return await mp4BlobToWavBlob(mp4Blob);
 }
 
@@ -936,12 +1066,15 @@ export async function convertWavToMp3ByMediabunny(wavBlob: Blob, bitrate: number
 export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
     iteratorCallback?: (data: { video: VideoFrame, ts: number, index: number }) => void | Promise<void>,
     step?: number, // step in microseconds, will be auto-calculated if not provided
+    /** 只处理 clip 内 [0, endTime) 的内容（微秒），默认处理到 clip 结尾。片段被裁剪时只需解码实际展示的范围 */
+    endTime?: number,
     pcmProgressCallback?: (pcm: [Float32Array, Float32Array]) => void, // 渐进式返回 PCM 数据
     collectFrames?: boolean, // 是否返回并持有视频帧，默认false以降低内存占用
 }): Promise<{ pcm: [Float32Array, Float32Array]; frames: { video: VideoFrame, ts: number }[] }> {
     const {
         iteratorCallback,
         step,
+        endTime: endTimeOption,
         pcmProgressCallback,
         collectFrames = false,
     } = options || {};
@@ -950,7 +1083,10 @@ export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
     const clip = await mp4Clip.clone();
     await clip.ready;
 
-    const duration = clip.meta.duration;
+    // 待处理的内容终点（clip 内时间），不会超出 clip 自身时长
+    const endTime = typeof endTimeOption === 'number' && Number.isFinite(endTimeOption) && endTimeOption > 0
+        ? Math.min(endTimeOption, clip.meta.duration)
+        : clip.meta.duration;
 
     // 音频采样步长：保持较小间隔以获取完整的音频波形数据
     const audioStep = 10000; // 10ms，确保音频波形完整
@@ -959,7 +1095,7 @@ export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
     let videoStep = step;
     if (!videoStep) {
         const targetFrameCount = 50; // 目标生成 50 帧缩略图
-        videoStep = Math.max(duration / targetFrameCount, 33333); // 最小 33ms (~30fps)
+        videoStep = Math.max(endTime / targetFrameCount, 33333); // 最小 33ms (~30fps)
         videoStep = Math.min(videoStep, 1000000); // 最大 1s
     }
 
@@ -975,8 +1111,8 @@ export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
     let pcmUpdateCounter = 0;
 
     // 预先估算并分配固定大小的 PCM 数组，避免波形图长度变化导致的闪动
-    // 估算采样点数：duration / audioStep
-    const estimatedSampleCount = Math.ceil(duration / audioStep);
+    // 估算采样点数：endTime / audioStep
+    const estimatedSampleCount = Math.ceil(endTime / audioStep);
     // 每个音频片段大约包含的样本数（44.1kHz * 10ms = 441 samples）
     const estimatedSamplesPerChunk = Math.ceil((clip.meta.audioSampleRate || 44100) * (audioStep / 1000000));
     const estimatedTotalSamples = estimatedSampleCount * estimatedSamplesPerChunk;
@@ -992,7 +1128,7 @@ export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
     }
 
     // 使用音频采样间隔遍历，确保获取完整的音频数据
-    for (let time = 0; time < duration; time += audioStep) {
+    for (let time = 0; time < endTime; time += audioStep) {
         const { audio, video } = await clip.tick(time);
 
         // 收集所有音频数据并直接填充到固定数组
@@ -1043,16 +1179,11 @@ export async function mp4ClipToFramesData(mp4Clip: MP4Clip, options?: {
         }
     }
 
-    // 如果实际填充的数据少于预估大小，裁剪数组以节省内存
-    // 通常误差很小，可以选择直接返回预分配的数组（尾部会有少量零值）
-    let finalLeftChannelPCM = leftChannelPCM;
-    let finalRightChannelPCM = rightChannelPCM;
-
-    // 如果实际数据量与预估差异较大（超过 5%），则裁剪
-    if (currentOffset < estimatedTotalSamples * 0.95) {
-        finalLeftChannelPCM = leftChannelPCM.slice(0, currentOffset);
-        finalRightChannelPCM = rightChannelPCM.slice(0, currentOffset);
-    }
+    // 按实际填充的采样数裁剪，去掉预分配留下的零值尾部
+    // （渐进回调期间传的是定长数组，避免波形图长度变化闪动；最终结果必须是精确长度，
+    // 否则按范围截取波形时末端会多出一段静音）
+    const finalLeftChannelPCM = currentOffset < leftChannelPCM.length ? leftChannelPCM.slice(0, currentOffset) : leftChannelPCM;
+    const finalRightChannelPCM = currentOffset < rightChannelPCM.length ? rightChannelPCM.slice(0, currentOffset) : rightChannelPCM;
 
     clip.destroy();
     mark(PerformanceMark.ConvertMP4ClipToFramesEnd);

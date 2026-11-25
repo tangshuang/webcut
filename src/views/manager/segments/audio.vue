@@ -4,7 +4,7 @@ import { WebCutSegment, WebCutRail } from '../../../types';
 import { computed, onMounted, ref } from 'vue';
 import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../i18n/hooks';
-import { exportAsWavBlobOffscreen } from '../../../libs';
+import { exportSpritesAsWavBlobOffscreen } from '../../../libs';
 import { downloadBlob } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';
 import AudioShape from '../../../components/audio-shape/index.vue';
@@ -23,7 +23,7 @@ const props = defineProps<{
     segments: WebCutSegment[]
 }>();
 
-const { sources } = useWebCutContext();
+const { sources, loading } = useWebCutContext();
 const { timeToPx, deleteSegment } = useWebCutManager();
 const scrollBox = useScrollBox();
 const { push: pushHistory } = useWebCutHistory();
@@ -34,16 +34,19 @@ const source = computed(() => {
     const source = sources.value.get(key);
     return source;
 });
-const audioF32 = ref<Float32Array>();
+// clip 内的完整波形（从片段的文件入点到素材结尾）
+const clipWave = ref<Float32Array>();
 
 watch(source, async () => {
     if (!source.value) return;
     const { clip } = source.value;
     if (!clip) return;
     await clip.ready;
+    // 等待期间 clip 已被替换（如裁剪头部后重新锚定），交给新一轮加载
+    if (source.value?.clip !== clip) return;
     // 一次性加载波形图；clip 销毁后 getPCMData 返回空数组，置空避免空数据绘制
     const pcm = (clip as AudioClip).getPCMData()[0];
-    audioF32.value = pcm && pcm.length ? pcm : undefined;
+    clipWave.value = pcm && pcm.length ? pcm : undefined;
 }, { immediate: true });
 
 const audioOriginalDuration = computed(() => {
@@ -55,6 +58,19 @@ const audioOriginalDuration = computed(() => {
 // 容器的总宽度
 const audioWidth = computed(() => {
     return timeToPx(audioOriginalDuration.value);
+});
+/**
+ * 片段实际展示范围内的波形。
+ * clip 的内容从片段的文件入点开始，展示的是 clip 内 [0, 显示时长 × 播放速率) 这一段，
+ * 所以按比例截取这一段即可，裁剪后波形与实际听到的内容一致
+ */
+const waveData = computed(() => {
+    const pcm = clipWave.value;
+    if (!pcm || !pcm.length) return undefined;
+    const clipDuration = source.value?.clip.meta.duration || 0;
+    const contentDuration = audioOriginalDuration.value * (source.value?.meta.time?.playbackRate || 1);
+    if (!(clipDuration > 0) || contentDuration >= clipDuration) return pcm;
+    return pcm.subarray(0, Math.max(1, Math.round(pcm.length * contentDuration / clipDuration)));
 });
 const visibleRange = ref<[number, number]>([0, 0]);
 function updateVisibleRange() {
@@ -80,6 +96,8 @@ onMounted(updateVisibleRange);
 onMounted(() => {
     scrollBox.onScroll(updateVisibleRange);
 });
+// 片段区间变化（裁剪、移动）后可视范围随之更新，避免波形局部留白
+watch(() => [props.segment.start, props.segment.end], updateVisibleRange);
 
 const contextmenus = computed(() => [
     {
@@ -98,17 +116,19 @@ async function handleSelectContextMenu(key: string) {
         syncTransitions(props.rail);
         await pushHistory({ title: '删除片段' });
     } else if (key === 'export') {
+        const sourceInfo = sources.value.get(props.segment.sourceKey);
+        if (!sourceInfo || !sourceInfo.sprite) return;
+
+        loading.value = true;
         try {
-            const sourceInfo = sources.value.get(props.segment.sourceKey);
-            if (!sourceInfo || !sourceInfo.clip) return;
-
-            const clip = sourceInfo.clip as AudioClip;
-            await clip.ready;
-
-            const blob = await exportAsWavBlobOffscreen([clip]);
+            await sourceInfo.clip?.ready;
+            // 按片段实际展示的范围导出（裁剪、变速后导出的时长与时间轴上的片段一致）
+            const blob = await exportSpritesAsWavBlobOffscreen([sourceInfo.sprite]);
             downloadBlob(blob, `audio-segment-${Date.now()}.wav`);
         } catch (error) {
             console.error('导出失败:', error);
+        } finally {
+            loading.value = false;
         }
     }
 }
@@ -117,7 +137,7 @@ const data = computed(() => {
     // 优先使用一次性提取好的 PCM（getPCMData，零额外解码、无竞态）；
     // fileId 解码只作兜底——其依赖 WebAudio 解码，AudioContext 有页面实例配额，
     // 反复挂载耗尽配额后波形会静默消失
-    return audioF32.value || source.value?.fileId || null;
+    return waveData.value || source.value?.fileId || null;
 });
 </script>
 
@@ -130,7 +150,7 @@ const data = computed(() => {
                 :data="data"
                 :visible-range="visibleRange"
                 class="webcut-audio-segment-canvas"
-                v-if="source || audioF32"
+                v-if="source || waveData"
             />
         </div>
     </context-menu>

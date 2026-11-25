@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { MP4Clip } from '@webav/av-cliper';
 import { WebCutSegment, WebCutRail } from '../../../types';
-import { computed, ref, watch, onMounted, markRaw } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted, markRaw } from 'vue';
 import { useWebCutContext, useWebCutPlayer } from '../../../hooks';
 import { useT } from '../../../i18n/hooks';
 import { downloadBlob } from '../../../libs/file';
 import { useWebCutManager } from '../../../hooks/manager';
 import ContextMenu from '../../../components/context-menu/index.vue';
 import { useWebCutHistory } from '../../../hooks/history';
-import { mp4ClipToFramesData, createImageFromVideoFrame, exportBlobOffscreen, safeCloseFrame } from '../../../libs';
+import { mp4ClipToFramesData, createImageFromVideoFrame, exportSpritesBlobOffscreen, safeCloseFrame } from '../../../libs';
 import AudioShape from '../../../components/audio-shape/index.vue';
 import { useScrollBox } from '../../../components/scroll-box';
 import { PerformanceMark, mark, measure } from '../../../libs/performance';
@@ -28,7 +28,7 @@ const props = defineProps<{
     segments: WebCutSegment[]
 }>();
 
-const { sources } = useWebCutContext();
+const { sources, loading } = useWebCutContext();
 const { timeToPx, deleteSegment } = useWebCutManager();
 const { push: pushHistory } = useWebCutHistory();
 const { separateAudioFromVideo } = useWebCutPlayer();
@@ -38,70 +38,123 @@ const { syncTransitions } = useWebCutTransition();
 const thumbnails = ref<{ url: string; left: number }[]>([]);
 // 在轨道中渲染后每张图片的真实宽度
 const sourceImageWidth = ref(0);
-const sourceFrames = ref<{ ts: number; blob: Blob; offset: number }[]>([]);
+// 已解码的缩略图帧，ts 为帧在 clip 内的时间（微秒）。
+// clip 的内容恒从片段的文件入点开始，所以 ts 对应片段内「ts / 播放速率」处，与片段在时间轴上的位置无关
+type ThumbFrame = { ts: number; blob: Blob; url?: string };
+const sourceFrames = ref<ThumbFrame[]>([]);
 
 const source = computed(() => sources.value.get(props.segment.sourceKey));
 // 使用 segment.end - segment.start（响应式）来计算显示时长
-const totalDuration = computed(() => {
+const displayDuration = computed(() => {
     return props.segment.end - props.segment.start;
 });
 // 容器的总宽度
 const totalWidth = computed(() => {
-    return timeToPx(totalDuration.value);
+    return timeToPx(displayDuration.value);
 });
+// 播放速率读 meta（响应式）；sprite 是 markRaw 对象，其字段读取不建立响应式依赖
+const playbackRate = computed(() => source.value?.meta.time?.playbackRate || 1);
+/**
+ * 片段实际展示的内容时长（clip 内时间）= 显示时长 × 播放速率。
+ * 缩略图与波形只对应 clip 内 [0, contentDuration) 这一段，裁剪掉的内容不渲染
+ */
+const contentDuration = computed(() => displayDuration.value * playbackRate.value);
+// 文件入点：变化说明 clip 被重新锚定为新的内容（裁剪/回退头部），缩略图由 source 引用变化触发重新解码
+const inPoint = computed(() => source.value?.meta.video?.offset || 0);
 
-const audioF32 = ref();
+// 已解码的波形，覆盖 clip 内 [0, decodedDuration)；渐进式解码期间为定长数组（未填充部分为静音）
+const decodedWave = ref<Float32Array | null>(null);
 const hasAudibleAudio = ref(false);
 let initToken = 0;
 // 每个 source 仅允许一次缩略图解码重试（避免真实解码失败时无限重试）
 let thumbRetryUsed = false;
+// 已解码覆盖的内容时长（clip 内时间，微秒）
+let decodedDuration = 0;
 
-watch(source, () => {
-    thumbRetryUsed = false;
-    initThumbnailsAndAudioWave();
-}, { immediate: true });
-
-// 监听总宽度变化（由播放速度或缩放比例变化引起），更新缩略图位置
-watch(totalWidth, () => {
-    if (sourceFrames.value.length) {
-        updateThumbnails();
+/** 取帧的图片地址：同一帧始终复用同一个地址，裁剪、缩放后重排缩略图时不必重新创建，画面不闪烁 */
+function getFrameUrl(frame: ThumbFrame) {
+    if (!frame.url) {
+        frame.url = URL.createObjectURL(frame.blob);
     }
+    return frame.url;
+}
+
+/** 清空已解码的帧，并释放它们的图片地址（图片数据本身由帧缓存持有，地址随缓存一起释放） */
+function clearFrames() {
+    sourceFrames.value.forEach((frame) => {
+        if (frame?.url) {
+            URL.revokeObjectURL(frame.url);
+        }
+    });
+    sourceFrames.value = [];
+}
+onUnmounted(clearFrames);
+
+/**
+ * 片段当前展示范围内的波形：已解码的波形比展示范围长（裁掉了尾部）时，按比例截取
+ */
+const waveData = computed(() => {
+    const pcm = decodedWave.value;
+    if (!pcm || !pcm.length || !(decodedDuration > 0)) {
+        return pcm;
+    }
+    const count = Math.round(pcm.length * Math.min(contentDuration.value, decodedDuration) / decodedDuration);
+    return count >= pcm.length ? pcm : pcm.subarray(0, Math.max(count, 1));
 });
 
-const createImgUrl = (imgBlob: Blob) => {
-    const url = URL.createObjectURL(imgBlob);
-    // 释放内存，这些图片都是一次性使用的，下次还会再生成，因此，可以立即释放
-    setTimeout(() => {
-        URL.revokeObjectURL(url);
-    }, 1000);
-    return url;
-};
+/**
+ * 用已解码的帧重排缩略图（不重新解码）：帧在片段内的位置 = clip 内时间 / 播放速率，
+ * 只保留落在片段实际展示范围内的帧
+ */
+function layoutThumbnails() {
+    const rate = playbackRate.value;
+    const widthPerImage = sourceImageWidth.value;
+    const outs: { url: string; left: number }[] = [];
+    let currEndPx = 0;
+    for (const item of sourceFrames.value) {
+        if (!item) {
+            continue;
+        }
+        const itemStartPx = timeToPx(item.ts / rate);
+        if (itemStartPx < currEndPx - 4) {
+            continue;
+        }
+        if (itemStartPx >= totalWidth.value) {
+            break;
+        }
+        outs.push({
+            url: getFrameUrl(item),
+            left: itemStartPx,
+        });
+        currEndPx = itemStartPx + widthPerImage;
+    }
+
+    thumbnails.value = outs;
+}
 
 async function initThumbnailsAndAudioWave() {
     const token = ++initToken;
-    const { loading } = useWebCutContext();
     loading.value = true;
     // 先清空旧数据，避免替换视频后残留旧波形
-    audioF32.value = null;
+    decodedWave.value = null;
     hasAudibleAudio.value = false;
     thumbnails.value = [];
-    sourceFrames.value = [];
+    clearFrames();
+    decodedDuration = 0;
     try {
         if (!source.value) {
             return;
         }
-        const { clip, sprite, meta } = source.value;
+        const { clip } = source.value;
         if (!clip) {
             return;
         }
 
         await clip.ready;
-        await sprite.ready;
-
-        // 使用原始素材时长来计算帧的 offset 比例
-        const originalDur = meta.time?.originalDuration || sprite.time.duration;
-        const displayDur = sprite.time.duration;
-        const totalWidth = timeToPx(displayDur);
+        if (token !== initToken) {
+            // 已被新一轮加载取代
+            return;
+        }
 
         // 算出每张图片在轨道中的实际宽度
         const originalWidth = clip.meta.width || 0;
@@ -112,7 +165,7 @@ async function initThumbnailsAndAudioWave() {
         mark(PerformanceMark.GenVideoSegmentFirstThumbStart);
         let isFirstThumbGen = false;
         // 通过iteratorCallback在迭代过程中逐一加载图片，从而提升首次渲染图片列表的性能
-        const iteratorCallback = async (data: { video: VideoFrame, ts: number, index: number }) => {
+        const iteratorCallback = async (data: { video: VideoFrame, ts: number; index: number }) => {
             const { video, ts, index } = data;
             // 使用 JPEG 格式和 0.6 质量，大幅提升性能
             const imgBlob = await createImageFromVideoFrame(video, {
@@ -120,25 +173,22 @@ async function initThumbnailsAndAudioWave() {
                 quality: 0.6,
                 format: 'jpeg'
             });
-
-            // 使用原始素材时长计算 offset，这样在 playbackRate 变化时只需要重新计算位置
-            const offset = ts / originalDur;
-            const frame = {
-                ts,
-                blob: imgBlob,
-                offset,
-            };
-            sourceFrames.value[index] = markRaw(frame);
             safeCloseFrame(video); // 关闭VideoFrame
+            if (token !== initToken) {
+                return;
+            }
 
-            // 第一次加载在载入缩略图
+            const frame = markRaw({ ts, blob: imgBlob });
+            sourceFrames.value[index] = frame;
+
+            // 增量铺图：按帧的时间位置依次摆放，跳过与上一张重叠的帧
             let currEndPx = 0;
             for (let i = 0; i < sourceFrames.value.length; i ++) {
                 const item = sourceFrames.value[i];
                 if (!item) {
                     continue;
                 }
-                const itemStartPx = totalWidth * item.offset;
+                const itemStartPx = timeToPx(item.ts / playbackRate.value);
                 if (itemStartPx < currEndPx - 4) {
                     continue;
                 }
@@ -147,9 +197,8 @@ async function initThumbnailsAndAudioWave() {
                 if (i < index) {
                     continue;
                 }
-                const url = createImgUrl(imgBlob);
                 thumbnails.value.push({
-                    url,
+                    url: getFrameUrl(frame),
                     left: itemStartPx,
                 });
                 if (!isFirstThumbGen) {
@@ -157,7 +206,7 @@ async function initThumbnailsAndAudioWave() {
                     mark(PerformanceMark.GenVideoSegmentFirstThumbEnd);
                 }
             }
-        }
+        };
 
         // PCM 渐进式回调：实时更新音频波形图
         const pcmProgressCallback = (pcm: [Float32Array, Float32Array]) => {
@@ -165,14 +214,14 @@ async function initThumbnailsAndAudioWave() {
                 return;
             }
             const [leftChannelPCM, rightChannelPCM] = pcm;
-            if (leftChannelPCM) {
-                audioF32.value = leftChannelPCM;
-            } else if (rightChannelPCM) {
-                audioF32.value = rightChannelPCM;
-            }
+            decodedWave.value = leftChannelPCM || rightChannelPCM || null;
         };
 
-        const { pcm } = await mp4ClipToFramesData(clip as MP4Clip, { iteratorCallback, pcmProgressCallback });
+        // 只解码片段实际展示的范围：裁掉的内容不再解码、绘制。
+        // 先记录将覆盖的范围再开始解码：解码期间展示范围若变小，只需重排/截取，不必重新解码
+        const endTime = Math.min(contentDuration.value, clip.meta.duration);
+        decodedDuration = endTime;
+        const { pcm } = await mp4ClipToFramesData(clip as MP4Clip, { endTime, iteratorCallback, pcmProgressCallback });
         if (token !== initToken) {
             return;
         }
@@ -190,10 +239,10 @@ async function initThumbnailsAndAudioWave() {
                 }
             }
             hasAudibleAudio.value = hasSignal;
-            audioF32.value = hasSignal ? effectivePCM : null;
+            decodedWave.value = hasSignal ? effectivePCM : null;
         } else {
             hasAudibleAudio.value = false;
-            audioF32.value = null;
+            decodedWave.value = null;
         }
 
         if (import.meta.env.DEV) {
@@ -216,7 +265,7 @@ async function initThumbnailsAndAudioWave() {
         }
         else {
             hasAudibleAudio.value = false;
-            audioF32.value = null;
+            decodedWave.value = null;
             // 拆分后新片段的缩略图解码会与 canvas 预览 / 离屏导出并发争用 WebCodecs 解码器，
             // 偶发抛错被静默吞掉会让素材长时间停留在灰块。此处做一次延迟重试（每个 source 仅一次）。
             if (!thumbRetryUsed) {
@@ -233,41 +282,35 @@ async function initThumbnailsAndAudioWave() {
     }
 }
 
-/**
- * 通过优化的过滤算法，确保缩略图在视觉上尽可能连续拼接，同时避免过多重叠
- */
-async function updateThumbnails() {
-    if (!sourceFrames.value.length) {
+watch(source, () => {
+    thumbRetryUsed = false;
+    initThumbnailsAndAudioWave();
+}, { immediate: true });
+
+// 展示范围变化（裁剪尾部、变速）且 clip 没变：已解码的范围足够时只重排缩略图（波形按范围截取），
+// 不够时（例如把裁掉的尾部拉回来）按新范围重新解码。
+// 入点变化（裁剪/回退头部）会重建 clip，由上面的 source 引用变化接管，这里不处理
+watch([contentDuration, inPoint, source], ([content, currentInPoint, currentSource], [, prevInPoint, prevSource]) => {
+    if (currentSource !== prevSource || currentInPoint !== prevInPoint) {
         return;
     }
-
-    const widthPerImage = sourceImageWidth.value;
-
-    const outs: any[] = [{
-        url: createImgUrl(sourceFrames.value[0].blob),
-        left: 0,
-    }];
-
-    let currEndPx = widthPerImage;
-
-    for (let i = 1; i < sourceFrames.value.length; i ++) {
-        const item = sourceFrames.value[i];
-        if (!item) {
-            continue;
+    // 变速换算存在不足一帧的取整误差，范围内的变化无需重新解码
+    if (content <= decodedDuration + 1000) {
+        if (sourceFrames.value.length) {
+            layoutThumbnails();
         }
-        const itemStartPx = totalWidth.value * item.offset;
-        if (itemStartPx < currEndPx - 4) {
-            continue;
-        }
-        outs.push({
-            url: createImgUrl(item.blob),
-            left: itemStartPx,
-        });
-        currEndPx = itemStartPx + widthPerImage;
     }
+    else {
+        initThumbnailsAndAudioWave();
+    }
+});
 
-    thumbnails.value = outs;
-}
+// 监听总宽度变化（由缩放比例变化引起），更新缩略图位置
+watch(totalWidth, () => {
+    if (sourceFrames.value.length) {
+        layoutThumbnails();
+    }
+});
 
 const contextmenus = computed(() => [
     {
@@ -293,17 +336,19 @@ async function handleSelectContextMenu(key: string) {
         await separateAudioFromVideo(props.segment.sourceKey);
         await pushHistory({ title: '声音分离' });
     } else if (key === 'export') {
+        const sourceInfo = sources.value.get(props.segment.sourceKey);
+        if (!sourceInfo || !sourceInfo.sprite) return;
+
+        loading.value = true;
         try {
-            const sourceInfo = sources.value.get(props.segment.sourceKey);
-            if (!sourceInfo || !sourceInfo.clip) return;
-
-            const clip = sourceInfo.clip as MP4Clip;
-            await clip.ready;
-
-            const blob = await exportBlobOffscreen([clip]);
+            await sourceInfo.clip?.ready;
+            // 按片段实际展示的范围导出（裁剪、变速后导出的时长与时间轴上的片段一致）
+            const blob = await exportSpritesBlobOffscreen([sourceInfo.sprite]);
             downloadBlob(blob, `video-segment-${Date.now()}.mp4`);
         } catch (error) {
             console.error('导出失败:', error);
+        } finally {
+            loading.value = false;
         }
     }
 }
@@ -332,16 +377,16 @@ onMounted(updateVisibleRange);
 onMounted(() => {
     scrollBox.onScroll(updateVisibleRange);
 });
+// 片段区间变化（裁剪、移动）后可视范围随之更新，避免波形局部留白
+watch(() => [props.segment.start, props.segment.end], updateVisibleRange);
 
 const filteredThumbnails = computed(() => thumbnails.value.filter(Boolean));
 function calcImgWidth(thumb: { left: number }, index: number) {
     if (filteredThumbnails.value[index + 1]) {
         return filteredThumbnails.value[index + 1].left - thumb.left;
     }
-    if (index === sourceFrames.value.length - 1) {
-        return totalWidth.value - thumb.left;
-    }
-    return sourceImageWidth.value;
+    // 最后一张：右侧剩余不足一张图宽时按图宽铺（超出片段的部分会被裁掉），否则延伸到片段末尾，避免末端留白
+    return Math.max(sourceImageWidth.value, totalWidth.value - thumb.left);
 }
 </script>
 
@@ -358,11 +403,11 @@ function calcImgWidth(thumb: { left: number }, index: number) {
                 }"
                 class="webcut-video-segment-thumbnail"
             ></div>
-            <div class="webcut-video-segment-bottom" v-if="!props.rail.mute && hasAudibleAudio && audioF32">
+            <div class="webcut-video-segment-bottom" v-if="!props.rail.mute && hasAudibleAudio && waveData">
                 <audio-shape
                     :height="AUDIO_HEIGHT - 4"
                     :width="totalWidth"
-                    :data="source?.fileId || audioF32"
+                    :data="waveData"
                     :visible-range="visibleRange"
                     class="webcut-video-segment-audio-shape"
                 />

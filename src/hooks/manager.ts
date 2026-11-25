@@ -5,6 +5,9 @@ import { WebCutSegment, WebCutRail } from '../types';
 import { clone } from 'ts-fns';
 import { detachSourceToPark } from './source-park';
 
+// 同一片段的裁剪串行执行：上一次裁剪完成（含 clip 重新锚定）前不开始下一次，避免并发交错
+const trimJobs = new Map<string, Promise<boolean>>();
+
 export function useWebCutManager() {
     const {
         id,
@@ -27,7 +30,7 @@ export function useWebCutManager() {
         rails,
         enableMainVideoMagnet: contextEnableMainVideoMagnet,
     } = useWebCutContext();
-    const { pause, push, syncSourceTickInterceptor } = useWebCutPlayer();
+    const { pause, push, syncSourceTickInterceptor, reanchorSourceClip } = useWebCutPlayer();
     const enableMainVideoMagnet = contextEnableMainVideoMagnet;
 
     // 同步两边scroll的滚动情况
@@ -136,6 +139,101 @@ export function useWebCutManager() {
         source.sprite.time.offset = start;
         source.sprite.time.duration = end - start;
         updateDuration();
+    }
+
+    /**
+     * 视频/音频片段「可用内容」在时间轴上的边界（纳秒）。
+     * 片段展示的内容从文件入点（meta[type].offset）起、到素材结尾止，所以：
+     * 左边界最多回退到 start - 入点 / 播放速率，右边界最多拖到 start + 剩余内容时长 / 播放速率。
+     * 图片、文本没有内容范围限制，返回 null。
+     */
+    function getSegmentContentBounds(segment: WebCutSegment): { minStart: number; maxEnd: number } | null {
+        const source = sources.value.get(segment.sourceKey);
+        if (!source || (source.type !== 'video' && source.type !== 'audio')) {
+            return null;
+        }
+        const { sprite, clip, meta } = source;
+        const rate = sprite.time.playbackRate || 1;
+        const inPoint = Number((meta as any)[source.type]?.offset) || 0;
+        // 自入点起的剩余内容时长（clip 内时间）；clip 尚未就绪时为 0，此时不允许向外拖
+        const available = clip.meta.duration;
+        return {
+            minStart: segment.start - inPoint / rate,
+            // 素材测量时长与 clip 实际时长可能有毫秒级出入，至少允许保持当前区间
+            maxEnd: Math.max(segment.start + available / rate, segment.end),
+        };
+    }
+
+    /**
+     * 调整片段在时间轴上的区间（拖动左右把手）。
+     *
+     * 图片、文本只需更新区间；视频、音频是「真裁剪」——片段展示的内容恒为
+     * 「文件入点起、展示时长 × 播放速率」这一段：
+     * - 右边界变化：只改展示时长，即裁掉/恢复尾部；
+     * - 左边界变化：同步移动文件入点（meta[type].offset）并重新锚定 clip，即裁掉/恢复头部。
+     *
+     * @returns 是否生效。区间无效，或入点回退失败（源文件不可用）时保持原样并返回 false。
+     */
+    function trimSegment({ segment, start, end }: { segment: WebCutSegment; start: number; end: number }): Promise<boolean> {
+        const run = async (): Promise<boolean> => {
+            const source = sources.value.get(segment.sourceKey);
+            // 无效区间（右边界不大于左边界）直接忽略
+            if (!source || !(end > start)) {
+                return false;
+            }
+            const { sprite } = source;
+            const prevStart = segment.start;
+            const prevEnd = segment.end;
+
+            segment.start = start;
+            segment.end = end;
+            resetSegmentTime(segment);
+
+            if (source.type !== 'video' && source.type !== 'audio') {
+                return true;
+            }
+            // 左边界没动：内容起点不变，只是展示时长变了
+            if (start === prevStart) {
+                return true;
+            }
+
+            // 左边界移动了多少内容：时间轴位移 × 播放速率 = 文件内时间
+            const prevTypeMeta = { ...((source.meta as any)[source.type] || {}) } as { offset?: number };
+            const rate = sprite.time.playbackRate || 1;
+            const prevInPoint = Number(prevTypeMeta.offset) || 0;
+            const nextInPoint = Math.max(0, Math.round(prevInPoint + (start - prevStart) * rate));
+            (source.meta as any)[source.type] = { ...prevTypeMeta, offset: nextInPoint };
+
+            let ok = false;
+            try {
+                ok = await reanchorSourceClip(segment.sourceKey);
+            }
+            catch (err) {
+                console.error('[WebCut] trimSegment:', err);
+            }
+            // 入点未能生效（如回退头部时源文件不可用）时还原区间与入点。
+            // 仅当该片段仍在轨道上、素材仍在时才回退，避免覆盖等待期间被撤销/重建后的状态
+            const isLive = sources.value.has(segment.sourceKey)
+                && rails.value.some(rail => rail.segments.includes(segment));
+            if (!ok && isLive) {
+                (source.meta as any)[source.type] = prevTypeMeta;
+                segment.start = prevStart;
+                segment.end = prevEnd;
+                resetSegmentTime(segment);
+            }
+            return ok;
+        };
+        const jobId = segment.id;
+        // 没有进行中的裁剪时立即执行（同步更新区间，与拖动预览无缝衔接）；否则排在其后
+        const pending = trimJobs.get(jobId);
+        const job = pending ? pending.then(run, run) : run();
+        trimJobs.set(jobId, job);
+        job.finally(() => {
+            if (trimJobs.get(jobId) === job) {
+                trimJobs.delete(jobId);
+            }
+        });
+        return job;
     }
 
     function applyMainVideoMagnet(targetRail?: WebCutRail) {
@@ -366,6 +464,8 @@ export function useWebCutManager() {
         scroll2,
         ruler,
         resetSegmentTime,
+        getSegmentContentBounds,
+        trimSegment,
         resizeManagerMaxHeight,
         toggleRailHidden,
         toggleRailMute,

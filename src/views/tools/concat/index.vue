@@ -4,8 +4,7 @@ import { NPopover, NButton, NIcon } from 'naive-ui';
 import { DirectLink } from '@vicons/carbon';
 import { useWebCutContext } from '../../../hooks';
 import { useT } from '../../../i18n/hooks';
-import { downloadOffscreen } from '../../../libs';
-import { AudioClip } from '@webav/av-cliper';
+import { downloadSpritesOffscreen } from '../../../libs';
 
 const { rails, selected, sources, currentRail, loading } = useWebCutContext();
 const t = useT();
@@ -106,15 +105,16 @@ async function handleConcat() {
 
   loading.value = true;
   try {
-    // 根据素材类型选择导出函数
+    // 按两个片段在时间轴上实际展示的范围（裁剪、变速后）首尾相接导出
+    const sprites = [prevSource.sprite, nextSource.sprite];
     if (type === 'video') {
-      await downloadOffscreen([prevSource.clip, nextSource.clip], {
+      await downloadSpritesOffscreen(sprites, {
         type: 'video/mp4',
         filename: `concatenated-video-${Date.now()}.mp4`
       });
     }
     else if (type === 'audio') {
-      await downloadOffscreen([prevSource.clip as AudioClip, nextSource.clip as AudioClip], {
+      await downloadSpritesOffscreen(sprites, {
         type: 'audio/mp4',
         filename: `concatenated-audio-${Date.now()}.m4a`
       });

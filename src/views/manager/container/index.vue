@@ -44,7 +44,7 @@ const props = defineProps<WebCutManagerProps>();
 const { rails, manager, selected, current, sources, toggleSegment, unselectSegment, selectSegment, modules } = useWebCutContext();
 const { resort } = useWebCutPlayer();
 const slots = useSlots();
-const { scroll1, scroll2, totalPx, timeToPx, pxToTime, pxOf1Frame, resetSegmentTime, applyMainVideoMagnet } = useWebCutManager();
+const { scroll1, scroll2, totalPx, timeToPx, pxToTime, pxOf1Frame, timeOf1Frame, resetSegmentTime, getSegmentContentBounds, trimSegment, applyMainVideoMagnet } = useWebCutManager();
 const t = useT();
 const { push: pushHistory } = useWebCutHistory();
 const { syncTransitions } = useWebCutTransition();
@@ -166,12 +166,22 @@ function resizeManagerMaxHeight(h: number) {
     updateManagerHeight();
 }
 
+/** 正在被拖动的边界：left 收缩/恢复头部，right 收缩/恢复尾部 */
+type TrimEdge = 'left' | 'right';
+
 function handleMoveStart(segment: WebCutSegment) {
+    // 素材内容范围（视频/音频可裁剪的边界），换算成像素后作为拖动限制
+    const bounds = getSegmentContentBounds(segment);
     moveState.value = {
         segment,
         start: timeToPx(segment.start),
         width: timeToPx(segment.end - segment.start),
         end: timeToPx(segment.end),
+        minStart: bounds ? Math.max(0, timeToPx(bounds.minStart)) : 0,
+        maxEnd: bounds ? timeToPx(bounds.maxEnd) : Infinity,
+        // 素材边界的精确时间：把手被钳制在边界上时直接使用，避免像素换算的取整误差
+        minStartTime: bounds ? Math.max(0, bounds.minStart) : 0,
+        maxEndTime: bounds ? bounds.maxEnd : Infinity,
     };
 }
 
@@ -185,11 +195,12 @@ function handleMoveLeft(data: { offsetX: number }, segment: WebCutSegment) {
     let newStart = start + offsetX;
     const end = moveState.value.end;
 
-    // 边界限制：不能拖出轨道左侧
-    newStart = Math.max(0, newStart);
+    // 边界限制：不能拖出轨道左侧；素材入点之前没有内容，最多回退到素材开头
+    newStart = Math.max(0, newStart, moveState.value.minStart);
 
-    // 边界限制：不能超过右侧边界
-    newStart = Math.min(newStart, end - 10); // 10px最小宽度
+    // 边界限制：不能超过右侧边界。最小宽度取 10px 与一帧中的较大者，
+    // 高缩放下一帧超过 10px，只留 10px 会裁出零时长的片段
+    newStart = Math.min(newStart, end - Math.max(10, pxOf1Frame.value));
 
     moveState.value.start = newStart;
     moveState.value.width = end - newStart;
@@ -205,22 +216,45 @@ function handleMoveRight(data: { offsetX: number }, segment: WebCutSegment) {
     let newEnd = end + offsetX;
     const start = moveState.value.start;
 
-    // 边界限制：不能小于左侧边界
-    newEnd = Math.max(newEnd, start + 10); // 10px最小宽度
+    // 边界限制：不能小于左侧边界（最小宽度同上）
+    newEnd = Math.max(newEnd, start + Math.max(10, pxOf1Frame.value));
+
+    // 边界限制：素材内容到此为止，最多拖到素材结尾
+    newEnd = Math.min(newEnd, moveState.value.maxEnd);
 
     moveState.value.end = newEnd;
     moveState.value.width = newEnd - start;
 }
 
-function handleMoveRelease(segment: WebCutSegment, rail: WebCutRail) {
+async function handleMoveRelease(segment: WebCutSegment, rail: WebCutRail, edge: TrimEdge) {
     if (moveState.value.segment !== segment) {
         return;
     }
-    const { start, end } = moveState.value;
-    segment.start = pxToTime(start);
-    segment.end = pxToTime(end);
+    const { start, end, minStart, maxEnd, minStartTime, maxEndTime } = moveState.value;
     moveState.value = {};
-    resetSegmentTime(segment);
+    // 只有被拖动的边界会变化并吸附到帧；把手没有实际移动（如只是点击）时保持原值，避免把边界重新取整
+    let nextStart = segment.start;
+    let nextEnd = segment.end;
+    if (edge === 'left' && start !== timeToPx(segment.start)) {
+        // 像素换算按帧取整，结果可能略早于素材开头：停在素材边界上或落在开头所在的那一帧内时，收到精确的素材开头
+        nextStart = Math.max(start === minStart ? minStartTime : pxToTime(start), minStartTime);
+        // 片段至少保留一帧（像素级的最小宽度换算成时间后可能不足一帧）
+        nextStart = Math.min(nextStart, segment.end - timeOf1Frame.value);
+    }
+    if (edge === 'right' && end !== timeToPx(segment.end)) {
+        // 同理，不超过素材内容的精确结尾
+        nextEnd = Math.min(end === maxEnd ? maxEndTime : pxToTime(end), maxEndTime);
+        nextEnd = Math.max(nextEnd, segment.start + timeOf1Frame.value);
+    }
+    if (nextStart === segment.start && nextEnd === segment.end) {
+        return;
+    }
+
+    // 按新区间裁剪片段：视频/音频会把内容真正裁到新边界
+    const trimmed = await trimSegment({ segment, start: nextStart, end: nextEnd });
+    if (!trimmed) {
+        return;
+    }
     applyMainVideoMagnet();
     syncTransitions(rail);
     pushHistory({ title: '调整片段时长' });
@@ -262,7 +296,7 @@ function handleLeftClick(segment: WebCutSegment, rail: WebCutRail) {
         return;
     }
     moveState.value.start -= pxOf1Frame.value;
-    handleMoveRelease(segment, rail);
+    handleMoveRelease(segment, rail, 'left');
 }
 
 function handleRightClick(segment: WebCutSegment, rail: WebCutRail) {
@@ -274,7 +308,7 @@ function handleRightClick(segment: WebCutSegment, rail: WebCutRail) {
         return;
     }
     moveState.value.end += pxOf1Frame.value;
-    handleMoveRelease(segment, rail);
+    handleMoveRelease(segment, rail, 'right');
 }
 
 function handleDragStart(segment: WebCutSegment) {
@@ -615,10 +649,10 @@ manager.value = exposes;
                             }"
                             @left-move-start="handleMoveStart(item)"
                             @left-moving="handleMoveLeft($event, item)"
-                            @left-move-end="handleMoveRelease(item, rail)"
+                            @left-move-end="handleMoveRelease(item, rail, 'left')"
                             @right-move-start="handleMoveStart(item)"
                             @right-moving="handleMoveRight($event, item)"
-                            @right-move-end="handleMoveRelease(item, rail)"
+                            @right-move-end="handleMoveRelease(item, rail, 'right')"
                             @left-click="handleLeftClick(item, rail)"
                             @right-click="handleRightClick(item, rail)"
                             @move-start="handleDragStart(item)"

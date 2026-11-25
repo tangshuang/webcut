@@ -122,6 +122,21 @@ Adding a material (video/audio/image/text):
 6. Stores mapping in Sources Map
 7. Persists to IndexedDB if part of a project
 
+### Trimming Model (video / audio)
+
+A video/audio segment displays exactly one content range of its source file: it starts at the file in-point and lasts `timelineDuration × playbackRate` of source time. Two pieces of state describe it:
+
+- Timeline range: `segment.start/end` ↔ `sprite.time.offset/duration` (+ `playbackRate`)
+- File in-point: `meta[type].offset` (microseconds into the source file)
+
+**Invariant: the clip's content always starts at the file in-point** (the engine plays a clip from its frame 0 at `sprite.time.offset`, so there is no separate "in" point on sprites). Consequences:
+
+- Trimming the tail only shortens `sprite.time.duration`.
+- Trimming/restoring the head moves `meta[type].offset` and re-anchors the clip via `useWebCutPlayer().reanchorSourceClip(sourceKey)`: forward = `split()` the existing clip (no decoding), backward = rebuild from the source file then `split()`. Re-anchoring is async; the clip's actual in-point is tracked in the `clipInPoints` WeakMap in `src/hooks/index.ts`, and every place that creates a clip must register it.
+- Drag handles go through `useWebCutManager().trimSegment()`; moving a segment (no content change) keeps using `resetSegmentTime()`.
+- Anything that consumes a segment's content (export, thumbnails, waveform, transitions, audio separation) must use the displayed range (`sprite.time`), never the whole `clip`: export via `exportSpritesBlobOffscreen` / `exportSpritesAsWavBlobOffscreen` / `downloadSpritesOffscreen` in `src/libs/index.ts`.
+- `push()`'s `time.duration` is the *content* duration (divided by `playbackRate` to get the timeline duration), so pass `displayDuration × playbackRate` when restoring.
+
 ### Text Material Handling
 
 Text is converted to images for rendering:
