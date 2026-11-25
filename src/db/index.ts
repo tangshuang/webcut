@@ -85,6 +85,47 @@ const historySnapshotStorage = idb.use('project_history_snapshot');
 
 const projectStateStorage = idb.use('project_state');
 
+// —— 工程数据变更订阅 ——
+// 供宿主侧的外部观察者使用（如工程云同步）：project 行（素材清单 / 名称）、历史快照、
+// project_state 任一写入成功后触发。只做通知不携带数据——订阅方按需用读接口取最新状态，
+// 避免把大批量数据塞进回调。监听器异常不影响写入本身。
+const projectChangeListeners = new Map<string, Set<() => void>>();
+
+/**
+ * 订阅某项目的工程数据变更，返回取消订阅函数。
+ */
+export function subscribeProjectChange(projectId: string, listener: () => void): () => void {
+    if (!projectId || typeof listener !== 'function') {
+        return () => {};
+    }
+    let listeners = projectChangeListeners.get(projectId);
+    if (!listeners) {
+        listeners = new Set();
+        projectChangeListeners.set(projectId, listeners);
+    }
+    listeners.add(listener);
+    return () => {
+        listeners!.delete(listener);
+        if (!listeners!.size) {
+            projectChangeListeners.delete(projectId);
+        }
+    };
+}
+
+function notifyProjectChange(projectId: string) {
+    const listeners = projectChangeListeners.get(projectId);
+    if (!listeners?.size) {
+        return;
+    }
+    for (const listener of [...listeners]) {
+        try {
+            listener();
+        } catch (error) {
+            console.warn('[webcut] project change listener error:', error);
+        }
+    }
+}
+
 const LEGACY_OPFS_FILE_PREFIX = '/webcut/file/';
 const CURRENT_OPFS_FILE_PREFIX = '/file/';
 const OPFS_MIGRATION_REPORT_KEY = 'WEBCUT_OPFS_MIGRATION_REPORT_V1';
@@ -263,6 +304,7 @@ export async function addFileToProject(projectId: string, fileId: string): Promi
     });
 
     await projectsStorage.put(projectData);
+    notifyProjectChange(projectId);
     return projectData;
 }
 
@@ -276,6 +318,7 @@ export async function removeFileFromProject(projectId: string, fileId: string): 
     }
     projectData.files = projectData.files.filter((item: any) => item.id !== fileId);
     await projectsStorage.put(projectData);
+    notifyProjectChange(projectId);
     return projectData;
 }
 
@@ -287,6 +330,7 @@ export async function removeFileEverywhere(fileId: string) {
     // 1) 从所有项目里移除该素材引用
     const projects = await projectsStorage.all();
     const actions: Promise<any>[] = [];
+    const affectedProjectIds: string[] = [];
     for (const projectData of projects || []) {
         if (!projectData) {
             continue;
@@ -300,10 +344,14 @@ export async function removeFileEverywhere(fileId: string) {
         projectData.files = (projectData.files || []).filter((item: any) => item?.id !== fileId);
         if (projectData.files.length !== prevLen) {
             actions.push(projectsStorage.put(projectData));
+            affectedProjectIds.push(projectData.id);
         }
     }
     if (actions.length) {
         await Promise.all(actions);
+        for (const affectedProjectId of affectedProjectIds) {
+            notifyProjectChange(affectedProjectId);
+        }
     }
 
     // 2) 删除素材元数据
@@ -338,6 +386,22 @@ export async function writeFile(f: File): Promise<string> {
     // await queue.push(() => write(opfsFileMetaPath, JSON.stringify({ ext, type, size, time, name }), { overwrite: true }));
 
     return fileId;
+}
+
+/**
+ * 文件二进制是否仍在 OPFS（轻量存在性检查，不读取内容）。
+ * 供宿主同步/自愈场景使用：项目 files 里登记过的素材被外部路径删除
+ * （如其他项目「从所有素材中删除」）时，同步期可据此发现并回源修复。
+ */
+export async function existsFile(fileId: string): Promise<boolean> {
+    if (!fileId) {
+        return false;
+    }
+    if (await file(`${CURRENT_OPFS_FILE_PREFIX}${fileId}`).exists()) {
+        return true;
+    }
+    // 旧路径存在视为可用（readFile 读取时会即时迁移）
+    return await file(`${LEGACY_OPFS_FILE_PREFIX}${fileId}`).exists();
 }
 
 export async function readFile(fileId: string): Promise<File | null> {
@@ -460,6 +524,7 @@ export async function updateProjectState(projectId: string, state: Partial<WebCu
             ...prevState,
             ...data,
         });
+        notifyProjectChange(projectId);
     }
 }
 
@@ -612,6 +677,7 @@ export async function pushProjectHistoryEntry(projectId: string, payload: WebCut
     await historyStorage.put(historyData);
     await updateProjectState(projectId, { historyAt: historyId });
     await updateProjectHistoryCurrent(projectId, historyId);
+    notifyProjectChange(projectId);
     return historyId;
 }
 
@@ -650,6 +716,7 @@ export async function updateProjectHistoryEntry(projectId: string, historyId: st
     }
 
     await historyStorage.put(historyData);
+    notifyProjectChange(projectId);
     return historyId;
 }
 
@@ -713,6 +780,7 @@ export async function clearProjectHistory(projectId: string) {
     await updateProjectState(projectId, {
         historyAt: '',
     });
+    notifyProjectChange(projectId);
 }
 
 export async function getProjectState(projectId: string): Promise<WebCutProjectState> {
@@ -747,6 +815,7 @@ export async function renameProject(projectId: string, name: string): Promise<We
     }
     projectData.name = name;
     await projectsStorage.put(projectData);
+    notifyProjectChange(projectId);
     return projectData;
 }
 

@@ -272,6 +272,7 @@ export {
     removeFileEverywhere,
     writeFile,
     readFile,
+    existsFile,
     addFile,
     getFile,
     getAllFiles,
@@ -280,10 +281,12 @@ export {
     pushProjectHistory,
     pushProjectHistoryEntry,
     getProjectHistory,
+    getProjectHistorySnapshot,
     clearProjectHistory,
     clearProjectHistory as clearWebCutHistory,
     getProjectState,
     updateProjectState,
+    subscribeProjectChange,
 } from './db';
 
 export {
@@ -304,6 +307,7 @@ export {
     type WebCutProjectHistoryPatch,
     type WebCutProjectHistoryData,
     type WebCutProjectHistoryPushPayload,
+    type WebCutProjectState,
     type WebCutColors,
     type WebCutAnimationType,
     type WebCutAnimationKeyframe,
