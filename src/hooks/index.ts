@@ -25,6 +25,7 @@ import { WebCutAnimationManager, animationManager } from '../modules/animations'
 import { Evt } from '../libs/evt';
 import { mergeLangPkg } from '../i18n/core';
 import { requestHistoryTouch } from './history';
+import { disposeSourcePark } from './source-park';
 
 let context: WebCutContext | null | undefined = null;
 
@@ -1421,6 +1422,8 @@ export function useWebCutPlayer() {
 
     function destroy() {
         clear();
+        // clear 只销毁运行中的 source；驻留池里保活的 source（供撤销删除复活）一并释放
+        disposeSourcePark(id.value);
         canvas.value?.destroy();
         canvas.value = null;
     }

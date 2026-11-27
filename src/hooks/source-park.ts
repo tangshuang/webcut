@@ -53,6 +53,26 @@ export type DetachSourceOptions = {
 };
 
 /**
+ * 从画布摘除 sprite 但保活其运行时（clip / 解码器 / 文件 reader）。
+ *
+ * AVCanvas.removeSprite 内部会调用 sprite.destroy()——连带销毁 clip、关闭解码器与文件 reader。
+ * 驻留场景必须保活，因此摘除期间临时屏蔽实例上的 destroy，摘除后立即恢复；
+ * 否则驻留的只是残骸，复活后每帧 tick 都会读到已关闭的 reader（Uncaught Error: Reader is closed）。
+ */
+function detachSpriteFromCanvas(canvas: DetachSourceOptions['canvas'], sprite: WebCutSource['sprite']) {
+    if (!canvas) {
+        return;
+    }
+    const originalDestroy = sprite.destroy;
+    sprite.destroy = () => {};
+    try {
+        canvas.removeSprite(sprite);
+    } finally {
+        sprite.destroy = originalDestroy;
+    }
+}
+
+/**
  * 将 source 从运行时摘除并入驻留池（不销毁）。
  * 池满时按 FIFO 淘汰最旧的驻留对象并真正销毁。
  */
@@ -61,7 +81,7 @@ export function detachSourceToPark(projectId: string, source: WebCutSource | nul
         return;
     }
     const { canvas, sprites, clips, sourcesMap } = opts;
-    canvas?.removeSprite(source.sprite);
+    detachSpriteFromCanvas(canvas, source.sprite);
 
     const sprIdx = sprites.indexOf(source.sprite);
     if (sprIdx !== -1) {
